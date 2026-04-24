@@ -47,3 +47,42 @@ def db_test():
         "db_connected": True,
         "result": row[0]
     }
+@app.post("/signup")
+def signup(data: dict):
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    name = data.get("name")
+    email = data.get("email")
+    phone = data.get("phone")
+
+    if not name or not email:
+        raise HTTPException(status_code=400, detail="name and email are required")
+
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""
+                INSERT INTO users (name, email, phone)
+                VALUES (:name, :email, :phone)
+                RETURNING id, name, email, phone, role, created_at
+            """),
+            {
+                "name": name,
+                "email": email,
+                "phone": phone
+            }
+        )
+
+        user = result.fetchone()
+
+    return {
+        "message": "signup success",
+        "user": {
+            "id": user[0],
+            "name": user[1],
+            "email": user[2],
+            "phone": user[3],
+            "role": user[4],
+            "created_at": str(user[5])
+        }
+    }
