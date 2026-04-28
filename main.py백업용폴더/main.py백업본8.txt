@@ -312,7 +312,6 @@ def match_suppliers(rfq_id: int):
                 WHERE c.company_type = 'supplier'
                   AND pc.processes ILIKE '%' || :process || '%'
                   AND mc.materials ILIKE '%' || :material || '%'
-                ORDER BY pc.avg_lead_days ASC
             """),
             {
                 "process": rfq[3],
@@ -324,19 +323,51 @@ def match_suppliers(rfq_id: int):
 
     suppliers = []
     for row in rows:
+        best_it_grade = row[6]
+        best_tolerance_mm = row[7]
+        best_ra_um = row[8]
+        avg_lead_days = row[9]
+
+        match_score = 100
+        match_score -= avg_lead_days * 3
+        match_score += (10 - best_it_grade) * 4
+
+        if best_tolerance_mm <= 0.01:
+            match_score += 15
+        elif best_tolerance_mm <= 0.02:
+            match_score += 10
+
+        if best_ra_um <= 0.8:
+            match_score += 15
+        elif best_ra_um <= 1.6:
+            match_score += 10
+
         suppliers.append({
             "company_code": row[0],
             "company_name": row[1],
             "region": row[2],
             "company_size": row[3],
+            "match_score": match_score,
             "matched_processes": row[4],
             "service_mode": row[5],
-            "best_it_grade": row[6],
-            "best_tolerance_mm": row[7],
-            "best_ra_um": row[8],
-            "avg_lead_days": row[9],
-            "matched_materials": row[10]
+            "best_it_grade": best_it_grade,
+            "best_tolerance_mm": best_tolerance_mm,
+            "best_ra_um": best_ra_um,
+            "avg_lead_days": avg_lead_days,
+            "matched_materials": row[10],
+            "score_reason": {
+                "lead_time": "납기가 짧을수록 높은 점수",
+                "it_grade": "IT 등급 숫자가 낮을수록 정밀도 우수",
+                "tolerance": "공차 mm 값이 작을수록 높은 점수",
+                "surface_roughness": "Ra 값이 낮을수록 표면 품질 우수"
+            }
         })
+
+    suppliers = sorted(
+        suppliers,
+        key=lambda x: x["match_score"],
+        reverse=True
+    )
 
     return {
         "rfq": {
