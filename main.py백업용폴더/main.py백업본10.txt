@@ -1,4 +1,5 @@
 import os
+import json
 
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import create_engine, text
@@ -381,4 +382,67 @@ def match_suppliers(rfq_id: int):
         },
         "match_count": len(suppliers),
         "recommended_suppliers": suppliers
+    }
+
+@app.post("/vlm-result")
+def save_vlm_result(data: dict):
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    drawing_no = data.get("drawing_no")
+
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""
+                INSERT INTO vlm_rag_results (drawing_no, raw_json)
+                VALUES (:drawing_no, CAST(:raw_json AS jsonb))
+                RETURNING id, drawing_no, raw_json, created_at
+            """),
+            {
+                "drawing_no": drawing_no,
+                "raw_json": json.dumps(data, ensure_ascii=False)
+            }
+        )
+
+        row = result.fetchone()
+
+    return {
+        "success": True,
+        "message": "vlm result saved",
+        "data": {
+            "id": row[0],
+            "drawing_no": row[1],
+            "raw_json": row[2],
+            "created_at": str(row[3])
+        }
+    }
+
+
+@app.get("/vlm-results")
+def get_vlm_results():
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT id, drawing_no, raw_json, created_at
+            FROM vlm_rag_results
+            ORDER BY id DESC
+        """))
+
+        rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "id": row[0],
+            "drawing_no": row[1],
+            "raw_json": row[2],
+            "created_at": str(row[3])
+        })
+
+    return {
+        "success": True,
+        "count": len(data),
+        "data": data
     }
