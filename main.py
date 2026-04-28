@@ -176,3 +176,61 @@ def get_suppliers():
         })
 
     return {"count": len(data), "suppliers": data}
+
+
+# ---------------------------
+# RFQ API
+# ---------------------------
+
+@app.post("/rfq")
+def create_rfq(data: dict):
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    buyer_code = data.get("buyer_code")
+    material = data.get("material")
+    process = data.get("process")
+    quantity = data.get("quantity")
+    due_date = data.get("due_date")
+    note = data.get("note")
+
+    if not buyer_code or not material or not process or not quantity:
+        raise HTTPException(
+            status_code=400,
+            detail="buyer_code, material, process, quantity are required"
+        )
+
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""
+                INSERT INTO rfqs
+                (buyer_code, material, process, quantity, due_date, note)
+                VALUES
+                (:buyer_code, :material, :process, :quantity, :due_date, :note)
+                RETURNING id, buyer_code, material, process, quantity, due_date, note, created_at
+            """),
+            {
+                "buyer_code": buyer_code,
+                "material": material,
+                "process": process,
+                "quantity": quantity,
+                "due_date": due_date,
+                "note": note
+            }
+        )
+
+        rfq = result.fetchone()
+
+    return {
+        "message": "rfq created",
+        "rfq": {
+            "id": rfq[0],
+            "buyer_code": rfq[1],
+            "material": rfq[2],
+            "process": rfq[3],
+            "quantity": rfq[4],
+            "due_date": rfq[5],
+            "note": rfq[6],
+            "created_at": str(rfq[7])
+        }
+    }
