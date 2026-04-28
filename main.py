@@ -23,6 +23,7 @@ if DATABASE_URL:
 def root():
     return {"message": "ok", "database_url_exists": DATABASE_URL is not None}
 
+
 @app.post("/predict")
 def predict(data: dict):
     value = data.get("value", 0)
@@ -33,6 +34,7 @@ def predict(data: dict):
         result = "normal"
 
     return {"result": result}
+
 
 @app.get("/db-test")
 def db_test():
@@ -47,6 +49,8 @@ def db_test():
         "db_connected": True,
         "result": row[0]
     }
+
+
 @app.post("/signup")
 def signup(data: dict):
     if engine is None:
@@ -86,3 +90,22 @@ def signup(data: dict):
             "created_at": str(user[5])
         }
     }
+
+
+# ---------------------------
+# Companies API
+# ---------------------------
+
+@app.get("/companies")
+def get_companies():
+    return {"message": "companies api ready"}
+
+
+@app.get("/companies/buyers")
+def get_buyers():
+    return {"message": "buyers api ready"}
+
+
+@app.get("/companies/suppliers")
+def get_suppliers():
+    return {"message": "suppliers api ready"}
