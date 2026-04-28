@@ -234,3 +234,33 @@ def create_rfq(data: dict):
             "created_at": str(rfq[7])
         }
     }
+
+
+@app.get("/rfqs")
+def get_rfqs():
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT id, buyer_code, material, process, quantity, due_date, note, created_at
+            FROM rfqs
+            ORDER BY id DESC
+        """))
+
+        rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "id": row[0],
+            "buyer_code": row[1],
+            "material": row[2],
+            "process": row[3],
+            "quantity": row[4],
+            "due_date": row[5],
+            "note": row[6],
+            "created_at": str(row[7])
+        })
+
+    return {"count": len(data), "rfqs": data}
