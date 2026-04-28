@@ -1,22 +1,11 @@
 import os
+import json
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 app = FastAPI()
-
-# ---------------------------
-# CORS 설정
-# ---------------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -33,10 +22,7 @@ if DATABASE_URL:
 
 @app.get("/")
 def root():
-    return {
-        "message": "ok",
-        "database_url_exists": DATABASE_URL is not None
-    }
+    return {"message": "ok", "database_url_exists": DATABASE_URL is not None}
 
 
 @app.post("/predict")
@@ -76,10 +62,7 @@ def signup(data: dict):
     phone = data.get("phone")
 
     if not name or not email:
-        raise HTTPException(
-            status_code=400,
-            detail="name and email are required"
-        )
+        raise HTTPException(status_code=400, detail="name and email are required")
 
     with engine.begin() as conn:
         result = conn.execute(
@@ -139,10 +122,7 @@ def get_companies():
             "status": row[5]
         })
 
-    return {
-        "count": len(data),
-        "companies": data
-    }
+    return {"count": len(data), "companies": data}
 
 
 @app.get("/companies/buyers")
@@ -169,10 +149,7 @@ def get_buyers():
             "company_size": row[3]
         })
 
-    return {
-        "count": len(data),
-        "buyers": data
-    }
+    return {"count": len(data), "buyers": data}
 
 
 @app.get("/companies/suppliers")
@@ -199,10 +176,7 @@ def get_suppliers():
             "company_size": row[3]
         })
 
-    return {
-        "count": len(data),
-        "suppliers": data
-    }
+    return {"count": len(data), "suppliers": data}
 
 
 # ---------------------------
@@ -290,10 +264,7 @@ def get_rfqs():
             "created_at": str(row[7])
         })
 
-    return {
-        "count": len(data),
-        "rfqs": data
-    }
+    return {"count": len(data), "rfqs": data}
 
 
 # ---------------------------
@@ -352,7 +323,6 @@ def match_suppliers(rfq_id: int):
         rows = match_result.fetchall()
 
     suppliers = []
-
     for row in rows:
         best_it_grade = row[6]
         best_tolerance_mm = row[7]
@@ -412,4 +382,67 @@ def match_suppliers(rfq_id: int):
         },
         "match_count": len(suppliers),
         "recommended_suppliers": suppliers
+    }
+
+@app.post("/vlm-result")
+def save_vlm_result(data: dict):
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    drawing_no = data.get("drawing_no")
+
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""
+                INSERT INTO vlm_rag_results (drawing_no, raw_json)
+                VALUES (:drawing_no, CAST(:raw_json AS jsonb))
+                RETURNING id, drawing_no, raw_json, created_at
+            """),
+            {
+                "drawing_no": drawing_no,
+                "raw_json": json.dumps(data, ensure_ascii=False)
+            }
+        )
+
+        row = result.fetchone()
+
+    return {
+        "success": True,
+        "message": "vlm result saved",
+        "data": {
+            "id": row[0],
+            "drawing_no": row[1],
+            "raw_json": row[2],
+            "created_at": str(row[3])
+        }
+    }
+
+
+@app.get("/vlm-results")
+def get_vlm_results():
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT id, drawing_no, raw_json, created_at
+            FROM vlm_rag_results
+            ORDER BY id DESC
+        """))
+
+        rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "id": row[0],
+            "drawing_no": row[1],
+            "raw_json": row[2],
+            "created_at": str(row[3])
+        })
+
+    return {
+        "success": True,
+        "count": len(data),
+        "data": data
     }
