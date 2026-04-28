@@ -98,14 +98,81 @@ def signup(data: dict):
 
 @app.get("/companies")
 def get_companies():
-    return {"message": "companies api ready"}
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT company_code, company_name, company_type, region, company_size, status
+            FROM companies
+            ORDER BY company_code
+        """))
+
+        rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "company_code": row[0],
+            "company_name": row[1],
+            "company_type": row[2],
+            "region": row[3],
+            "company_size": row[4],
+            "status": row[5]
+        })
+
+    return {"count": len(data), "companies": data}
 
 
 @app.get("/companies/buyers")
 def get_buyers():
-    return {"message": "buyers api ready"}
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT company_code, company_name, region, company_size
+            FROM companies
+            WHERE company_type = 'buyer'
+            ORDER BY company_code
+        """))
+
+        rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "company_code": row[0],
+            "company_name": row[1],
+            "region": row[2],
+            "company_size": row[3]
+        })
+
+    return {"count": len(data), "buyers": data}
 
 
 @app.get("/companies/suppliers")
 def get_suppliers():
-    return {"message": "suppliers api ready"}
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT company_code, company_name, region, company_size
+            FROM companies
+            WHERE company_type = 'supplier'
+            ORDER BY company_code
+        """))
+
+        rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "company_code": row[0],
+            "company_name": row[1],
+            "region": row[2],
+            "company_size": row[3]
+        })
+
+    return {"count": len(data), "suppliers": data}
