@@ -459,3 +459,38 @@ def get_vlm_results():
         "count": len(data),
         "data": data
     }
+
+
+# ---------------------------
+# Reviews API (추가)
+# ---------------------------
+@app.get("/api/reviews")
+def get_reviews():
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        # 데이터베이스의 reviews 테이블에서 데이터를 가져옵니다.
+        result = conn.execute(text("""
+            SELECT buyer_name, rating_overall, rating_quality, rating_delivery, rating_communication, comment
+            FROM reviews
+            ORDER BY rating_overall DESC
+        """))
+
+        rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "buyer_name": row[0],
+            "rating_overall": row[1],
+            "rating_quality": row[2],
+            "rating_delivery": row[3],
+            "rating_communication": row[4],
+            "comment": row[5]
+        })
+
+    return {
+        "status": "success",
+        "data": data
+    }
