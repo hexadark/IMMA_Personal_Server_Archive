@@ -1,5 +1,7 @@
 import os
 import json
+import sys
+from pathlib import Path
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
@@ -21,7 +23,19 @@ app.add_middleware(
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+# ---------------------------
+# RAG Pipeline v2 설정
+# ---------------------------
+PIPELINE_DIR = Path(__file__).resolve().parent / "pipeline"
 
+if PIPELINE_DIR.exists():
+    sys.path.insert(0, str(PIPELINE_DIR))
+
+try:
+    from pipeline_runner import run_pipeline_from_dict
+except Exception as e:
+    run_pipeline_from_dict = None
+    print("RAG pipeline import failed:", e)
 engine = None
 SessionLocal = None
 
@@ -396,6 +410,31 @@ def match_suppliers(rfq_id: int):
         "match_count": len(suppliers),
         "recommended_suppliers": suppliers
     }
+
+@app.post("/api/match-v2")
+def match_v2(data: dict):
+    if run_pipeline_from_dict is None:
+        raise HTTPException(
+            status_code=500,
+            detail="RAG pipeline is not loaded"
+        )
+
+    if not data:
+        raise HTTPException(
+            status_code=400,
+            detail="요청 본문이 비어 있습니다"
+        )
+
+    if "parts" not in data:
+        raise HTTPException(
+            status_code=400,
+            detail="parts 필드가 필요합니다"
+        )
+
+    try:
+        return run_pipeline_from_dict(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/vlm-result")
 def save_vlm_result(data: dict):
