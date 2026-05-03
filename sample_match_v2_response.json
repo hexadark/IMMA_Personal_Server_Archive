@@ -1,0 +1,89 @@
+{
+  "rfq_id": "3eea8fb9-af52-4d7f-a5d6-7372aba4336f",
+  "drawing_no": "DWG-001",
+  "requested_delivery_date": null,
+  "parts": [
+    {
+      "rfq_part_id": "7cac607b-9f04-41a2-b283-31d5074364da",
+      "part_name": "축",
+      "match_input": {
+        "material": "SCM415",
+        "material_match_type": "code",
+        "material_source": "vlm",
+        "processes": [
+          "turning",
+          "grinding",
+          "heat_treatment"
+        ],
+        "quantity": 1,
+        "envelope": "Ø24 × 170mm",
+        "tightest_it": 5,
+        "post_treatment": "전체 열처리 HRC 50±2",
+        "warnings": [
+          "조도 미검증"
+        ]
+      },
+      "candidates": [
+        {
+          "company_id": "ed4e0643-82c6-4e59-8532-ad5d124fe758",
+          "company_name": "B공업",
+          "match_reasons": [
+            "SCM415 코드 매칭",
+            "turning, grinding, heat_treatment 보유",
+            "최대 선삭 Ø300 × 510mm (요구 Ø24 × 170mm 충족)",
+            "업체 최선 IT4",
+            "turning IT7 (중간 공정 범위 내)"
+          ],
+          "material_match_type": "code",
+          "best_it_grade": 4,
+          "best_ra_um": 0.2,
+          "overall_status": "available",
+          "avg_rating": 4.6,
+          "review_count": 8,
+          "next_available_date": "2026-05-10",
+          "equipment_verified": true
+        },
+        {
+          "company_id": "e7572b02-9ff4-4e3d-8adb-fca3356a8615",
+          "company_name": "A정밀",
+          "match_reasons": [
+            "SCM415 코드 매칭",
+            "turning, grinding, heat_treatment 보유",
+            "최대 선삭 Ø360 × 600mm (요구 Ø24 × 170mm 충족)",
+            "업체 최선 IT4",
+            "grinding IT5 (정밀 공정, 도면 IT5 충족)",
+            "turning IT8 (중간 공정 범위 내)"
+          ],
+          "material_match_type": "code",
+          "best_it_grade": 4,
+          "best_ra_um": 0.2,
+          "overall_status": "available",
+          "avg_rating": 4.3,
+          "review_count": 4,
+          "next_available_date": "2026-05-05",
+          "equipment_verified": true
+        },
+        {
+          "company_id": "241484ac-d9dc-48e2-af8e-257b2a58ea95",
+          "company_name": "L범용",
+          "match_reasons": [
+            "SCM415 코드 매칭",
+            "turning, grinding, heat_treatment 보유",
+            "최대 선삭 Ø460 × 1500mm (요구 Ø24 × 170mm 충족)",
+            "업체 최선 IT5",
+            "장비 수준 미검증 (IT/Ra 미달 가능)",
+            "grinding 장비 IT7 > 도면 요구 IT5 (정밀 공정 미달)"
+          ],
+          "material_match_type": "code",
+          "best_it_grade": 5,
+          "best_ra_um": 0.4,
+          "overall_status": "available",
+          "avg_rating": 3.9,
+          "review_count": 8,
+          "next_available_date": "2026-05-04",
+          "equipment_verified": false
+        }
+      ]
+    }
+  ]
+}
