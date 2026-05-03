@@ -1,4 +1,39 @@
-POST /api/match-v2 테스트 입력 예시:
+# IMMA FastAPI Server
+
+## 2026-05-02 기준 운영 통합 상태
+
+현재 서버는 기존 v1 매칭 API와 신규 v2 RAG/DB 매칭 API를 함께 유지합니다.
+
+### 완료된 항목
+
+- Railway PostgreSQL 연결 성공
+- IMMA 스키마/seed 구성 완료
+- lookup_data.json / equipment_catalog.json 로드
+- RAG pipeline CLI 실행 성공
+- RAG pipeline FastAPI 실행 성공
+- GitHub 운영 repo에 pipeline/lookup_tables 추가
+- 기존 main.py 유지
+- 신규 POST /api/match-v2 추가
+- Railway 운영 서버 배포 성공
+- Swagger에서 /api/match-v2 200 응답 확인
+- equipment_verified true/false 반환 확인
+
+### API 구분
+
+#### v1 매칭
+
+GET /match/{rfq_id}
+
+기존 DB의 RFQ 데이터를 기반으로 material/process 조건에 맞는 supplier를 조회하는 간단 매칭 API입니다.
+
+#### v2 매칭
+
+POST /api/match-v2
+
+VLM이 도면에서 추출한 JSON을 입력으로 받아 RAG/DB 기반 제조사 매칭 파이프라인을 실행합니다.
+
+테스트 입력 예시:
+
 tests/mock_data/sample_vlm_result.json
 
 
