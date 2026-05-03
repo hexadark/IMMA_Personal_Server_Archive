@@ -33,8 +33,11 @@ POST /api/match-v2
 VLM이 도면에서 추출한 JSON을 입력으로 받아 RAG/DB 기반 제조사 매칭 파이프라인을 실행합니다.
 
 테스트 입력 예시:
+sample_vlm_result.json
 
-tests/mock_data/sample_vlm_result.json
+정상 응답 예시:
+sample_match_v2_response.json
+
 
 
 
