@@ -38,6 +38,14 @@ tests/mock_data/sample_vlm_result.json
 
 
 
+
+
+
+## 향후 확장용 ERD 초안
+
+주의: 아래 ERD는 현재 운영 DB의 실제 테이블과 완전히 동일한 구현본이 아니라,
+IMMA 서비스 확장을 위한 목표 구조 초안입니다.
+
 # fas
 erDiagram
 
