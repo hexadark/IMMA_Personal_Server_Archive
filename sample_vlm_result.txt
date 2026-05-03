@@ -1,0 +1,86 @@
+{
+  "drawing_no": "DWG-001",
+  "drawing_info": {
+    "title": "동력전달장치",
+    "scale": "1:1",
+    "projection": "3각법"
+  },
+  "general_notes": [
+    {
+      "id": 1,
+      "text": "일반공차 KS B ISO 2768-m"
+    }
+  ],
+  "referenced_standards": [
+    "KS B ISO 2768-m",
+    "KS B 0250-CT11"
+  ],
+  "parts": [
+    {
+      "part_no": 2,
+      "part_name": "축",
+      "material": {
+        "raw_text": "SCM415",
+        "type": "ks_code",
+        "category": "크롬몰리브덴강"
+      },
+      "quantity": 1,
+      "required_processes": [
+        "turning",
+        "grinding",
+        "heat_treatment"
+      ],
+      "max_envelope_mm": {
+        "length": 170,
+        "width": 24,
+        "height": 24
+      },
+      "dimensions": [
+        {
+          "feature": "전체 길이",
+          "value": 170,
+          "unit": "mm",
+          "type": "length"
+        },
+        {
+          "feature": "최대 외경",
+          "value": 24,
+          "unit": "mm",
+          "type": "diameter"
+        }
+      ],
+      "tolerances": [
+        {
+          "feature": "베어링부",
+          "text": "Ø15k5",
+          "type": "끼워맞춤"
+        },
+        {
+          "feature": "기어부",
+          "text": "Ø20j5",
+          "type": "끼워맞춤"
+        }
+      ],
+      "gdt": [
+        {
+          "type": "흔들림",
+          "symbol": "↗",
+          "value": 0.008,
+          "unit": "mm",
+          "datum": "C",
+          "feature": "베어링 시트"
+        }
+      ],
+      "surface_roughness": [
+        {
+          "feature": "베어링부",
+          "symbol": "y",
+          "Ra": null,
+          "unit": "μm",
+          "note": "범례 참조"
+        }
+      ],
+      "post_treatment": "전체 열처리 HRC 50±2"
+    }
+  ]
+}
