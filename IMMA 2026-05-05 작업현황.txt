@@ -1,0 +1,24 @@
+IMMA 2026-05-05 작업현황
+
+1. 완료한 것
+- IMMA API 계약서 v1 작성
+- sample_vlm_result.json 입력 샘플 정리
+- sample_match_v2_response.json 출력 샘플 정리
+- /api/match-v2에서 sample_vlm_result.json 직접 입력 테스트 완료
+- 200 OK 응답 확인
+- match_input 생성 확인
+- candidates 업체 후보 반환 확인
+- 서버 연동 증거자료 스크린샷 GitHub 업로드
+
+2. 현재 상태
+- UI 제외, 서버/DB/API/VLM-sample 연동은 완료 상태
+- 실제 VLM 결과 JSON은 아직 미수신
+- 현재는 mock/sample 기준 검증 완료
+- 어댑터 역할은 현재 /api/match-v2 내부 로직에서 처리 중
+- 실제 VLM JSON이 나오면 필드명/누락값/alias 기준으로 조정 예정
+
+3. 남은 작업
+- UI에서 /api/match-v2 결과를 카드 형태로 표시
+- 실제 VLM JSON 수신 후 sample_vlm_result.json과 비교
+- 필요 시 adapter 모듈 분리
+- 시연 시나리오 정리
