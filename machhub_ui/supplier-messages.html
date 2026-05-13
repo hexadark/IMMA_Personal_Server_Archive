@@ -1,0 +1,200 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 가공업체 메시지</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link rel="stylesheet" href="/static/role-workflows.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    .message-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+    .message-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+    .message-row + .message-row { margin-top: 10px; }
+    .message-id { font-weight: 900; color: var(--text-dark); font-size: 13px; }
+    .message-title { font-weight: 800; color: var(--text-dark); }
+    .message-meta { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+    .thread-box { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
+    .thread-item { padding: 16px; border-bottom: 1px solid var(--border); }
+    .thread-item:last-child { border-bottom: 0; }
+    .thread-role { font-size: 12px; font-weight: 900; color: var(--text-muted); margin-bottom: 6px; }
+    .thread-text { color: var(--text-main); line-height: 1.65; font-size: 14px; }
+    .reply-box { display: grid; gap: 10px; margin-top: 16px; }
+    @media (max-width: 1100px) { .message-layout { grid-template-columns: 1fr; } }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+  <div class="mw-app">
+    <aside class="mw-side">
+      <a class="mw-side-logo" href="/supplier">IMM<span>A</span></a>
+      <nav class="mw-side-nav">
+        <a href="/supplier"><i class="ri-dashboard-line"></i> 대시보드</a>
+        <a href="/supplier-workbench"><i class="ri-file-list-3-line"></i> 오더리스트</a>
+        <a href="/supplier-workbench#reply"><i class="ri-mail-send-line"></i> 작업정보 회신</a>
+        <a href="/supplier-workbench#orders"><i class="ri-stack-line"></i> 발주·생산</a>
+        <a href="/supplier-workbench#capacity"><i class="ri-calendar-check-line"></i> 스케줄·영업상태</a>
+        <a href="/supplier-workbench#delivery"><i class="ri-truck-line"></i> 납품 관리</a>
+        <a href="/supplier-workbench#reviews"><i class="ri-star-line"></i> 리뷰·평점</a>
+        <a href="/supplier-messages" class="active"><i class="ri-message-3-line"></i> 메시지 <span class="mw-badge red">3</span></a>
+        <div class="mw-nav-divider"></div>
+        <a href="/support"><i class="ri-customer-service-2-line"></i> 고객지원</a>
+        <a href="/supplier-settings"><i class="ri-settings-4-line"></i> 설정</a>
+      </nav>
+      <div class="mw-side-user">
+        <strong style="color:#fff;">(주)서진정밀</strong><br>
+        공급사 파트너 · 경기 시흥
+      </div>
+    </aside>
+
+    <div class="mw-app-main">
+      <header class="mw-app-topbar">
+        <div class="mw-search">
+          <i class="ri-search-line"></i>
+          <input type="text" placeholder="오더번호, 도면명, 클라이언트명 검색">
+        </div>
+        <div class="mw-actions">
+          <span class="mw-chip green"><i class="ri-checkbox-circle-line"></i> 영업중</span>
+          <span class="mw-chip yellow"><i class="ri-loader-2-line"></i> 가동률 78%</span>
+          <button class="mw-icon-action" type="button" aria-label="알림"><i class="ri-notification-3-line"></i></button>
+          <button class="mw-icon-action" type="button" aria-label="도움말"><i class="ri-question-line"></i></button>
+          <a href="/#home" class="btn-outline" style="padding:8px 12px; font-size:12px;">로그아웃</a>
+        </div>
+      </header>
+
+      <main class="mw-app-content">
+        <div class="mw-top">
+          <div class="mw-title">
+            <div class="mw-eyebrow"><i class="ri-message-3-line"></i> Supplier messages</div>
+            <h1>메시지·추가 정보 요청</h1>
+            <p>관리자와 클라이언트가 요청한 누락 치수, 수령 조건, 일정 확인 내용을 분리해서 처리합니다.</p>
+          </div>
+          <div class="mw-actions">
+            <button class="btn-outline"><i class="ri-mail-check-line"></i> 읽음 처리</button>
+            <button class="btn-primary"><i class="ri-send-plane-line"></i> 답장 전송</button>
+          </div>
+        </div>
+
+        <div class="message-layout">
+          <section class="mw-stack">
+            <article class="mw-card">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-question-answer-line"></i> 추가 정보 요청 큐</div>
+                  <div class="mw-card-sub">오더리스트 수락 전후로 관리자에게서 전달된 보완 요청입니다.</div>
+                </div>
+                <span class="mw-badge yellow">확인 필요 3건</span>
+              </div>
+
+              <div class="message-row">
+                <div class="message-id">RFQ-250620-014</div>
+                <div>
+                  <div class="message-title">슬롯 폭 치수 확인</div>
+                  <div class="message-meta">도면 누락 치수 · 관리자 전달 대기</div>
+                </div>
+                <button class="btn-primary" style="padding:7px 12px; font-size:12px;">답장</button>
+              </div>
+              <div class="message-row">
+                <div class="message-id">RFQ-250620-018</div>
+                <div>
+                  <div class="message-title">수령지 지게차 보유 여부</div>
+                  <div class="message-meta">특수화물 하차 조건 · 클라이언트 확인 필요</div>
+                </div>
+                <button class="btn-outline" style="padding:7px 12px; font-size:12px;">관리자에게 요청</button>
+              </div>
+              <div class="message-row">
+                <div class="message-id">ORD-250612-009</div>
+                <div>
+                  <div class="message-title">납기 지연 사유 보완</div>
+                  <div class="message-meta">후처리 협력사 지연 · 보상 조건 검토 중</div>
+                </div>
+                <button class="btn-outline" style="padding:7px 12px; font-size:12px;">답장</button>
+              </div>
+            </article>
+
+            <article class="mw-card">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-chat-3-line"></i> 선택 메시지 대화</div>
+                  <div class="mw-card-sub">작업정보 발송 전 필요한 보완 내용을 관리자에게 회신합니다.</div>
+                </div>
+                <span class="mw-badge blue">RFQ-250620-014</span>
+              </div>
+              <div class="thread-box">
+                <div class="thread-item">
+                  <div class="thread-role">관리자 · 2026-06-20 10:12</div>
+                  <div class="thread-text">클라이언트 도면에서 슬롯 폭 R값 위치가 불명확합니다. 견적 회신 전 보완 가능 여부와 필요한 허용공차를 알려주세요.</div>
+                </div>
+                <div class="thread-item">
+                  <div class="thread-role">가공업체 · 임시 답변</div>
+                  <div class="thread-text">슬롯 폭 기준은 12.0mm로 가정 가능하나, R0.5 위치 공차 확인이 필요합니다. 관리자 경유로 클라이언트 확인 요청 바랍니다.</div>
+                </div>
+              </div>
+              <div class="reply-box">
+                <textarea class="mw-input textarea">슬롯 폭 12.0mm, R0.5 기준으로 견적 가능하나 도면 보완 확인 후 최종 금액을 확정하겠습니다.</textarea>
+                <div class="mw-row-actions" style="justify-content:flex-end;">
+                  <button class="btn-outline"><i class="ri-attachment-2"></i> 파일 첨부</button>
+                  <button class="btn-primary"><i class="ri-send-plane-line"></i> 전송</button>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <aside class="mw-stack">
+            <article class="mw-card tight">
+              <div class="mw-card-title"><i class="ri-notification-3-line"></i> 메시지 현황</div>
+              <div class="divider"></div>
+              <div class="mw-list">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">관리자 요청</div>
+                    <div class="mw-list-meta">미응답 2건</div>
+                  </div>
+                  <span class="mw-badge yellow">대기</span>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">클라이언트 문의</div>
+                    <div class="mw-list-meta">AS/질문 1건</div>
+                  </div>
+                  <span class="mw-badge blue">확인</span>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">기밀 유지 서약</div>
+                    <div class="mw-list-meta">서명 완료</div>
+                  </div>
+                  <span class="mw-badge green">완료</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="mw-card tight">
+              <div class="mw-card-title"><i class="ri-shield-check-line"></i> 처리 기준</div>
+              <div class="divider"></div>
+              <div class="mw-list">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">도면 보완 요청</div>
+                    <div class="mw-list-meta">관리자에게 전달 후 클라이언트 확인</div>
+                  </div>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">납기 지연</div>
+                    <div class="mw-list-meta">사유와 보상 가능 조건을 함께 회신</div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

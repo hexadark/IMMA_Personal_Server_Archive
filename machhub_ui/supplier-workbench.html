@@ -1,0 +1,500 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 가공업체 작업·납품 워크벤치</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link rel="stylesheet" href="/static/role-workflows.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+  <div class="mw-app">
+    <aside class="mw-side">
+      <a class="mw-side-logo" href="/supplier">IMM<span>A</span></a>
+      <nav class="mw-side-nav">
+        <a href="/supplier"><i class="ri-dashboard-line"></i> 대시보드</a>
+        <a href="#rfq" class="active"><i class="ri-file-list-3-line"></i> 오더리스트</a>
+        <a href="#reply"><i class="ri-mail-send-line"></i> 작업정보 회신</a>
+        <a href="#orders"><i class="ri-stack-line"></i> 발주 수락</a>
+        <a href="#production"><i class="ri-settings-3-line"></i> 생산 진행</a>
+        <a href="#capacity"><i class="ri-calendar-check-line"></i> 스케줄·영업상태</a>
+        <a href="#delivery"><i class="ri-truck-line"></i> 납품 관리</a>
+        <a href="#reviews"><i class="ri-star-line"></i> 리뷰·평점</a>
+        <a href="/supplier-messages"><i class="ri-message-3-line"></i> 메시지</a>
+        <div class="mw-nav-divider"></div>
+        <a href="/support"><i class="ri-customer-service-2-line"></i> 고객지원</a>
+        <a href="/supplier-settings"><i class="ri-settings-4-line"></i> 설정</a>
+      </nav>
+      <div class="mw-side-user">
+        <strong style="color:#fff;">(주)서진정밀</strong><br>
+        공급사 파트너 · 경기 시흥
+      </div>
+    </aside>
+
+    <div class="mw-app-main">
+      <header class="mw-app-topbar">
+        <div class="mw-search">
+          <i class="ri-search-line"></i>
+          <input type="text" placeholder="오더번호, 도면명, 클라이언트명 검색">
+        </div>
+        <div class="mw-actions">
+          <span class="mw-chip green"><i class="ri-checkbox-circle-line"></i> 영업중</span>
+          <span class="mw-chip yellow"><i class="ri-loader-2-line"></i> 가동률 78%</span>
+          <button class="mw-icon-action" type="button" aria-label="알림"><i class="ri-notification-3-line"></i></button>
+          <button class="mw-icon-action" type="button" aria-label="도움말"><i class="ri-question-line"></i></button>
+          <a href="/#home" class="btn-outline" style="padding:8px 12px; font-size:12px;">로그아웃</a>
+        </div>
+      </header>
+
+      <main class="mw-app-content">
+        <div class="mw-top">
+          <div class="mw-title">
+            <div class="mw-eyebrow"><i class="ri-factory-line"></i> Supplier workbench</div>
+            <h1>가공업체 작업·납품 워크벤치</h1>
+            <p>신규 오더 수락, 견적 회신, 발주 수락, 생산 진행도 공유, 납품 이미지 발송까지 처리합니다.</p>
+          </div>
+          <div class="mw-actions">
+            <a href="/supplier-rfq-detail" class="btn-outline"><i class="ri-file-text-line"></i> 요청 상세</a>
+            <a href="#reply" class="btn-primary"><i class="ri-mail-send-line"></i> 작업정보 회신</a>
+          </div>
+        </div>
+
+        <section class="mw-kpis">
+          <div class="mw-kpi">
+            <div class="mw-kpi-icon blue"><i class="ri-file-list-3-line"></i></div>
+            <div>
+              <div class="mw-kpi-value">8건</div>
+              <div class="mw-kpi-label">수신 오더리스트</div>
+            </div>
+          </div>
+          <div class="mw-kpi">
+            <div class="mw-kpi-icon yellow"><i class="ri-mail-send-line"></i></div>
+            <div>
+              <div class="mw-kpi-value">3건</div>
+              <div class="mw-kpi-label">작업정보 회신 대기</div>
+            </div>
+          </div>
+          <div class="mw-kpi">
+            <div class="mw-kpi-icon green"><i class="ri-settings-3-line"></i></div>
+            <div>
+              <div class="mw-kpi-value">7건</div>
+              <div class="mw-kpi-label">생산 진행 중</div>
+            </div>
+          </div>
+          <div class="mw-kpi">
+            <div class="mw-kpi-icon orange"><i class="ri-alarm-warning-line"></i></div>
+            <div>
+              <div class="mw-kpi-value">1건</div>
+              <div class="mw-kpi-label">납기 리스크</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="mw-main-grid">
+          <section class="mw-stack">
+            <article class="mw-card" id="rfq">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-clipboard-line"></i> 오더리스트 수락</div>
+                  <div class="mw-card-sub">관리자가 선별해 발송한 요청 중 작업 가능한 오더만 수락합니다.</div>
+                </div>
+                <span class="mw-badge blue">신규 4건</span>
+              </div>
+              <div class="mw-table-wrap">
+                <table class="mw-table">
+                  <thead>
+                    <tr>
+                      <th>오더</th>
+                      <th>가공 조건</th>
+                      <th>클라이언트 평점</th>
+                      <th>희망 납기</th>
+                      <th>결정</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <div class="mw-id">RFQ-250620-014</div>
+                        <div class="mw-list-meta">Bracket_Housing.dwg</div>
+                      </td>
+                      <td>CNC 가공 · AL6061 · 100 EA · 아노다이징</td>
+                      <td>4.7 / 리뷰 18건</td>
+                      <td>2026-07-05</td>
+                      <td>
+                        <div class="mw-row-actions">
+                          <button class="btn-primary" style="padding:7px 10px; font-size:12px;">수락</button>
+                          <button class="btn-outline" style="padding:7px 10px; font-size:12px;">정보 요청</button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="mw-id">RFQ-250620-018</div>
+                        <div class="mw-list-meta">Shaft_Assembly.pdf</div>
+                      </td>
+                      <td>선반 · SUS304 · 120개</td>
+                      <td>4.9 / 리뷰 42건</td>
+                      <td>2026-07-01</td>
+                      <td>
+                        <div class="mw-row-actions">
+                          <button class="btn-primary" style="padding:7px 10px; font-size:12px;">수락</button>
+                          <button class="btn-outline" style="padding:7px 10px; font-size:12px;">정보 요청</button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="mw-id">RFQ-250619-027</div>
+                        <div class="mw-list-meta">Cover_Plate.dxf</div>
+                      </td>
+                      <td>레이저 절단 · SS400 · 500개</td>
+                      <td>4.2 / 리뷰 6건</td>
+                      <td>2026-06-28</td>
+                      <td>
+                        <div class="mw-row-actions">
+                          <button class="btn-primary" style="padding:7px 10px; font-size:12px;">수락</button>
+                          <button class="btn-outline" style="padding:7px 10px; font-size:12px;">정보 요청</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="mw-card" id="reply">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-mail-send-line"></i> 작업정보 회신</div>
+                  <div class="mw-card-sub">수락한 오더의 예상 납기, 금액, 추가 조건을 관리자에게 발송합니다.</div>
+                </div>
+                <span class="mw-badge yellow">회신 작성중</span>
+              </div>
+              <div class="mw-form-grid">
+                <div class="mw-field">
+                  <label>예상 납기</label>
+                  <input class="mw-input" type="date" value="2026-07-03">
+                </div>
+                <div class="mw-field">
+                  <label>견적 금액</label>
+                  <input class="mw-input" value="18,450,000원">
+                </div>
+                <div class="mw-field">
+                  <label>품질 인증 제공</label>
+                  <select class="mw-input">
+                    <option>출하검사 성적서 제공 가능</option>
+                    <option>외부 시험 성적서 별도 협의</option>
+                    <option>성적서 제공 불가</option>
+                  </select>
+                </div>
+                <div class="mw-field">
+                  <label>후처리·조립</label>
+                  <input class="mw-input" value="아노다이징, 단순 조립 가능">
+                </div>
+                <div class="mw-field" style="grid-column:1/-1;">
+                  <label>작업 메모</label>
+                  <textarea class="mw-input textarea">슬롯 폭 치수 보완 시 바로 투입 가능합니다. 야간 가공으로 납기 단축 가능.</textarea>
+                </div>
+              </div>
+              <div class="mw-row-actions" style="justify-content:flex-end; margin-top:16px;">
+                <button class="btn-outline"><i class="ri-draft-line"></i> 임시 저장</button>
+                <button class="btn-primary"><i class="ri-send-plane-line"></i> 작업정보 발송</button>
+              </div>
+            </article>
+
+            <article class="mw-card" id="orders">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-shake-hands-line"></i> 발주 수락·계약·기밀유지</div>
+                  <div class="mw-card-sub">클라이언트가 발주를 확정하면 계약, 스케줄 업데이트, 기밀유지 서약을 처리합니다.</div>
+                </div>
+                <span class="mw-badge green">발주 수락 대기</span>
+              </div>
+              <div class="mw-grid-2">
+                <div class="mw-list">
+                  <div class="mw-list-item">
+                    <div>
+                      <div class="mw-list-title">발주 확인 수락</div>
+                      <div class="mw-list-meta">PO-20260508-001 · CNC 가공 100개</div>
+                    </div>
+                    <input type="checkbox" aria-label="발주 확인 수락">
+                  </div>
+                  <div class="mw-list-item">
+                    <div>
+                      <div class="mw-list-title">작업 스케줄 업데이트</div>
+                      <div class="mw-list-meta">머시닝센터 #1 · 2026-06-24 투입</div>
+                    </div>
+                    <input type="checkbox" aria-label="작업 스케줄 업데이트">
+                  </div>
+                  <div class="mw-list-item">
+                    <div>
+                      <div class="mw-list-title">계약 서비스 가입</div>
+                      <div class="mw-list-meta">클라이언트 계약서비스 요청 건</div>
+                    </div>
+                    <input type="checkbox" aria-label="계약 서비스 가입">
+                  </div>
+                  <div class="mw-list-item">
+                    <div>
+                      <div class="mw-list-title">도면·기술 기밀유지 서약</div>
+                      <div class="mw-list-meta">NDA 수령 후 서명 필요</div>
+                    </div>
+                    <input type="checkbox" aria-label="도면 기밀유지 서약">
+                  </div>
+                </div>
+                <div class="mw-callout">
+                  계약서와 NDA는 관리자 검수 후 클라이언트에게 전달됩니다. 서약서 미작성 상태에서는 원본 도면 다운로드가 제한됩니다.
+                </div>
+              </div>
+            </article>
+
+            <article class="mw-card" id="production">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-settings-3-line"></i> 생산 진행도 공유</div>
+                  <div class="mw-card-sub">원자재 입고, 가공 시작, 후처리, 검사, 포장 이벤트를 클라이언트에게 공유합니다.</div>
+                </div>
+                <span class="mw-badge blue">65%</span>
+              </div>
+              <div class="mw-grid-2">
+                <div class="mw-timeline">
+                  <div class="mw-timeline-item">
+                    <div class="mw-dot done"><i class="ri-check-line"></i></div>
+                    <div>
+                      <div class="mw-list-title">원자재 입고</div>
+                      <div class="mw-list-meta">AL6061 20T · 2026-06-18 09:10</div>
+                    </div>
+                  </div>
+                  <div class="mw-timeline-item">
+                    <div class="mw-dot done"><i class="ri-check-line"></i></div>
+                    <div>
+                      <div class="mw-list-title">1차 가공 완료</div>
+                      <div class="mw-list-meta">머시닝센터 #1 · 2026-06-21 18:30</div>
+                    </div>
+                  </div>
+                  <div class="mw-timeline-item">
+                    <div class="mw-dot active"><i class="ri-loader-2-line"></i></div>
+                    <div>
+                      <div class="mw-list-title">후처리 진행</div>
+                      <div class="mw-list-meta">아노다이징 협력업체 이동</div>
+                    </div>
+                  </div>
+                  <div class="mw-timeline-item">
+                    <div class="mw-dot"><i class="ri-search-eye-line"></i></div>
+                    <div>
+                      <div class="mw-list-title">최종 검사</div>
+                      <div class="mw-list-meta">예정일 2026-06-25</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mw-form-grid">
+                  <div class="mw-field">
+                    <label>이벤트 유형</label>
+                    <select class="mw-input">
+                      <option>원자재 입고</option>
+                      <option>가공 시작</option>
+                      <option>후처리</option>
+                      <option>검사</option>
+                      <option>포장</option>
+                      <option>납기 지연 요청</option>
+                    </select>
+                  </div>
+                  <div class="mw-field">
+                    <label>진행률</label>
+                    <input class="mw-input" value="65%">
+                  </div>
+                  <div class="mw-field" style="grid-column:1/-1;">
+                    <label>공유 메모</label>
+                    <textarea class="mw-input textarea">후처리 협력업체 입고 완료. 납기는 기존 일정 유지 가능합니다.</textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="mw-row-actions" style="justify-content:flex-end; margin-top:16px;">
+                <button class="btn-outline"><i class="ri-alarm-warning-line"></i> 납기 지연 서비스 요청</button>
+                <button class="btn-primary"><i class="ri-upload-cloud-line"></i> 생산 진행도 공유</button>
+              </div>
+            </article>
+
+            <article class="mw-card" id="capacity">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-calendar-check-line"></i> 실시간 작업 스케줄·영업 상태</div>
+                  <div class="mw-card-sub">업체 정보, 장비 가동률, 최소 요구 작업량, 영업 상태를 매칭 기준으로 제공합니다.</div>
+                </div>
+                <div class="mw-actions">
+                  <span class="mw-badge green">영업중</span>
+                  <span class="mw-badge yellow">야간 가공 가능</span>
+                </div>
+              </div>
+              <div class="mw-grid-3">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">주요 재질</div>
+                    <div class="mw-list-meta">AL6061, SUS304, S45C, SS400</div>
+                  </div>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">제공 서비스</div>
+                    <div class="mw-list-meta">CNC 밀링, 선반, 후처리, 조립</div>
+                  </div>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">최소 작업량</div>
+                    <div class="mw-list-meta">단품 1개 또는 50만원 이상</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mw-table-wrap mt-16">
+                <table class="mw-table">
+                  <thead>
+                    <tr>
+                      <th>장비</th>
+                      <th>상태</th>
+                      <th>이번 주 가동률</th>
+                      <th>다음 가능 슬롯</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="mw-id">머시닝센터 1호기</td>
+                      <td><span class="mw-badge green">가동중</span></td>
+                      <td>
+                        <div class="mw-progress"><span style="width:82%;"></span></div>
+                      </td>
+                      <td>2026-06-24 오전</td>
+                    </tr>
+                    <tr>
+                      <td class="mw-id">선반 2호기</td>
+                      <td><span class="mw-badge green">가동중</span></td>
+                      <td>
+                        <div class="mw-progress"><span style="width:74%;"></span></div>
+                      </td>
+                      <td>2026-06-25 오후</td>
+                    </tr>
+                    <tr>
+                      <td class="mw-id">레이저 절단기 1호기</td>
+                      <td><span class="mw-badge yellow">셋팅중</span></td>
+                      <td>
+                        <div class="mw-progress"><span style="width:43%;"></span></div>
+                      </td>
+                      <td>2026-06-23 오후</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="mw-card" id="delivery">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-truck-line"></i> 납품 준비</div>
+                  <div class="mw-card-sub">출하 전 최종 상태와 포장 이미지를 보내고 사전 수령 방식에 맞춰 발송합니다.</div>
+                </div>
+                <span class="mw-badge orange">특수화물 준비</span>
+              </div>
+              <div class="mw-photo-grid">
+                <div class="mw-photo"><i class="ri-camera-line"></i> 최종 상태 이미지 업로드</div>
+                <div class="mw-photo"><i class="ri-archive-line"></i> 포장 후 이미지 업로드</div>
+                <div class="mw-photo"><i class="ri-file-shield-2-line"></i> 검사 성적서 첨부</div>
+              </div>
+              <div class="mw-form-grid mt-16">
+                <div class="mw-field">
+                  <label>발송 방식</label>
+                  <select class="mw-input">
+                    <option>무진동 차량</option>
+                    <option>택배</option>
+                    <option>화물차 탁송</option>
+                    <option>특수화물</option>
+                  </select>
+                </div>
+                <div class="mw-field">
+                  <label>출하 예정일</label>
+                  <input class="mw-input" type="date" value="2026-06-05">
+                </div>
+                <div class="mw-field" style="grid-column:1/-1;">
+                  <label>발송 메모</label>
+                  <textarea class="mw-input textarea">클라이언트 요청에 따라 무진동 차량, 오전 10시 이후 상차 예정.</textarea>
+                </div>
+              </div>
+              <div class="mw-row-actions" style="justify-content:flex-end; margin-top:16px;">
+                <button class="btn-primary"><i class="ri-send-plane-line"></i> 납품 정보 발송</button>
+              </div>
+            </article>
+
+            <article class="mw-card" id="reviews">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-user-star-line"></i> 받은 리뷰 확인</div>
+                  <div class="mw-card-sub">거래 완료 후 클라이언트가 남긴 평점과 리뷰를 확인하고 업체 거래 이력에 반영합니다.</div>
+                </div>
+                <span class="mw-badge green">리뷰 반영 완료</span>
+              </div>
+              <div class="mw-list">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">도현로보틱스 · 5.0</div>
+                    <div class="mw-list-meta">Bracket Assembly 품질/포장/진행 공유 만족 · 재발주 의향 있음</div>
+                  </div>
+                  <i class="ri-star-fill" style="color:#f59e0b;"></i>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <aside class="mw-stack">
+            <article class="mw-card tight">
+              <div class="mw-card-title"><i class="ri-links-line"></i> 주요 연계 업체</div>
+              <div class="divider"></div>
+              <div class="mw-list">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">대성아노다이징</div>
+                    <div class="mw-list-meta">표면처리 · 평균 2일</div>
+                  </div>
+                  <span class="mw-badge green">가능</span>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">한빛용접</div>
+                    <div class="mw-list-meta">용접·조립 · 평균 1.5일</div>
+                  </div>
+                  <span class="mw-badge yellow">혼잡</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="mw-card tight">
+              <div class="mw-card-title"><i class="ri-message-3-line"></i> 추가 정보 요청</div>
+              <div class="divider"></div>
+              <div class="mw-list">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">슬롯 폭 치수 확인</div>
+                    <div class="mw-list-meta">관리자 전달 대기</div>
+                  </div>
+                  <span class="mw-badge blue">요청중</span>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">수령지 지게차 보유 여부</div>
+                    <div class="mw-list-meta">클라이언트 답변 필요</div>
+                  </div>
+                  <span class="mw-badge yellow">대기</span>
+                </div>
+              </div>
+            </article>
+
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

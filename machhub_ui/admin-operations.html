@@ -1,0 +1,424 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 운영 관리</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* Admin Layout */
+    .admin-wrap { display: flex; flex: 1; }
+
+    /* Left Sidebar */
+    .admin-sidebar {
+      width: 200px;
+      background: white;
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+      flex-shrink: 0;
+      position: sticky;
+      top: 60px;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+    }
+    .admin-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .admin-nav-item:hover { background: var(--bg); color: #111; }
+    .admin-nav-item.active { color: #111; background: rgba(255,209,0,0.08); border-left-color: var(--primary); font-weight: 700; }
+    .admin-nav-item i { font-size: 16px; }
+    .nav-section-label { padding: 14px 20px 6px; font-size: 10px; font-weight: 800; color: #BFC7D4; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* Main content */
+    .admin-main { flex: 1; padding: 28px 32px; min-width: 0; }
+
+    /* Page header */
+    .admin-page-title h1 { font-size: 22px; font-weight: 800; color: #111; margin-bottom: 4px; }
+    .admin-page-title p  { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+    /* Tab bar */
+    .admin-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .admin-tab {
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+    .admin-tab.active { color: #111; border-bottom-color: var(--primary); }
+
+    /* Filter bar */
+    .filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+    .filter-pill {
+      padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+      cursor: pointer; border: 1px solid var(--border); background: white; color: var(--text-muted);
+      transition: all 0.2s; font-family: inherit;
+    }
+    .filter-pill.active { background: var(--primary); border-color: var(--primary); color: #000; }
+    .filter-pill.warn   { background: rgba(249,115,22,0.1); border-color: var(--warning); color: var(--warning); }
+    .filter-pill:not(.active):not(.warn):hover { border-color: #999; color: #111; }
+    .filter-count { font-size: 11px; font-weight: 700; margin-left: 3px; }
+
+    .search-box { display: flex; align-items: center; gap: 8px; flex: 1; background: white; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; max-width: 260px; }
+    .search-box i { color: var(--text-muted); }
+    .search-box input { border: none; outline: none; font-size: 13px; font-family: inherit; color: var(--text-main); flex: 1; background: transparent; }
+    .filter-icon-btn { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text-muted); font-family: inherit; }
+
+    /* Main table */
+    .admin-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    .admin-table th { padding: 11px 14px; text-align: left; font-size: 12px; font-weight: 700; color: var(--text-muted); background: #FAFBFC; border-bottom: 1px solid var(--border); }
+    .admin-table th:first-child { width: 40px; }
+    .admin-table td { padding: 13px 14px; font-size: 13px; color: #333; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .admin-table tr:last-child td { border-bottom: none; }
+    .admin-table tr:hover td { background: #FAFBFC; cursor: pointer; }
+    .admin-table tr.selected td { background: rgba(255,209,0,0.06); }
+    .td-name { font-weight: 700; color: #111; font-size: 13px; }
+    .td-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Status badges */
+    .st-wait { background: rgba(249,115,22,0.1); color: #C2410C; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .st-prog { background: rgba(59,130,246,0.1); color: #1D4ED8; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .st-done { background: rgba(34,197,94,0.1); color: #166534; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .st-reject{ background: rgba(239,68,68,0.1); color: #991B1B; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+
+    /* Pagination */
+    .pagination { display: flex; align-items: center; gap: 4px; margin-top: 16px; }
+    .pg-btn { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-muted); font-family: inherit; }
+    .pg-btn.active { background: var(--primary); border-color: var(--primary); color: #000; }
+    .pg-btn:hover:not(.active) { border-color: #999; color: #111; }
+    .pg-size { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; color: var(--text-muted); }
+    .pg-size select { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; outline: none; }
+
+    /* Detail Panel */
+    .detail-panel {
+      width: 340px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .dp-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .dp-title { font-size: 15px; font-weight: 800; color: #111; }
+    .dp-close { color: var(--text-muted); cursor: pointer; font-size: 18px; }
+    .dp-tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .dp-tab { flex: 1; padding: 9px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .dp-tab.active { color: #111; border-bottom-color: var(--primary); }
+    .dp-body { padding: 18px 20px; }
+
+    .dp-row { display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .dp-row:last-child { border-bottom: none; }
+    .dp-key { color: var(--text-muted); }
+    .dp-val { font-weight: 600; color: #111; }
+
+    .quick-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .qi-box { background: var(--bg); border-radius: 8px; padding: 12px; }
+    .qi-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+    .qi-val   { font-size: 15px; font-weight: 800; color: #111; }
+    .qi-sub   { font-size: 11px; color: var(--text-muted); }
+
+    .dp-actions { display: flex; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--border); }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<!-- Admin Header -->
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/admin-ui">대시보드</a></li>
+    <li><a href="/admin-operations" class="active">운영 관리</a></li>
+    <li><a href="/admin-control-center#database">회원·업체 DB</a></li>
+    <li><a href="/admin-control-center#ai">AI 분석 로그</a></li>
+    <li><a href="/admin-control-center#matching">매칭 관리</a></li>
+    <li><a href="/admin-control-center#contracts">계약·결제</a></li>
+    <li><a href="/admin-control-center#delivery">납품·정산 로그</a></li>
+  </ul>
+  <div class="header-actions">
+    <i class="ri-notification-3-line" style="font-size:18px;color:#666;cursor:pointer;position:relative;">
+      <span style="position:absolute;top:-4px;right:-6px;background:var(--danger);color:white;font-size:9px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;">3</span>
+    </i>
+    <div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;cursor:pointer;margin-left:8px;">
+      <i class="ri-user-line"></i> 관리자 <i class="ri-arrow-down-s-line"></i>
+    </div>
+  </div>
+</header>
+
+<div class="admin-wrap">
+  <!-- Left Nav -->
+  <aside class="admin-unified-sidebar" data-admin-menu></aside>
+
+  <!-- Main -->
+  <div class="admin-main">
+    <div class="admin-page-title">
+      <h1>운영 관리</h1>
+      <p>회원, 업체, 견적, 리뷰, 정산 등 플랫폼 운영을 관리합니다.</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="admin-tabs">
+      <div class="admin-tab">회원 관리</div>
+      <div class="admin-tab active">업체 검수</div>
+      <div class="admin-tab">견적 관리</div>
+      <div class="admin-tab">리뷰 관리</div>
+      <div class="admin-tab">정산 관리</div>
+    </div>
+
+    <!-- Filter + Search -->
+    <div class="filter-bar">
+      <button class="filter-pill active">전체 <span class="filter-count">128</span></button>
+      <button class="filter-pill">검수 대기 <span class="filter-count">18</span></button>
+      <button class="filter-pill">검수 진행 <span class="filter-count">7</span></button>
+      <button class="filter-pill">승인 완료 <span class="filter-count">95</span></button>
+      <button class="filter-pill warn">반려 <span class="filter-count">8</span></button>
+      <div class="search-box">
+        <i class="ri-search-line"></i>
+        <input type="text" placeholder="업체명, 사업자번호, 담당자 검색">
+      </div>
+      <button class="filter-icon-btn"><i class="ri-equalizer-2-line"></i> 필터</button>
+    </div>
+
+    <!-- Table + Detail Panel -->
+    <div style="display:flex;gap:16px;align-items:flex-start;">
+      <!-- Table -->
+      <div style="flex:1;min-width:0;">
+        <table class="admin-table" id="admin-tbl">
+          <thead>
+            <tr>
+              <th><input type="checkbox"></th>
+              <th>업체명</th>
+              <th>사업자번호</th>
+              <th>대표자</th>
+              <th>신청일</th>
+              <th>상태</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="selected" onclick="selectRow(this,'브라켓 하우징')">
+              <td><input type="checkbox" checked></td>
+              <td>
+                <div class="td-name">브라켓 하우징</div>
+                <div class="td-sub">김민수 · 010-1234-5678</div>
+              </td>
+              <td>123-45-67890</td>
+              <td>김민수</td>
+              <td>2026-05-27</td>
+              <td><span class="st-wait">검수 대기</span></td>
+              <td><button class="btn-primary" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+            <tr onclick="selectRow(this,'서프트')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="td-name">서프트</div>
+                <div class="td-sub">이창훈 · 010-2345-6789</div>
+              </td>
+              <td>234-56-78901</td>
+              <td>이창훈</td>
+              <td>2026-05-26</td>
+              <td><span class="st-wait">검수 대기</span></td>
+              <td><button class="btn-primary" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+            <tr onclick="selectRow(this,'기어 플레이트')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="td-name">기어 플레이트</div>
+                <div class="td-sub">박지훈 · 010-3456-7880</div>
+              </td>
+              <td>345-67-89012</td>
+              <td>박지훈</td>
+              <td>2026-05-24</td>
+              <td><span class="st-prog">검수 진행</span></td>
+              <td><button class="btn-outline" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+            <tr onclick="selectRow(this,'커버 플레이트')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="td-name">커버 플레이트</div>
+                <div class="td-sub">최영철 · 010-4567-8901</div>
+              </td>
+              <td>456-78-90123</td>
+              <td>최영철</td>
+              <td>2026-05-23</td>
+              <td><span class="st-prog">검수 진행</span></td>
+              <td><button class="btn-outline" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+            <tr onclick="selectRow(this,'샤프트 가공')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="td-name">샤프트 가공</div>
+                <div class="td-sub">정우성 · 010-5678-9012</div>
+              </td>
+              <td>567-89-01234</td>
+              <td>정우성</td>
+              <td>2026-05-22</td>
+              <td><span class="st-wait">검수 대기</span></td>
+              <td><button class="btn-primary" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+            <tr onclick="selectRow(this,'베어링 하우징')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="td-name">베어링 하우징</div>
+                <div class="td-sub">한상민 · 010-6789-0123</div>
+              </td>
+              <td>678-80-12345</td>
+              <td>한상민</td>
+              <td>2026-05-06</td>
+              <td><span class="st-wait">검수 대기</span></td>
+              <td><button class="btn-primary" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+            <tr onclick="selectRow(this,'라이저 절단')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="td-name">라이저 절단</div>
+                <div class="td-sub">오세현 · 010-7890-1234</div>
+              </td>
+              <td>789-01-23456</td>
+              <td>오세현</td>
+              <td>2026-05-19</td>
+              <td><span class="st-reject">반려</span></td>
+              <td><button class="btn-outline" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+            <tr onclick="selectRow(this,'용접 조립')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="td-name">용접 조립</div>
+                <div class="td-sub">김태현 · 010-8901-2345</div>
+              </td>
+              <td>890-12-34567</td>
+              <td>김태현</td>
+              <td>2026-05-18</td>
+              <td><span class="st-prog">검수 진행</span></td>
+              <td><button class="btn-outline" style="padding:5px 12px;font-size:12px;">검토하기</button></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination">
+          <button class="pg-btn" aria-label="이전 페이지" title="이전 페이지"><i class="ri-arrow-left-s-line"></i></button>
+          <button class="pg-btn active">1</button>
+          <button class="pg-btn">2</button>
+          <button class="pg-btn">3</button>
+          <button class="pg-btn" aria-label="다음 페이지 묶음" title="다음 페이지 묶음"><i class="ri-more-line"></i></button>
+          <button class="pg-btn" aria-label="다음 페이지" title="다음 페이지"><i class="ri-arrow-right-s-line"></i></button>
+          <div class="pg-size">10 / 마지막 <select><option>10</option><option>20</option><option>50</option></select></div>
+        </div>
+      </div>
+
+      <!-- Detail Panel -->
+      <div class="detail-panel">
+        <div class="dp-header">
+          <div>
+            <div class="dp-title" id="dp-name">브라켓 하우징</div>
+            <span class="st-wait">검수 대기</span>
+          </div>
+          <div class="dp-close">×</div>
+        </div>
+        <div class="dp-tabs">
+          <div class="dp-tab active">기본 정보</div>
+          <div class="dp-tab">제출 서류</div>
+          <div class="dp-tab">검수 이력</div>
+          <div class="dp-tab">메모</div>
+        </div>
+        <div class="dp-body">
+          <div class="dp-row"><span class="dp-key">업체명</span><span class="dp-val">브라켓 하우징</span></div>
+          <div class="dp-row"><span class="dp-key">사업자번호</span><span class="dp-val">123-45-67890</span></div>
+          <div class="dp-row"><span class="dp-key">대표자</span><span class="dp-val">김민수 · 010-1234-5678</span></div>
+          <div class="dp-row"><span class="dp-key">이메일</span><span class="dp-val" style="font-size:12px;">kms@bracket.co.kr</span></div>
+          <div class="dp-row"><span class="dp-key">업종</span><span class="dp-val">금속 가공업</span></div>
+          <div class="dp-row"><span class="dp-key">주소</span><span class="dp-val" style="font-size:12px;">경기도 시흥시 공단대로 123</span></div>
+          <div class="dp-row"><span class="dp-key">신청일</span><span class="dp-val">2026-05-27</span></div>
+
+          <div class="quick-info-grid">
+            <div class="qi-box">
+              <div class="qi-label">제출 서류</div>
+              <div class="qi-val">8 / 8</div>
+              <div class="qi-sub">완료</div>
+            </div>
+            <div class="qi-box">
+              <div class="qi-label">신용 상태</div>
+              <div class="qi-val" style="color:var(--success);">정상</div>
+              <div class="qi-sub">NICE 평가</div>
+            </div>
+            <div class="qi-box">
+              <div class="qi-label">거래 이력</div>
+              <div class="qi-val">12건</div>
+              <div class="qi-sub">최근 1년</div>
+            </div>
+            <div class="qi-box">
+              <div class="qi-label">리뷰 평점</div>
+              <div class="qi-val">4.8 <span style="color:var(--primary);font-size:14px;">★</span></div>
+              <div class="qi-sub">(18)</div>
+            </div>
+          </div>
+        </div>
+        <div class="dp-actions">
+          <button class="btn-outline" style="flex:1;justify-content:center;">반려</button>
+          <button class="btn-primary" style="flex:1;justify-content:center;">승인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.admin-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.admin-tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.filter-pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+    });
+  });
+  function selectRow(row, name) {
+    document.querySelectorAll('#admin-tbl tr').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+    document.getElementById('dp-name').textContent = name;
+  }
+  document.querySelectorAll('.dp-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.dp-tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+</script>
+  <script src="/static/admin-menu.js"></script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

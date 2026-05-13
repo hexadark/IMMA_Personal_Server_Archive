@@ -1,0 +1,382 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 업체 매칭 및 견적 비교</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    .rfq-summary-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      margin-bottom: 16px;
+    }
+    .rfq-field { display: flex; flex-direction: column; gap: 2px; }
+    .rfq-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    .rfq-value { font-size: 14px; font-weight: 700; color: #111; }
+    .rfq-detail-btn { margin-left: auto; }
+
+    .ai-summary-card {
+      background: #111;
+      border: 1px solid rgba(255,209,0,0.2);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      margin-bottom: 32px;
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+    .ai-summary-card::before {
+      content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(circle, rgba(255,209,0,0.05) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+    .ai-header h3 { font-size: 17px; font-weight: 800; color: var(--primary); letter-spacing:0; }
+    .ai-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 32px; }
+    .ai-col { padding: 0; }
+    .ai-col h4 { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.4); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .ai-item { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+    .ai-item i { color: var(--primary); font-size: 16px; }
+    .ai-warn { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 12px 16px; border-radius: 8px; color: #FCA5A5; display: flex; align-items: center; gap: 10px; font-size: 13px; margin-top: 24px; }
+    .ai-warn-link { color: #F87171; font-weight: 800; text-decoration: underline; cursor: pointer; }
+
+    /* Company List */
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .list-header h2 { font-size: 16px; font-weight: 800; color: #111; }
+    .sort-btn { display: flex; gap: 8px; align-items: center; }
+    .filter-btn {
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: inherit;
+    }
+
+    .supplier-row {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: 20px 64px 1.8fr 1.5fr auto 40px 1.2fr auto;
+      gap: 14px;
+      align-items: center;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .supplier-row:hover { border-color: rgba(255,209,0,0.5); box-shadow: 0 2px 12px rgba(255,209,0,0.1); }
+    .supplier-row.selected { border-color: var(--primary); background: rgba(255,209,0,0.03); }
+
+    .s-checkbox input { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
+    .s-thumb {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, #222, #444);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .s-thumb i { font-size: 24px; color: rgba(255,255,255,0.2); }
+
+    .s-info { min-width: 0; }
+    .s-info h4 { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; white-space: nowrap; word-break: keep-all; }
+    .s-info .loc { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    .s-rating { display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+    .s-rating .star { color: var(--primary); }
+    .s-rating strong { color: #111; }
+
+    .s-strengths { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .strength { font-size: 12px; color: #333; display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    .strength i { color: var(--success); font-size: 12px; }
+
+    .s-price { text-align: center; white-space: nowrap; }
+    .s-price .amount { font-size: 16px; font-weight: 900; color: #111; }
+    .s-price .unit { font-size: 12px; color: var(--text-muted); }
+
+    .s-days { text-align: center; }
+    .s-days .num { font-size: 20px; font-weight: 900; color: #111; }
+    .s-days .label { font-size: 12px; color: var(--text-muted); }
+
+    .s-equip { font-size: 12px; color: var(--text-muted); min-width: 0; word-break: keep-all; line-height: 1.3; }
+    .s-equip strong { display: block; font-size: 12px; color: #333; margin-bottom: 2px; }
+
+    .s-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+    .s-actions button { white-space: nowrap; }
+
+    /* Comparison Sidebar */
+    .compare-box {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      position: sticky;
+      top: 76px;
+    }
+    .compare-title { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 4px; }
+    .compare-count { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+    .compare-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .compare-item:last-of-type { border-bottom: none; }
+    .compare-num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--primary); color: #000;
+      font-size: 12px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .compare-name { flex: 1; margin-left: 8px; font-weight: 600; }
+    .compare-price { font-weight: 700; color: #111; font-size: 12px; }
+    .compare-days { font-size: 12px; color: var(--text-muted); }
+    .compare-remove { color: var(--text-muted); cursor: pointer; font-size: 14px; }
+
+    .compare-table { margin-top: 16px; }
+    .ct-row { display: flex; justify-content: space-between; font-size: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .ct-row:last-child { border-bottom: none; }
+    .ct-label { color: var(--text-muted); }
+    .ct-vals { display: flex; gap: 20px; }
+    .ct-val { font-weight: 600; color: #111; min-width: 60px; text-align: right; }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/client">대시보드</a></li>
+    <li><a href="/#service-intro">서비스 소개</a></li>
+    <li><a href="/how-to-use">이용 방법</a></li>
+    <li><a href="/process-flow">프로세스</a></li>
+    <li><a href="/search-suppliers">업체 찾기</a></li>
+    <li><a href="/support">고객지원</a></li>
+  </ul>
+  <div class="header-actions">
+    <a class="btn-login" href="/">로그인</a>
+    <a class="btn-signup" href="/client-register">회원가입</a>
+  </div>
+</header>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="/"><i class="ri-home-4-line"></i> 홈</a>
+    <span>&gt;</span>
+    <a href="/quote-request">견적 요청</a>
+    <span>&gt;</span>
+    <span class="current">업체 매칭 및 견적 비교</span>
+  </div>
+  <div class="page-title" style="margin-bottom:24px;">
+    <h1>업체 매칭 및 견적 비교</h1>
+    <p>AI 분석 결과를 기반으로 추천 업체와 견적을 비교해보세요. 최적의 파트너를 선택하면 매칭이 진행됩니다.</p>
+  </div>
+
+  <div class="two-col" style="grid-template-columns:1fr 260px;">
+    <div>
+      <!-- RFQ Summary -->
+      <div class="rfq-summary-card">
+        <div class="rfq-field"><span class="rfq-label">요청번호</span><span class="rfq-value">RFQ-250520-001</span></div>
+        <div class="rfq-field"><span class="rfq-label">품명</span><span class="rfq-value">브라켓 하우징</span></div>
+        <div class="rfq-field"><span class="rfq-label">공정</span><span class="rfq-value">CNC 가공</span></div>
+        <div class="rfq-field"><span class="rfq-label">수량</span><span class="rfq-value">100</span></div>
+        <div class="rfq-field"><span class="rfq-label">등록일</span><span class="rfq-value">2026-05-27</span></div>
+        <div class="rfq-detail-btn"><button class="btn-outline">상세 보기 &gt;</button></div>
+      </div>
+
+      <!-- AI Summary -->
+      <div class="ai-summary-card">
+        <div class="ai-header">
+          <i class="ri-robot-line" style="font-size:20px;color:var(--primary-dark)"></i>
+          <h3>AI 분석 요약</h3>
+        </div>
+        <div class="ai-grid">
+          <div class="ai-col">
+            <h4>소재 / 가공 공정</h4>
+            <div class="ai-item">알루미늄 6061-T6 (추정)</div>
+            <div class="ai-item">CNC 3축 가공 적합</div>
+          </div>
+          <div class="ai-col">
+            <h4>도면 주요 특성</h4>
+            <div class="ai-item">가공 난이도: 보통</div>
+            <div class="ai-item">공차 요구: ±0.05mm</div>
+            <div class="ai-item">표면거칠기: Ra 3.2</div>
+          </div>
+          <div class="ai-col">
+            <h4>추가 가공 가능성</h4>
+            <div class="ai-warn"><i class="ri-alert-line"></i> 탭 가공, 카운터보어 존재</div>
+            <div class="ai-warn"><i class="ri-alert-line"></i> 지수 정밀도 보완 필요</div>
+            <a class="ai-warn-link" style="font-size:13px;">누락 정보 보완하기 →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- List -->
+      <div class="list-header" id="recommended-quotes" style="scroll-margin-top: 150px;">
+        <h2>추천 업체 & 견적 <i class="ri-information-line" style="font-size:14px;color:var(--text-muted)"></i></h2>
+        <div class="sort-btn">
+          <span style="font-size:13px;color:var(--text-muted);">정렬:</span>
+          <button class="filter-btn">AI 매칭 점수 <i class="ri-arrow-down-s-line"></i></button>
+          <button class="filter-btn"><i class="ri-equalizer-line"></i> 필터</button>
+        </div>
+      </div>
+
+      <!-- Supplier Rows -->
+      <div class="supplier-row selected" id="row1">
+        <div class="s-checkbox"><input type="checkbox" checked onchange="toggleSelect('row1',this)"></div>
+        <div class="s-thumb"><i class="ri-settings-3-line"></i></div>
+        <div class="s-info">
+          <h4>스마트정밀 <span class="ai-badge">AI 92%</span></h4>
+          <div class="loc"><i class="ri-map-pin-line"></i> 경기 시흥시 · 평균 견적 30분</div>
+          <div class="s-rating"><i class="ri-star-fill star"></i><strong>4.8</strong>(128) · 평균 납기 1.2일</div>
+        </div>
+        <div class="s-strengths">
+          <div class="strength"><i class="ri-check-line"></i> 알루미늄 가공 전문</div>
+          <div class="strength"><i class="ri-check-line"></i> 정밀 공차 가공 우수</div>
+          <div class="strength"><i class="ri-check-line"></i> 다품종 소량 생산 강점</div>
+        </div>
+        <div class="s-price"><div class="amount">128,450원</div><div class="unit">(VAT 별도)</div></div>
+        <div class="s-days"><div class="num">6</div><div class="label">일</div></div>
+        <div class="s-equip"><strong>주요 보유 설비</strong>DMG MORI DNM 750L (3축)<br>Okuma GENOS M560-V</div>
+        <div class="s-actions">
+          <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>
+                <button class="btn-primary" style="font-size:12px;padding:6px 14px;background:#111;color:white;">✓ 선택됨</button>
+        </div>
+      </div>
+
+      <div class="supplier-row" id="row2">
+        <div class="s-checkbox"><input type="checkbox" onchange="toggleSelect('row2',this)"></div>
+        <div class="s-thumb" style="background:linear-gradient(135deg,#1a2a1a,#2d3d2d)"><i class="ri-tools-line"></i></div>
+        <div class="s-info">
+          <h4>장밀테크 주식회사 <span class="ai-badge" style="background:#E2E8F0;color:#555;">AI 85%</span></h4>
+          <div class="loc"><i class="ri-map-pin-line"></i> 인천 남동구 · 평균 견적 1시간</div>
+          <div class="s-rating"><i class="ri-star-fill star"></i><strong>4.6</strong>(97) · 평균 납기 1.4일</div>
+        </div>
+        <div class="s-strengths">
+          <div class="strength"><i class="ri-check-line"></i> 가격 경쟁력 우수</div>
+          <div class="strength"><i class="ri-check-line"></i> 선반 특화 가공 가능</div>
+          <div class="strength"><i class="ri-check-line"></i> 빠른 납기 대응</div>
+        </div>
+        <div class="s-price"><div class="amount">114,000원</div><div class="unit">(VAT 별도)</div></div>
+        <div class="s-days"><div class="num">7</div><div class="label">일</div></div>
+        <div class="s-equip"><strong>주요 보유 설비</strong>PUMA 2100 (CNC 선반)<br>DOOSAN LYNX 220</div>
+        <div class="s-actions">
+          <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>
+                <button class="btn-outline" style="font-size:12px;padding:6px 14px;border-color:var(--primary);color:var(--primary-dark);">□ 선택</button>
+        </div>
+      </div>
+
+      <div class="supplier-row" id="row3">
+        <div class="s-checkbox"><input type="checkbox" onchange="toggleSelect('row3',this)"></div>
+        <div class="s-thumb" style="background:linear-gradient(135deg,#1a1a2a,#2d2d3d)"><i class="ri-cut-line"></i></div>
+        <div class="s-info">
+          <h4>에이원 가공 <span class="ai-badge" style="background:#E2E8F0;color:#555;">AI 78%</span></h4>
+          <div class="loc"><i class="ri-map-pin-line"></i> 경남 김해시 · 평균 견적 2시간</div>
+          <div class="s-rating"><i class="ri-star-fill star"></i><strong>4.4</strong>(63) · 평균 납기 1.8일</div>
+        </div>
+        <div class="s-strengths">
+          <div class="strength"><i class="ri-check-line"></i> 다양한 추가 가공 지원</div>
+          <div class="strength"><i class="ri-check-line"></i> 품질 관리 체계 우수</div>
+          <div class="strength"><i class="ri-check-line"></i> 소량 맞춤 제작 가능</div>
+        </div>
+        <div class="s-price"><div class="amount">142,000원</div><div class="unit">(VAT 별도)</div></div>
+        <div class="s-days"><div class="num">8</div><div class="label">일</div></div>
+        <div class="s-equip"><strong>주요 보유 설비</strong>TruLaser 3030 (5kW)<br>AMADA HDS 1303</div>
+        <div class="s-actions">
+          <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>
+          <button class="btn-outline" style="font-size:12px;padding:6px 14px;border-color:var(--primary);color:var(--primary-dark);">□ 선택</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar -->
+    <div>
+      <div class="compare-box">
+        <div class="compare-title">비교 요약 <span style="color:var(--text-muted);font-weight:400;">(추천 1순위)</span></div>
+        <div style="font-size:12px;color:var(--text-muted);margin:-4px 0 12px;">
+          최종 선택: <strong style="color:#111;">스마트정밀</strong>
+        </div>
+
+        <div class="compare-item">
+          <div class="compare-num">1</div>
+          <div class="compare-name">스마트정밀</div>
+          <div>
+            <div class="compare-price">6,250,000원 / 7일</div>
+          </div>
+        </div>
+        <div class="compare-item">
+          <div class="compare-num">2</div>
+          <div class="compare-name">장밀테크 주식회사</div>
+          <div>
+            <div class="compare-price">6,800,000원 / 8일</div>
+          </div>
+        </div>
+        <div class="compare-item">
+          <div class="compare-num">3</div>
+          <div class="compare-name">에이원 가공</div>
+          <div>
+            <div class="compare-price">5,900,000원 / 9일</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="font-size:13px;font-weight:700;color:#111;margin-bottom:10px;">비교 항목</div>
+        <div class="compare-table">
+          <div class="ct-row"><span class="ct-label">예상 금액</span><div class="ct-vals"><span class="ct-val">6,250,000원</span><span class="ct-val">6,800,000원</span></div></div>
+          <div class="ct-row"><span class="ct-label">예상 납기</span><div class="ct-vals"><span class="ct-val">7일</span><span class="ct-val">8일</span></div></div>
+          <div class="ct-row"><span class="ct-label">AI 매칭 점수</span><div class="ct-vals"><span class="ct-val">92%</span><span class="ct-val">85%</span></div></div>
+          <div class="ct-row"><span class="ct-label">평균 평점</span><div class="ct-vals"><span class="ct-val">★ 4.8</span><span class="ct-val">★ 4.6</span></div></div>
+          <div class="ct-row"><span class="ct-label">주요 공정</span><div class="ct-vals"><span class="ct-val" style="font-size:12px;">CNC·아노다이징</span><span class="ct-val" style="font-size:12px;">밀링·표면처리</span></div></div>
+          <div class="ct-row"><span class="ct-label">품질 인증</span><div class="ct-vals"><span class="ct-val" style="font-size:12px;">외부 성적서 가능</span><span class="ct-val" style="font-size:12px;">별도 협의</span></div></div>
+          <div class="ct-row"><span class="ct-label">응답 속도</span><div class="ct-vals"><span class="ct-val" style="font-size:12px;">30분 이내</span><span class="ct-val" style="font-size:12px;">1시간 이내</span></div></div>
+        </div>
+
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px;">
+          <a href="/order-management" class="btn-primary w-full" style="justify-content:center;font-size:13px;">스마트정밀로 발주 진행</a>
+          <a href="/quote-request" class="btn-outline w-full" style="justify-content:center;font-size:13px;">견적 요청 다시하기</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="imma-footer">
+  <div class="footer-inner">
+    <div><div class="footer-logo">IMM<span>A</span></div><div class="footer-desc">지능형 제조 매칭 플랫폼<br>© 2026 IMMA. All rights reserved.</div></div>
+    <ul class="footer-links"><li><a href="/how-to-use">회사 소개</a></li><li><a href="/support">고객지원</a></li><li><a href="/support">개인정보처리방침</a></li></ul>
+  </div>
+</footer>
+
+<script>
+  function toggleSelect(id, cb) {
+    const row = document.getElementById(id);
+    if (cb.checked) row.classList.add('selected');
+    else row.classList.remove('selected');
+  }
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

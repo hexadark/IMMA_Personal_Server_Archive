@@ -1,7 +1,9 @@
 """IMMA Phase 1 매칭 파이프라인 — DDL 실행, seed 데이터, mock 업체 데이터 로딩."""
 
+import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 
 import config
@@ -11,6 +13,45 @@ from lookup import get_table
 logger = logging.getLogger(__name__)
 
 DDL_PATH = Path(__file__).resolve().parent.parent / "lookup_tables" / "schema.sql"
+
+# ---------------------------------------------------------------------------
+# 비밀번호 해싱 (routers/deps.py의 _hash_password와 동일 로직)
+# ---------------------------------------------------------------------------
+
+def _hash_password(password: str) -> str:
+    """PBKDF2-SHA256 해싱. 반환값: 'salt_hex:hash_hex'"""
+    salt = os.urandom(16)
+    hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100_000)
+    return salt.hex() + ":" + hashed.hex()
+
+
+# ---------------------------------------------------------------------------
+# mock 업체명 → login_id 영문 slug 매핑
+# ---------------------------------------------------------------------------
+
+_COMPANY_LOGIN_SLUG: dict[str, str] = {
+    "A정밀": "a_precision",
+    "B공업": "b_industry",
+    "C테크": "c_tech",
+    "D가공": "d_machining",
+    "E제작": "e_fabrication",
+    "F정밀": "f_precision",
+    "G주철": "g_castiron",
+    "H정공": "h_precision_eng",
+    "I에어로": "i_aero",
+    "J복합": "j_composite",
+    "K방전": "k_edm",
+    "L범용": "l_general",
+    "M대형": "m_large",
+    "N밸브": "n_valve",
+    "O워터젯": "o_waterjet",
+    "P프레스": "p_press",
+    "Q범용선반": "q_lathe",
+    "R수지가공": "r_plastic",
+    "S스텐주조": "s_stainless_casting",
+}
+
+_MOCK_PASSWORD_HASH = _hash_password("test1234")
 
 # 룩업 JSON의 category 한글명 → DB material_category_catalog.category_code 매핑
 _CATEGORY_TEXT_TO_CODE: dict[str, str] = {
@@ -26,6 +67,8 @@ _CATEGORY_TEXT_TO_CODE: dict[str, str] = {
     "알루미늄": "aluminum_alloy",
     "알루미늄 다이캐스팅": "aluminum_alloy",
     "구리합금/황동": "copper_alloy",
+    "구리합금/베릴륨동": "copper_alloy",
+    "구리합금/인청동": "copper_alloy",
     "구리/전기동 계열": "copper_alloy",
     "판금용 강판/냉간압연 강판": "sheet_steel",
     "판금용 강판/열간압연 연강판": "sheet_steel",
@@ -35,13 +78,31 @@ _CATEGORY_TEXT_TO_CODE: dict[str, str] = {
     "공구강/냉간금형용강": "tool_steel",
     "공구강/열간공구강": "tool_steel",
     "공구강/냉간공구강": "tool_steel",
+    "엔지니어링 플라스틱/폴리아세탈": "engineering_plastic",
+    "엔지니어링 플라스틱/주조나일론": "engineering_plastic",
+    "엔지니어링 플라스틱/나일론": "engineering_plastic",
+    "엔지니어링 플라스틱/불소수지": "engineering_plastic",
+    "엔지니어링 플라스틱/고내열수지": "engineering_plastic",
+    "엔지니어링 플라스틱/폴리카보네이트": "engineering_plastic",
+    "엔지니어링 플라스틱/ABS수지": "engineering_plastic",
+    "쾌삭강/납쾌삭강": "free_cutting_steel",
+    "쾌삭강/황쾌삭강": "free_cutting_steel",
+    "쾌삭강/중탄소쾌삭강": "free_cutting_steel",
+    "구상흑연주철": "ductile_cast_iron",
+    "복합재/유리섬유 에폭시": "composite_insulation",
+    "복합재/유리섬유 에폭시 적층재": "composite_insulation",
+    "복합재/페놀수지": "composite_insulation",
+    # 스테인리스 주강
+    "스테인리스 주강": "stainless_cast_steel",
+    "스테인리스주강": "stainless_cast_steel",
+    "SCS계 주강": "stainless_cast_steel",
 }
 
 
 def create_schema() -> None:
     """imma 스키마와 필요한 테이블들의 DDL을 실행한다.
-    DDL 파일에 seed INSERT문(process_catalog 19종, equipment_category_catalog 16종,
-    material_category_catalog 10종)이 이미 포함돼 있다.
+    DDL 파일에 seed INSERT문(process_catalog 34종, equipment_category_catalog 22종,
+    material_category_catalog 15종)이 이미 포함돼 있다.
     """
     ddl_sql = DDL_PATH.read_text(encoding="utf-8")
     db.execute_script(ddl_sql)
@@ -143,6 +204,23 @@ def seed_reference_data() -> None:
 
     logger.info("material_aliases %d행 INSERT (from LEGACY_KS_CODE_MAPPING)", alias_count)
 
+    # ── material_aliases: MATERIAL_PROPERTIES의 common_aliases에서 별칭 등록 ──
+    prop_rows = get_table("MATERIAL_PROPERTIES")
+    new_alias_count = 0
+    for prop in prop_rows:
+        mat_code = prop.get("code")
+        if not mat_code:
+            continue
+        for alias_text in prop.get("common_aliases", []):
+            db.execute_insert(
+                """INSERT INTO imma.material_aliases (alias_text, material_id)
+                   SELECT %s, material_id FROM imma.materials WHERE material_code = %s
+                   ON CONFLICT (alias_text) DO NOTHING""",
+                (alias_text, mat_code),
+            )
+            new_alias_count += 1
+    logger.info("material_aliases %d행 INSERT (MATERIAL_PROPERTIES common_aliases)", new_alias_count)
+
 
 def _extract_value(field: dict | None) -> object:
     """equipment_catalog.json 필드에서 value만 추출한다. dict가 아니면 그대로 반환."""
@@ -168,7 +246,7 @@ def _flatten_source(source_dict: dict) -> dict:
 
 
 def load_equipment_catalog() -> None:
-    """equipment_catalog.json의 38개 모델을 equipment_model_catalog 테이블에 INSERT한다."""
+    """equipment_catalog.json의 59개 모델을 equipment_model_catalog 테이블에 INSERT한다."""
 
     with open(config.EQUIPMENT_CATALOG_PATH, encoding="utf-8") as f:
         catalog = json.load(f)
@@ -211,7 +289,15 @@ def load_equipment_catalog() -> None:
                 max_workpiece_weight_kg, category_specs, process_capabilities,
                 non_machining_capabilities, source)
                VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb)
-               ON CONFLICT (model_id) DO NOTHING""",
+               ON CONFLICT (model_id) DO UPDATE SET
+                   manufacturer = EXCLUDED.manufacturer,
+                   model_name = EXCLUDED.model_name,
+                   equipment_category_code = EXCLUDED.equipment_category_code,
+                   max_workpiece_weight_kg = EXCLUDED.max_workpiece_weight_kg,
+                   category_specs = EXCLUDED.category_specs,
+                   process_capabilities = EXCLUDED.process_capabilities,
+                   non_machining_capabilities = EXCLUDED.non_machining_capabilities,
+                   source = EXCLUDED.source""",
             (model_id, manufacturer, model_name, ecc,
              max_weight, category_specs, proc_caps_json,
              non_mach_json, source_json),
@@ -326,7 +412,7 @@ def _best_from_catalog_procs(procs: list[tuple]) -> tuple:
 
 
 def load_mock_companies() -> None:
-    """테스트용 mock 업체 데이터 15개를 삽입한다."""
+    """테스트용 mock 업체 데이터 19개를 삽입한다."""
 
     # ── A정밀 (선삭+연삭+열처리 전문) ──
     _insert_company(
@@ -341,7 +427,6 @@ def load_mock_companies() -> None:
         processes=[
             ("turning", 5, 0.4, None, None, None, 80, 500),
             ("cylindrical_grinding", 4, 0.2, None, None, None, 60, 400),
-            ("grinding", 4, 0.2, None, None, None, 60, 400),
             ("heat_treatment", None, None, None, None, None, None, None),
         ],
         availability=("available", "2026-05-05"),
@@ -355,6 +440,7 @@ def load_mock_companies() -> None:
             ("smec_mcv_6700", "3축MC B-1 (SMEC MCV 6700)"),
             ("dmg_mori_cmx_1100_v", "3축MC B-2 (DMG MORI CMX 1100V)"),
             ("dn_solutions_lynx_2100lya", "CNC선반 B-1 (DN Solutions Lynx 2100LYA)"),
+            ("jainnher_jhu_2706cnc", "원통연삭기 B-1 (Jainnher JHU-2706CNC)"),
             ("nabertherm_n_41_h", "열처리로 B-1 (Nabertherm N 41/H)"),
         ],
         material_specifics=["SCM415", "SCM440", "SM45C", "S45C"],
@@ -362,7 +448,7 @@ def load_mock_companies() -> None:
         processes=[
             ("turning", 4, 0.2, None, None, None, 120, 800),
             ("milling", 5, 0.4, 300, 200, 150, None, None),
-            ("grinding", 5, 0.4, None, None, None, 100, 600),
+            ("cylindrical_grinding", 5, 0.4, None, None, None, 100, 600),
             ("heat_treatment", None, None, None, None, None, None, None),
         ],
         availability=("available", "2026-05-10"),
@@ -418,7 +504,6 @@ def load_mock_companies() -> None:
             ("laser_cutting", None, None, 3070, 1550, None, None, None),
             ("bending", None, None, 3020, None, None, None, None),
             ("welding", None, None, None, None, None, None, None),
-            ("sheet_metal", None, None, 3070, 1550, None, None, None),
         ],
         availability=("available", "2026-05-01"),
         ratings=[(4.1, 4.0, 4.2, 4.0, 4.2)] * 5,
@@ -431,13 +516,12 @@ def load_mock_companies() -> None:
             ("hwacheon_cutex_160a", "CNC선반 F-1 (Hwacheon CUTEX-160A)"),
             ("jainnher_jhu_2706cnc", "원통연삭기 F-1 (Jainnher JHU-2706CNC)"),
         ],
-        material_specifics=["SM45C"],
-        material_categories=["carbon_steel"],
+        material_specifics=["SM45C", "SUM24L", "SUM22", "SUM23", "SUM43"],
+        material_categories=["carbon_steel", "free_cutting_steel"],
         processes=[
             ("turning", 4, 0.2, None, None, None, 60, 300),
             ("drilling", 7, None, None, None, None, 60, 300),
             ("cylindrical_grinding", 4, 0.1, None, None, None, 60, 300),
-            ("grinding", 4, 0.1, None, None, None, 60, 300),
             ("threading", 6, None, None, None, None, 60, 300),
         ],
         availability=("available", "2026-05-08"),
@@ -450,9 +534,10 @@ def load_mock_companies() -> None:
         catalog_equipment=[
             ("hwacheon_hl_580_2000", "CNC선반 G-1 (Hwacheon HL-580/2000)"),
             ("dn_solutions_dnm_5700", "3축MC G-1 (DN Solutions DNM 5700)"),
+            ("inductotherm_heavy_steel_shell_furnace_350kg_100t", "유도 용해로 G-1 (Inductotherm Heavy Steel Shell Furnace)"),
         ],
-        material_specifics=["GC200"],
-        material_categories=["gray_cast_iron", "cast_steel"],
+        material_specifics=["GC200", "GCD400", "GCD500", "GCD450", "GCD600", "GCD700"],
+        material_categories=["gray_cast_iron", "cast_steel", "ductile_cast_iron"],
         processes=[
             ("turning", 6, 0.8, None, None, None, 200, 800),
             ("milling", 6, 0.8, 570, 400, 460, None, None),
@@ -466,6 +551,8 @@ def load_mock_companies() -> None:
     )
 
     # ── H정공 (호닝/내면연삭 정밀 가공 전문) ──
+    # 보유 장비: 내면연삭기(JHI-150CNC, OIG-200)만 보유, 원통연삭기 미보유
+    # → cylindrical_grinding 제거, internal_grinding만 유지
     _insert_company(
         name="H정공",
         catalog_equipment=[
@@ -478,8 +565,6 @@ def load_mock_companies() -> None:
         material_categories=["alloy_steel", "carbon_steel"],
         processes=[
             ("internal_grinding", 3, 0.1, None, None, None, 150, 200),
-            ("grinding", 3, 0.1, None, None, None, 150, 200),
-            ("cylindrical_grinding", 4, 0.2, None, None, None, 150, 300),
             ("hobbing", 5, 0.8, None, None, None, 150, None),
         ],
         availability=("available", "2026-05-06"),
@@ -506,6 +591,9 @@ def load_mock_companies() -> None:
     )
 
     # ── J복합 (복합가공기 mill-turn 전문) ──
+    # boring: 복합가공기(INTEGREX, SMX3100ST, NTX 1000)의 밀링 스핀들로 보링 수행.
+    #         장비 카탈로그에 별도 boring capability row는 없으나, 밀링 스핀들의
+    #         보링바 장착으로 보링 공정 수행이 가능하므로 공정 목록에 유지.
     _insert_company(
         name="J복합",
         catalog_equipment=[
@@ -513,14 +601,15 @@ def load_mock_companies() -> None:
             ("dn_solutions_smx3100st", "복합가공기 J-2 (DN Solutions SMX3100ST)"),
             ("dmg_mori_ntx_1000", "복합가공기 J-3 (DMG MORI NTX 1000)"),
         ],
-        material_specifics=["SCM415", "SCM440", "STS304", "SM45C"],
-        material_categories=["alloy_steel"],
+        material_specifics=["SCM415", "SCM440", "STS304", "SM45C", "FR4", "G10", "Bakelite"],
+        material_categories=["alloy_steel", "composite_insulation"],
         processes=[
             ("turning", 4, 0.2, None, None, None, 150, 800),
             ("milling", 5, 0.4, 400, 300, 300, None, None),
             ("drilling", 6, None, 400, 300, 300, None, None),
             ("threading", 6, None, None, None, None, 150, 800),
-            ("boring", 5, 0.4, 400, 300, 300, None, None),
+            ("boring", 5, 0.4, 400, 300, 300, None, None),  # 복합가공기 밀링 스핀들로 보링 수행
+            ("polishing", None, None, None, None, None, None, None),
         ],
         availability=("limited", "2026-05-18"),
         ratings=[(4.6, 4.7, 4.5, 4.5, 4.3)] * 6,
@@ -556,14 +645,13 @@ def load_mock_companies() -> None:
             ("nabertherm_n_41_h", "열처리로 L-1 (Nabertherm N 41/H)"),
             ("ipsen_titan_h2", "진공열처리로 L-1 (Ipsen TITAN H2)"),
         ],
-        material_specifics=["SM45C", "S45C", "SCM415", "SCM440", "STS304", "A6061", "GC200"],
-        material_categories=["carbon_steel", "alloy_steel", "stainless_steel", "aluminum_alloy", "gray_cast_iron"],
+        material_specifics=["SM45C", "S45C", "SCM415", "SCM440", "STS304", "A6061", "GC200", "C3604", "C2600"],
+        material_categories=["carbon_steel", "alloy_steel", "stainless_steel", "aluminum_alloy", "gray_cast_iron", "copper_alloy"],
         processes=[
             ("turning", 6, 0.8, None, None, None, 150, 800),
             ("milling", 7, 0.8, 600, 400, 400, None, None),
             ("drilling", 8, None, 600, 400, 400, None, None),
             ("surface_grinding", 5, 0.4, 450, 150, None, None, None),
-            ("grinding", 5, 0.4, 450, 150, None, None, None),
             ("heat_treatment", None, None, None, None, None, None, None),
         ],
         availability=("available", "2026-05-04"),
@@ -583,7 +671,6 @@ def load_mock_companies() -> None:
         processes=[
             ("turning", 5, 0.4, None, None, None, 400, 2000),
             ("cylindrical_grinding", 4, 0.2, None, None, None, 320, 600),
-            ("grinding", 4, 0.2, None, None, None, 320, 600),
             ("threading", 6, None, None, None, None, 400, 2000),
         ],
         availability=("available", "2026-05-10"),
@@ -599,14 +686,13 @@ def load_mock_companies() -> None:
             ("nakamura_tome_as_200l", "복합가공기 N-1 (Nakamura-Tome AS-200L)"),
             ("kent_cgs_618m", "평면연삭기 N-1 (Kent CGS-618M)"),
         ],
-        material_specifics=["SCM415", "SCM440"],
+        material_specifics=["SCM415", "SCM440", "C3604", "C5191"],
         material_categories=["alloy_steel", "carbon_steel"],
         processes=[
             ("turning", 4, 0.2, None, None, None, 100, 500),
             ("milling", 6, 0.4, 200, 150, 150, None, None),
             ("drilling", 6, None, 200, 150, 150, None, None),
             ("surface_grinding", 5, 0.4, 450, 150, None, None, None),
-            ("grinding", 5, 0.4, None, None, None, 100, 500),
             ("threading", 6, None, None, None, None, 100, 500),
         ],
         availability=("limited", "2026-05-22"),
@@ -625,7 +711,7 @@ def load_mock_companies() -> None:
             ("fronius_iwave_230i_acdc", "TIG용접기 O-1 (Fronius iWave 230i AC/DC)"),
         ],
         material_specifics=["STS304", "STS316", "A6061", "SS400"],
-        material_categories=["stainless_steel", "aluminum_alloy", "sheet_steel", "copper_alloy"],
+        material_categories=["stainless_steel", "aluminum_alloy", "sheet_steel", "copper_alloy", "composite_insulation"],
         processes=[
             ("waterjet_cutting", None, None, 1524, 3048, None, None, None),
             ("plasma_cutting", None, None, 3000, 6000, None, None, None),
@@ -671,6 +757,48 @@ def load_mock_companies() -> None:
         ratings=[(3.5, 3.4, 3.6, 3.8, 3.8)] * 3,
     )
 
+    # ── R수지가공 (엔지니어링 플라스틱 전문 CNC) ──
+    _insert_company(
+        name="R수지가공",
+        catalog_equipment=[
+            ("hwacheon_cutex_160a", "CNC선반 R-1 (Hwacheon CUTEX-160A)"),
+            ("haas_vf_2", "3축MC R-1 (Haas VF-2)"),
+        ],
+        material_specifics=["POM", "MC_Nylon", "PEEK", "PC", "ABS", "PA6", "PTFE"],
+        material_categories=["engineering_plastic"],
+        processes=[
+            ("turning", 7, 0.8, None, None, None, None, None),
+            ("milling", 7, 0.8, None, None, None, None, None),
+            ("drilling", 8, None, None, None, None, None, None),
+            ("threading", 8, None, None, None, None, None, None),
+            ("polishing", None, None, None, None, None, None, None),
+        ],
+        availability=("available", "2026-05-15"),
+        ratings=[(4.3, 4.4, 4.2, 4.3, 4.4)] * 4,
+    )
+
+    # ── S스텐주조 (스테인리스 주강 전문, 주조 + 후가공) ──
+    _insert_company(
+        name="S스텐주조",
+        catalog_equipment=[
+            ("pillar_steel_frame_furnace_45_1361kg", "스테인리스 용해로 S-1 (Pillar Steel Frame Furnace, 45–1361 kg steel capacity)"),
+            ("dn_solutions_dnm_5700", "후가공 MC S-1 (DN Solutions DNM 5700)"),
+            ("hwacheon_hl_580_2000", "후가공 선반 S-1 (Hwacheon HL-580 x 2000)"),
+            ("ipsen_titan_h2", "고용화/열처리 협력 기준 모델 (Ipsen TITAN H2)"),
+        ],
+        material_specifics=["SCS13", "SCS14", "SCS16"],
+        material_categories=["stainless_cast_steel"],
+        processes=[
+            ("casting", None, None, None, None, None, None, None),
+            ("heat_treatment", None, None, None, None, None, None, None),
+            ("milling", 8, 1.6, None, None, None, None, None),
+            ("turning", 8, 1.6, None, None, None, None, None),
+            ("boring", 8, 1.6, None, None, None, None, None),
+        ],
+        availability=("available", "2026-05-20"),
+        ratings=[(4.2, 4.3, 4.1, 4.0, 4.2)] * 5,
+    )
+
     # MV 갱신
     db.execute_script("REFRESH MATERIALIZED VIEW imma.company_capability_summary;")
     logger.info("mock 업체 로딩 + MV REFRESH 완료")
@@ -700,10 +828,16 @@ def _insert_company(
         logger.info("업체 '%s' 이미 존재 — 스킵", name)
         return
 
+    login_slug = _COMPANY_LOGIN_SLUG.get(name, name.lower().replace(" ", "_"))
+    login_email = f"{login_slug}@imma-mock.local"
+
     row = db.execute_returning(
-        """INSERT INTO imma.companies (company_name, status, onboarding_status)
-           VALUES (%s, 'active', 'verified') RETURNING company_id""",
-        (name,),
+        """INSERT INTO imma.companies
+           (company_name, login_id, main_email, password_hash,
+            status, onboarding_status)
+           VALUES (%s, %s, %s, %s, 'active', 'verified')
+           RETURNING company_id""",
+        (name, login_slug, login_email, _MOCK_PASSWORD_HASH),
     )
     cid = str(row[0])
 
@@ -717,7 +851,8 @@ def _insert_company(
                            (SELECT material_id FROM imma.materials WHERE material_code = %s),
                            (SELECT material_id FROM imma.material_aliases WHERE alias_text = %s)
                        ),
-                       'regular')""",
+                       'regular')
+               ON CONFLICT DO NOTHING""",
             (cid, mat_code, mat_code),
         )
 
@@ -726,7 +861,8 @@ def _insert_company(
         db.execute_insert(
             """INSERT INTO imma.company_material_capabilities
                (company_id, scope_type, material_category_code, capability_level)
-               VALUES (%s, 'material_category', %s, 'regular')""",
+               VALUES (%s, 'material_category', %s, 'regular')
+               ON CONFLICT DO NOTHING""",
             (cid, cat_code),
         )
 
@@ -760,28 +896,6 @@ def _insert_company(
             (cid, pcode),
         )
         inserted_proc_codes.add(pcode)
-
-    # parent_process_code 자동 포함: 하위 공정이 있으면 상위 공정도 추가
-    all_codes = list(inserted_proc_codes)
-    if all_codes:
-        parent_rows = db.execute_query(
-            """SELECT DISTINCT parent_process_code
-               FROM imma.process_catalog
-               WHERE process_code = ANY(%s)
-                 AND parent_process_code IS NOT NULL""",
-            (all_codes,),
-        )
-        for pr in parent_rows:
-            parent_code = pr["parent_process_code"]
-            if parent_code not in inserted_proc_codes:
-                db.execute_insert(
-                    """INSERT INTO imma.company_process_capabilities
-                       (company_id, process_code, best_achievable_it_grade, best_ra_um)
-                       VALUES (%s, %s, NULL, NULL)
-                       ON CONFLICT DO NOTHING""",
-                    (cid, parent_code),
-                )
-                inserted_proc_codes.add(parent_code)
 
     # equipment + equipment_process_capabilities — 카탈로그 기반
     for model_id, display_name in catalog_equipment:
@@ -840,6 +954,7 @@ def _insert_company(
             _FALLBACK_PROC = {
                 "heat_treatment_furnace": "heat_treatment",
                 "welding_equipment": "welding",
+                "casting_foundry": "casting",
             }
             ecc = eq_info.get("equipment_category_code", "")
             fallback_proc = _FALLBACK_PROC.get(ecc)
@@ -852,6 +967,53 @@ def _insert_company(
                     (eid, fallback_proc),
                 )
 
+    # company_material_process_capabilities — 재질×공정 결합 테이블 seed
+    # material_specifics × processes 조합에서 비가공 공정(heat_treatment, casting 등)을 제외하고 생성
+    _NON_MACHINING_FOR_CMPC = {
+        "heat_treatment", "welding", "surface_treatment", "casting",
+        "sheet_metal", "polishing", "cleaning", "final_inspection", "deburring",
+    }
+    for mat_code in material_specifics:
+        for proc in processes:
+            (pc, it, ra, mx, my, mz, td, tl) = proc
+            if pc in _NON_MACHINING_FOR_CMPC:
+                continue
+            db.execute_insert(
+                """INSERT INTO imma.company_material_process_capabilities
+                   (company_id, material_id, process_code,
+                    typical_it_grade, best_achievable_it_grade,
+                    typical_ra_um, best_ra_um,
+                    max_x_mm, max_y_mm, max_z_mm,
+                    max_turning_diameter_mm, max_turning_length_mm,
+                    capability_source)
+                   SELECT %s,
+                          (SELECT material_id FROM imma.materials WHERE material_code = %s),
+                          %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                          'spec_based_estimate'
+                   WHERE EXISTS (SELECT 1 FROM imma.materials WHERE material_code = %s)
+                   ON CONFLICT DO NOTHING""",
+                (cid, mat_code, pc, it, it, ra, ra, mx, my, mz, td, tl, mat_code),
+            )
+    # material_categories × processes 조합 (카테고리 수준)
+    for cat_code in material_categories:
+        for proc in processes:
+            (pc, it, ra, mx, my, mz, td, tl) = proc
+            if pc in _NON_MACHINING_FOR_CMPC:
+                continue
+            db.execute_insert(
+                """INSERT INTO imma.company_material_process_capabilities
+                   (company_id, material_category_code, process_code,
+                    typical_it_grade, best_achievable_it_grade,
+                    typical_ra_um, best_ra_um,
+                    max_x_mm, max_y_mm, max_z_mm,
+                    max_turning_diameter_mm, max_turning_length_mm,
+                    capability_source)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                           'spec_based_estimate')
+                   ON CONFLICT DO NOTHING""",
+                (cid, cat_code, pc, it, it, ra, ra, mx, my, mz, td, tl),
+            )
+
     # company_availability_snapshot
     db.execute_insert(
         """INSERT INTO imma.company_availability_snapshot
@@ -862,6 +1024,7 @@ def _insert_company(
 
     # reviews (mock buyer 필요)
     buyer_name = f"테스트바이어_{name}"
+    buyer_login_id = f"buyer_{login_slug}"
     existing_buyer = db.execute_query(
         "SELECT buyer_id FROM imma.buyers WHERE buyer_name = %s",
         (buyer_name,),
@@ -870,9 +1033,10 @@ def _insert_company(
         bid = str(existing_buyer[0]["buyer_id"])
     else:
         buyer_row = db.execute_returning(
-            """INSERT INTO imma.buyers (buyer_name, email)
-               VALUES (%s, %s) RETURNING buyer_id""",
-            (buyer_name, f"test_{name}@example.com"),
+            """INSERT INTO imma.buyers (buyer_name, login_id, email, password_hash)
+               VALUES (%s, %s, %s, %s) RETURNING buyer_id""",
+            (buyer_name, buyer_login_id, f"test_{name}@example.com",
+             _MOCK_PASSWORD_HASH),
         )
         bid = str(buyer_row[0])
     for r in ratings:
@@ -886,12 +1050,143 @@ def _insert_company(
         )
 
 
+def _seed_admin() -> None:
+    """관리자 계정 1개를 admins 테이블에 seed한다. 테이블 미존재 시 안전하게 넘어간다."""
+    try:
+        existing = db.execute_query(
+            "SELECT admin_id FROM imma.admins WHERE login_id = %s",
+            ("admin",),
+        )
+        if existing:
+            logger.info("admin 계정 이미 존재 — 스킵")
+            return
+        db.execute_insert(
+            """INSERT INTO imma.admins (login_id, name, email, password_hash, role)
+               VALUES (%s, %s, %s, %s, %s)""",
+            ("admin", "관리자", "admin@imma.local", _MOCK_PASSWORD_HASH, "superadmin"),
+        )
+        logger.info("admin seed 완료")
+    except Exception:
+        logger.warning("admins 테이블 seed 실패 (테이블 미존재 가능)", exc_info=True)
+
+
+def _seed_demo_buyers() -> None:
+    """데모용 발주자 계정을 seed한다."""
+    demo_pw = _hash_password("demo1234")
+    buyers = [
+        ("kim_cheolsu", "김철수", "세진테크 반도체장비사업부", "cheolsu@sejin-demo.com", "010-1234-5678"),
+        ("park_jiyoung", "박지영", "대한모터스 소형차설계팀", "jiyoung@daehan-demo.com", "010-2345-6789"),
+        ("lee_minho", "이민호", "한성에너지 터빈사업부", "minho@hansung-demo.com", "010-3456-7890"),
+        ("choi_soojin", "최수진", "미래항공 정밀기계팀", "soojin@mirae-demo.com", "010-4567-8901"),
+        ("jung_taewoo", "정태우", "광진이노텍 광학솔루션팀", "taewoo@gwangjin-demo.com", "010-5678-9012"),
+    ]
+    for login_id, name, company, email, phone in buyers:
+        db.execute_insert(
+            """INSERT INTO imma.buyers (login_id, buyer_name, company_name, email, phone, password_hash)
+               VALUES (%s, %s, %s, %s, %s, %s)
+               ON CONFLICT (login_id) DO NOTHING""",
+            (login_id, name, company, email, phone, demo_pw),
+        )
+    logger.info("데모 발주자 %d명 seed", len(buyers))
+
+
+def _seed_equipment_schedule() -> None:
+    """장비별 90일 스케줄 + 업체 가용성 snapshot을 seed한다."""
+    from datetime import date, timedelta
+    import random
+    random.seed(42)
+
+    base_date = date(2026, 5, 18)
+
+    company_profiles = {
+        "A정밀": "busy", "B공업": "moderate", "C테크": "moderate", "D가공": "free",
+        "E제작": "moderate", "F정밀": "busy", "G주철": "free", "H정공": "busy",
+        "I에어로": "busy", "J복합": "moderate", "K방전": "moderate", "L범용": "free",
+        "M대형": "free", "N밸브": "busy", "O워터젯": "moderate", "P프레스": "moderate",
+        "Q범용선반": "free", "R수지가공": "free", "S스텐주조": "free",
+    }
+
+    patterns = {
+        "busy": {"available": 0.15, "partially_booked": 0.35, "fully_booked": 0.40, "maintenance": 0.10},
+        "moderate": {"available": 0.30, "partially_booked": 0.40, "fully_booked": 0.20, "maintenance": 0.10},
+        "free": {"available": 0.50, "partially_booked": 0.30, "fully_booked": 0.10, "maintenance": 0.10},
+    }
+
+    equipment = db.execute_query(
+        """SELECT c.company_id, c.company_name, e.equipment_id
+           FROM imma.companies c JOIN imma.equipment e ON c.company_id = e.company_id
+           WHERE e.status = 'running'"""
+    )
+
+    inserted = 0
+    for eq in equipment:
+        company = eq["company_name"]
+        eid = str(eq["equipment_id"])
+        cid = str(eq["company_id"])
+        profile = company_profiles.get(company, "moderate")
+        probs = patterns[profile]
+
+        for day_offset in range(90):
+            d = base_date + timedelta(days=day_offset)
+            if d.weekday() >= 5:
+                status = "off" if random.random() > 0.2 else "available"
+                booked = 0.0 if status == "off" else 2.0
+            else:
+                r = random.random()
+                cumul = 0
+                status = "available"
+                for s, p in probs.items():
+                    cumul += p
+                    if r <= cumul:
+                        status = s
+                        break
+                if status == "available":
+                    booked = round(random.uniform(0.0, 2.0), 1)
+                elif status == "partially_booked":
+                    booked = round(random.uniform(3.0, 6.0), 1)
+                elif status == "fully_booked":
+                    booked = round(random.uniform(7.0, 8.0), 1)
+                elif status == "maintenance":
+                    booked = 0.0
+
+            db.execute_insert(
+                """INSERT INTO imma.equipment_daily_schedule
+                   (equipment_id, company_id, schedule_date, status, planned_hours, booked_hours)
+                   VALUES (%s::uuid, %s::uuid, %s, %s, 8.0, %s)
+                   ON CONFLICT (equipment_id, schedule_date) DO UPDATE SET
+                       status = EXCLUDED.status, booked_hours = EXCLUDED.booked_hours""",
+                (eid, cid, d.isoformat(), status, booked),
+            )
+            inserted += 1
+
+    # snapshot 보정
+    for cname, profile in company_profiles.items():
+        nad = {
+            "busy": date(2026, 5, 22),
+            "moderate": date(2026, 5, 20),
+            "free": date(2026, 5, 18),
+        }[profile]
+        snap_status = "limited" if profile == "busy" else "available"
+        db.execute_insert(
+            """UPDATE imma.company_availability_snapshot cas
+               SET overall_status = %s, next_available_date = %s
+               FROM imma.companies c
+               WHERE cas.company_id = c.company_id AND c.company_name = %s""",
+            (snap_status, nad.isoformat(), cname),
+        )
+
+    logger.info("장비 스케줄 %d행 + snapshot 보정 완료", inserted)
+
+
 def setup_all() -> None:
-    """create_schema -> seed_reference_data -> load_equipment_catalog -> load_mock_companies 순차 실행."""
+    """create_schema -> seed_reference_data -> load_equipment_catalog -> load_mock_companies -> admin/buyer/schedule seed 순차 실행."""
     create_schema()
     seed_reference_data()
     load_equipment_catalog()
     load_mock_companies()
+    _seed_admin()
+    _seed_demo_buyers()
+    _seed_equipment_schedule()
     logger.info("전체 셋업 완료")
 
 

@@ -1,236 +1,61 @@
-# IMMA FastAPI Server
+# IMMA — Intelligent Manufacturing Matching Agent
 
-## 2026-05-02 기준 운영 통합 상태
+제조업 발주자가 도면을 업로드하면 AI(VLM + GraphRAG)가 분석하고 가공 가능한 업체를 자동 매칭하는 플랫폼.
 
-현재 서버는 기존 v1 매칭 API와 신규 v2 RAG/DB 매칭 API를 함께 유지합니다.
+## 구성
 
-### 완료된 항목
+- **백엔드**: FastAPI (60 API + 22 UI 라우트)
+- **DB**: PostgreSQL 15+ (imma 스키마)
+- **그래프 DB**: Neo4j 5.x (493노드 / 1015관계)
+- **VLM**: Replicate API (Qwen2-VL 7B 또는 Qwen3-VL)
+- **GraphRAG**: LangGraph ReAct + Gemini 3 Flash Preview
+- **프론트엔드**: `machhub_ui` (정적 HTML/CSS/JS, FastAPI가 서빙)
 
-- Railway PostgreSQL 연결 성공
-- IMMA 스키마/seed 구성 완료
-- lookup_data.json / equipment_catalog.json 로드
-- RAG pipeline CLI 실행 성공
-- RAG pipeline FastAPI 실행 성공
-- GitHub 운영 repo에 pipeline/lookup_tables 추가
-- 기존 main.py 유지
-- 신규 POST /api/match-v2 추가
-- Railway 운영 서버 배포 성공
-- Swagger에서 /api/match-v2 200 응답 확인
-- equipment_verified true/false 반환 확인
+## 핵심 흐름 (5단계 매칭)
 
-### API 구분
+1. **도면 업로드** (`POST /vlm/analyze-upload`) — 발주자가 도면 이미지 업로드
+2. **VLM 분석** — Replicate API가 도면을 V.B raw JSON으로 추출
+3. **자동 GraphRAG 변환** — Gemini가 V.B raw를 구조화 JSON으로 변환 (`POST /api/match-v2`)
+4. **매칭** — SQL 하드필터 + 장비 검증 + 가용성 점수 산출
+5. **견적·발주** — 가공업체가 응답·견적 제출 → 발주자가 비교·발주
 
-#### v1 매칭
+## 빠른 시작 (로컬)
 
-GET /match/{rfq_id}
+```bash
+# 1. 환경변수 설정 (.env 파일)
+DATABASE_URL=postgresql:///imma
+JWT_SECRET=<32바이트 이상 안전 문자열>
+REPLICATE_API_TOKEN=<Replicate 토큰>
+REPLICATE_MODEL_VERSION=<Qwen2-VL 모델 version hash>
+GEMINI_API_KEY=<Gemini API 키>
+NEO4J_URI=<bolt://...>
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=<...>
+ALLOWED_ORIGINS=http://localhost:8000
 
-기존 DB의 RFQ 데이터를 기반으로 material/process 조건에 맞는 supplier를 조회하는 간단 매칭 API입니다.
+# 2. 의존성 설치
+pip install -r requirements.txt
 
-#### v2 매칭
+# 3. DB 초기화 (mock 데이터 + 시드)
+python pipeline/setup_db.py
 
-POST /api/match-v2
+# 4. 서버 실행
+uvicorn main:app --reload --port 8000
+```
 
-VLM이 도면에서 추출한 JSON을 입력으로 받아 RAG/DB 기반 제조사 매칭 파이프라인을 실행합니다.
+## Railway 배포
 
-테스트 입력 예시:
-sample_vlm_result.json
+`RAILWAY_DEPLOY.md` 참조.
 
-정상 응답 예시:
-sample_match_v2_response.json
+## 시연 계정
 
+| 역할 | login_id | password |
+|---|---|---|
+| buyer | `kim_cheolsu` | `demo1234` |
+| admin | `admin` | `test1234` |
+| supplier (mock) | `b_industry` 등 19개 | `test1234` |
 
+## 문서
 
-
-
-
-
-## 향후 확장용 ERD 초안
-
-주의: 아래 ERD는 현재 운영 DB의 실제 테이블과 완전히 동일한 구현본이 아니라,
-IMMA 서비스 확장을 위한 목표 구조 초안입니다.
-
-# fas
-erDiagram
-
-    users {
-        int user_id PK
-        string name
-        string email
-        string phone
-        string signup_channel
-        string role
-    }
-
-    companies {
-        int company_id PK
-        string company_name
-        string company_type
-        string region
-        string main_products
-        string verified_status
-    }
-
-    company_members {
-        int company_member_id PK
-        int company_id FK
-        int user_id FK
-        string position_name
-        bool is_owner
-    }
-
-    supplier_profiles {
-        int supplier_profile_id PK
-        int company_id FK
-        int min_order_qty
-        int max_order_qty
-        int lead_time_min_days
-        int lead_time_max_days
-        string precision_level
-        string capacity_status
-    }
-
-    supplier_company_machines {
-        int id PK
-        int company_id FK
-        int machine_id FK
-    }
-
-    supplier_company_processes {
-        int id PK
-        int company_id FK
-        int process_id FK
-    }
-
-    supplier_company_materials {
-        int id PK
-        int company_id FK
-        int material_id FK
-    }
-
-    machines {
-        int machine_id PK
-        string machine_name
-        string machine_type
-    }
-
-    processes {
-        int process_id PK
-        string process_name
-        string process_group
-    }
-
-    materials {
-        int material_id PK
-        string material_name
-        string material_group
-    }
-
-    quote_requests {
-        int request_id PK
-        int requester_user_id FK
-        int requester_company_id FK
-        string project_name
-        string manufacturing_type
-        int material_id FK
-        int quantity
-        date delivery_due_date
-        string product_usage
-        string detail_request_text
-        string status
-    }
-
-    quote_request_required_processes {
-        int required_process_id PK
-        int request_id FK
-        int process_id FK
-        string source_type
-        float confidence_score
-    }
-
-    quote_request_metadata {
-        int metadata_id PK
-        int request_id FK
-        json raw_extracted_json
-        json normalized_json
-        string extraction_model
-    }
-
-    quote_request_validation_results {
-        int validation_id PK
-        int request_id FK
-        string check_type
-        string severity
-        string message
-        bool is_resolved
-    }
-
-    supplier_matches {
-        int match_id PK
-        int request_id FK
-        int supplier_company_id FK
-        float match_score
-        float machine_score
-        float process_score
-        float material_score
-        float delivery_score
-        int rank_order
-        string match_reason
-    }
-
-    quotations {
-        int quotation_id PK
-        int request_id FK
-        int supplier_company_id FK
-        int quoted_price
-        string currency
-        int lead_time_days
-        string quotation_text
-        string status
-    }
-
-    orders {
-        int order_id PK
-        int request_id FK
-        int quotation_id FK
-        int requester_company_id FK
-        int supplier_company_id FK
-        string order_status
-        string payment_method
-    }
-
-    reviews {
-        int review_id PK
-        int order_id FK
-        int reviewer_user_id FK
-        int supplier_company_id FK
-        int rating
-        string review_text
-    }
-
-    %% 관계 정의
-    users ||--o{ company_members : "소속"
-    companies ||--o{ company_members : "구성"
-    companies ||--o| supplier_profiles : "공급자 프로필"
-    companies ||--o{ supplier_company_machines : "보유장비"
-    companies ||--o{ supplier_company_processes : "가공공정"
-    companies ||--o{ supplier_company_materials : "취급소재"
-    machines ||--o{ supplier_company_machines : ""
-    processes ||--o{ supplier_company_processes : ""
-    materials ||--o{ supplier_company_materials : ""
-
-    users ||--o{ quote_requests : "요청자"
-    companies ||--o{ quote_requests : "요청사"
-    materials ||--o{ quote_requests : "소재"
-    quote_requests ||--o{ quote_request_required_processes : "필요공정"
-    quote_requests ||--o| quote_request_metadata : "VLM추출"
-    quote_requests ||--o{ quote_request_validation_results : "검증결과"
-    quote_requests ||--o{ supplier_matches : "매칭결과"
-    quote_requests ||--o{ quotations : "견적"
-    processes ||--o{ quote_request_required_processes : ""
-
-    quotations ||--o| orders : "발주"
-    orders ||--o| reviews : "리뷰"
-    users ||--o{ reviews : "작성자"
-    companies ||--o{ reviews : "대상업체"
-    companies ||--o{ supplier_matches : "매칭업체"
-    companies ||--o{ quotations : "견적업체"
+- `IMMA_UI_connection_plan_v3.md`: Phase 1 UI ↔ 백엔드 연결 계획서 (v3 — 최신)
+- `IMMA_구현_현황서.md`: 백엔드 기술 스펙 현황

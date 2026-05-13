@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 견적 요청</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    .upload-area {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      gap: 20px;
+    }
+    .section-label { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    .required-dot { background: #FEF2F2; color: #EF4444; font-size: 12px; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+    
+    .upload-box {
+      border: 2px dashed var(--border);
+      background: #FAFBFC;
+      border-radius: var(--radius);
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-box:hover { border-color: var(--primary); background: #FEFDF0; }
+    .upload-icon { font-size: 40px; color: var(--primary-accent); margin-bottom: 16px; opacity: 0.5; }
+    .upload-box p { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 8px; }
+    .upload-box p.sub { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+    .form-group label { display: block; font-size: 14px; font-weight: 700; color: #444; margin-bottom: 8px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; font-family: inherit; transition: all 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px rgba(255,209,0,0.1); }
+    
+    .summary-card { position: sticky; top: 100px; }
+    .summary-title { font-size: 18px; font-weight: 800; color: #111; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--primary); }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+    .summary-row .label { color: var(--text-muted); font-weight: 500; }
+    .summary-row .val { font-weight: 700; color: #111; }
+    .summary-total { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .summary-total .label { font-size: 16px; font-weight: 800; color: #111; }
+    .summary-total .val { font-size: 24px; font-weight: 900; color: var(--text-dark); }
+    
+    .upload-formats h4 { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 8px; }
+    .upload-formats ul { list-style: none; padding: 0; }
+    .upload-formats li { font-size: 12px; color: var(--text-muted); padding: 2px 0; display: flex; align-items: center; gap: 6px; }
+    .upload-formats li::before { content: '•'; color: var(--primary); font-weight: 900; }
+    .upload-limit { margin-top: 12px; font-size: 12px; color: #BFC7D4; }
+
+    /* Sidebar: Progress Steps */
+    .progress-steps { margin-bottom: 24px; }
+    .prog-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .prog-step:last-child { border-bottom: none; }
+    .prog-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+      border: 2px solid var(--border);
+      background: white;
+      color: var(--text-muted);
+    }
+    .prog-step.active .prog-num { background: var(--primary); border-color: var(--primary); color: #000; }
+    .prog-step.active .prog-title { font-weight: 700; color: #111; }
+    .prog-title { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
+    .prog-desc { font-size: 12px; color: var(--text-muted); }
+
+    /* Summary Sidebar */
+    .summary-rows { display: flex; flex-direction: column; gap: 0; }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-key { color: var(--text-muted); }
+    .summary-val { font-weight: 600; color: #111; }
+
+    .submit-area {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin-top: 24px;
+    }
+    .submit-area .disclaimer { font-size: 12px; color: var(--text-muted); margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+    .hint-box {
+      background: rgba(255,209,0,0.08);
+      border: 1px solid rgba(255,209,0,0.3);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #7A5C00;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-top: 12px;
+    }
+    .hint-box i { color: var(--primary-dark); flex-shrink: 0; margin-top: 1px; }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/client">대시보드</a></li>
+    <li><a href="/#service-intro">서비스 소개</a></li>
+    <li><a href="/how-to-use">이용 방법</a></li>
+    <li><a href="/process-flow">프로세스</a></li>
+    <li><a href="/search-suppliers">업체 찾기</a></li>
+    <li><a href="/support">고객지원</a></li>
+  </ul>
+  <div class="header-actions">
+    <a class="btn-login" href="/">로그인</a>
+    <a class="btn-signup" href="/client-register">회원가입</a>
+  </div>
+</header>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="/"><i class="ri-home-4-line"></i> 홈</a>
+    <span>&gt;</span>
+    <span class="current">견적 요청</span>
+  </div>
+
+  <div class="page-title" style="margin-bottom:28px;">
+    <h1>견적 요청</h1>
+    <p>도면과 요구사항을 입력하시면 여러 가공업체로부터 견적을 받아보실 수 있습니다.</p>
+  </div>
+
+  <div class="two-col">
+    <!-- Main Form -->
+    <div>
+      <!-- Section 1: File Upload -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-label">
+          1. 도면 파일 업로드 <span class="required-dot">필수</span>
+        </div>
+        <div class="upload-area">
+          <div class="upload-box" onclick="document.getElementById('file-input').click()">
+            <input type="file" id="file-input" hidden multiple>
+            <div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div>
+            <p>도면 파일을 드래그하거나 클릭하여 업로드</p>
+            <p class="sub">DWG, DXF, PDF, STEP, IGES 등 파일을 지원합니다.</p>
+        <button type="button" class="btn-primary" style="margin-top:16px;" onclick="event.stopPropagation(); document.getElementById('file-input').click()">파일 선택</button>
+            <p class="sub" style="margin-top:10px;">선택된 파일: <span id="file-name-display" style="font-weight:600; color:#111;">없음</span></p>
+          </div>
+          <div class="upload-formats card" style="padding:16px;">
+            <h4>지원 파일 형식</h4>
+            <ul>
+              <li>DWG, DXF</li>
+              <li>PDF</li>
+              <li>STEP, STP</li>
+              <li>IGES, IGS</li>
+              <li>JPG, PNG (이미지 도면)</li>
+            </ul>
+            <div class="upload-limit">최대 100MB / 파일, 최대 20개</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Basic Info -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-label">2. 기본 요청 정보 <span class="required-dot">필수</span></div>
+
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>수량(개) <span style="color:var(--danger)">*</span></label>
+            <input type="number" placeholder="예) 100">
+          </div>
+          <div class="form-group">
+            <label>소재</label>
+            <select>
+              <option value="">소재를 선택하세요</option>
+              <option>AL6061</option>
+              <option>SUS304</option>
+              <option>SCM440</option>
+              <option>S45C</option>
+              <option>기타</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>가공 공정</label>
+            <select>
+              <option value="">가공 공정을 선택하세요</option>
+              <option>CNC 가공</option>
+              <option>선반 가공</option>
+              <option>밀링</option>
+              <option>방전 가공</option>
+              <option>판금/절곡</option>
+              <option>기타</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>공차 <i class="ri-question-line" style="color:var(--text-muted)"></i></label>
+            <input type="text" placeholder="예) ±0.01mm">
+          </div>
+          <div class="form-group">
+            <label>표면처리</label>
+            <select>
+              <option value="">선택하세요 (선택)</option>
+              <option>아노다이징</option>
+              <option>도금</option>
+              <option>도장</option>
+              <option>없음</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>열처리</label>
+            <select>
+              <option value="">선택하세요 (선택)</option>
+              <option>담금질</option>
+              <option>풀림</option>
+              <option>없음</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>납기 희망일</label>
+            <input type="date" placeholder="날짜를 선택하세요">
+          </div>
+          <div class="form-group">
+            <label>예산 범위</label>
+            <select>
+              <option value="">예산 범위를 선택하세요</option>
+              <option>50만원 미만</option>
+              <option>50~100만원</option>
+              <option>100~500만원</option>
+              <option>500만원 이상</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>납품 지역</label>
+            <select>
+              <option value="">지역을 선택하세요</option>
+              <option>서울/경기</option>
+              <option>인천</option>
+              <option>부산/경남</option>
+              <option>대구/경북</option>
+              <option>전국 가능</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Additional Info -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-label">3. 추가 요청 정보 <span style="font-size:12px;font-weight:500;color:var(--text-muted);">선택</span></div>
+        <div class="form-grid form-grid-2">
+          <div class="form-group">
+            <label>인증 및 검사 요구사항</label>
+            <textarea rows="4" placeholder="예) ISO 9001, 시험성적서, 검사보고서 등" style="resize:none;"></textarea>
+          </div>
+          <div class="form-group">
+            <label>추가 요청사항</label>
+            <textarea rows="4" placeholder="기타 참고사항이나 특별 요청사항을 입력해주세요." style="resize:none;"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="submit-area">
+        <a href="/matching-ui" class="btn-primary btn-lg w-full" style="justify-content:center;font-size:16px;">견적 요청 제출하기</a>
+        <p class="disclaimer"><i class="ri-lock-2-line"></i> 입력하신 정보는 안전하게 보호됩니다.</p>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div>
+      <!-- Progress Steps -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">요청 진행 단계</div>
+        <div class="progress-steps">
+          <div class="prog-step active">
+            <div class="prog-num">1</div>
+            <div>
+              <div class="prog-title">견적 요청 정보 입력</div>
+              <div class="prog-desc">현재 단계</div>
+            </div>
+          </div>
+          <div class="prog-step">
+            <div class="prog-num">2</div>
+            <div>
+              <div class="prog-title">요청 검토 및 업체 배칭</div>
+              <div class="prog-desc">영업일 기준 1일 이내</div>
+            </div>
+          </div>
+          <div class="prog-step">
+            <div class="prog-num">3</div>
+            <div>
+              <div class="prog-title">업체로부터 견적 수신</div>
+              <div class="prog-desc">영업일 기준 1~3일</div>
+            </div>
+          </div>
+          <div class="prog-step">
+            <div class="prog-num">4</div>
+            <div>
+              <div class="prog-title">견적 비교 및 업체 선정</div>
+              <div class="prog-desc">고객 직접 비교 후 선택</div>
+            </div>
+          </div>
+          <div class="prog-step">
+            <div class="prog-num">5</div>
+            <div>
+              <div class="prog-title">발주 및 계약 진행</div>
+              <div class="prog-desc">선정 업체와 계약 체결</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="card">
+        <div class="card-title">요청 정보 요약</div>
+        <div class="summary-rows">
+          <div class="summary-row"><span class="summary-key">업로드 파일</span><span class="summary-val" id="s-file">0개</span></div>
+          <div class="summary-row"><span class="summary-key">수량</span><span class="summary-val" id="s-qty">-</span></div>
+          <div class="summary-row"><span class="summary-key">소재</span><span class="summary-val" id="s-mat">-</span></div>
+          <div class="summary-row"><span class="summary-key">가공 공정</span><span class="summary-val" id="s-proc">-</span></div>
+          <div class="summary-row"><span class="summary-key">납기 희망일</span><span class="summary-val" id="s-date">-</span></div>
+          <div class="summary-row"><span class="summary-key">예산 범위</span><span class="summary-val" id="s-budget">-</span></div>
+        </div>
+        <div class="hint-box">
+          <i class="ri-information-line"></i>
+          <span>필수 정보를 모두 입력하시면 정확한 견적 매칭이 가능합니다.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="imma-footer">
+  <div class="footer-inner">
+    <div>
+      <div class="footer-logo">IMM<span>A</span></div>
+      <div class="footer-desc">지능형 제조 매칭 플랫폼<br>© 2026 IMMA. All rights reserved.</div>
+    </div>
+    <ul class="footer-links">
+      <li><a href="/how-to-use">회사 소개</a></li><li><a href="/support">이용약관</a></li>
+      <li><a href="/support">개인정보처리방침</a></li><li><a href="/support">파트너 문의</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+  // Live summary update
+  document.querySelector('input[type=number]').addEventListener('input', e => {
+    document.getElementById('s-qty').textContent = e.target.value ? e.target.value + '개' : '-';
+  });
+  document.querySelectorAll('select')[0].addEventListener('change', e => {
+    document.getElementById('s-mat').textContent = e.target.value || '-';
+  });
+  document.querySelectorAll('select')[1].addEventListener('change', e => {
+    document.getElementById('s-proc').textContent = e.target.value || '-';
+  });
+  document.querySelector('input[type=date]').addEventListener('change', e => {
+    document.getElementById('s-date').textContent = e.target.value || '-';
+  });
+  document.querySelectorAll('select')[4].addEventListener('change', e => {
+    document.getElementById('s-budget').textContent = e.target.value || '-';
+  });
+  async function uploadDrawingToServer(file) {
+    const displaySpan = document.getElementById('file-name-display');
+    const sFile = document.getElementById('s-file');
+    
+    displaySpan.textContent = "업로드 중: " + file.name + "...";
+    displaySpan.style.color = "#7A5C00";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/drawings/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!res.ok) {
+        if (res.status === 500) {
+          throw new Error("이미 업로드된 파일이거나 중복 파일일 수 있습니다.");
+        }
+        const text = await res.text();
+        throw new Error(`도면 업로드 실패: ${res.status} ${text}`);
+      }
+
+      const data = await res.json();
+      
+      // Save to localStorage
+      localStorage.setItem('imma_drawing_id', data.drawing_id);
+      localStorage.setItem('imma_drawing_file_uri', data.file_uri);
+      localStorage.setItem('imma_drawing_original_filename', data.original_filename);
+      localStorage.setItem('imma_drawing_sha256', data.file_sha256);
+
+      // Update UI
+      displaySpan.innerHTML = `도면 업로드 완료: ${data.original_filename} <br><small style="font-size:10px; color:#888; font-weight:400; display:block; margin-top:4px;">ID: ${data.drawing_id}</small>`;
+      displaySpan.style.color = "#059669"; // Success green
+      sFile.textContent = "1개 (업로드됨)";
+      
+      return data;
+    } catch (err) {
+      console.error(err);
+      displaySpan.textContent = "업로드 실패: " + err.message;
+      displaySpan.style.color = "#dc2626"; // Error red
+      alert(err.message);
+      throw err;
+    }
+  }
+
+  document.getElementById('file-input').addEventListener('change', async e => {
+    const files = e.target.files;
+    if (files.length === 0) return;
+    
+    // For this task, we upload the first file
+    try {
+      await uploadDrawingToServer(files[0]);
+    } catch (err) {
+      // Error already handled in uploadDrawingToServer
+    }
+  });
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

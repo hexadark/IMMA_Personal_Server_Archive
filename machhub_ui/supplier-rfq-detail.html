@@ -1,0 +1,348 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 견적 요청 상세</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    /* DASHBOARD LAYOUT */
+    .dash-container { display: flex; height: 100vh; overflow: hidden; background: #f4f7fa; }
+    .dash-sidebar { width: 260px; background: #1a1c1e; color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
+    .dash-logo { padding: 32px 24px; font-size: 24px; font-weight: 900; color: white; letter-spacing:0; }
+    .dash-logo span { color: var(--primary); }
+    .dash-nav { flex: 1; padding: 0 16px; }
+    .dash-nav a { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: #a0aec0; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 12px; transition: all 0.2s; margin-bottom: 4px; }
+    .dash-nav a:hover { background: rgba(255,255,255,0.05); color: white; }
+    .dash-nav a.active { background: var(--primary); color: #000; }
+    .dash-nav a i { font-size: 20px; }
+    .nav-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0; }
+    .dash-user { padding: 24px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; }
+    .u-avatar { width: 40px; height: 40px; border-radius: 10px; background: #2d3748; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #a0aec0; }
+    .u-info { flex: 1; }
+    .u-name { font-size: 14px; font-weight: 700; color: white; }
+    .u-role { font-size: 11px; color: #a0aec0; }
+    .logout-btn { color: #a0aec0; cursor: pointer; transition: color 0.2s; }
+    .logout-btn:hover { color: #fc8181; }
+
+    .dash-main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+    .dash-topbar { height: 72px; background: white; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 40px; position: sticky; top: 0; z-index: 10; }
+    .topbar-search { display: flex; align-items: center; gap: 12px; background: #f7fafc; padding: 10px 16px; border-radius: 10px; width: 400px; border: 1px solid transparent; transition: all 0.2s; }
+    .topbar-search:focus-within { background: white; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,209,0,0.1); }
+    .topbar-search input { border: none; background: transparent; outline: none; font-family: inherit; font-size: 14px; width: 100%; }
+    .topbar-search i { color: #a0aec0; font-size: 18px; }
+    .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .action-item { width: 38px; height: 38px; border-radius: 8px; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; color: #4a5568; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border); }
+    .action-item:hover { background: #edf2f7; color: #111; }
+    .status-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; font-weight: 800; padding: 7px 12px; white-space: nowrap; }
+    .status-chip.green { background: #ecfdf5; border-color: #bbf7d0; color: #047857; }
+    .status-chip.yellow { background: #fef9c3; border-color: #fde68a; color: #92400e; }
+    .topbar-logout { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text-main); font-size: 12px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+    .topbar-logout:hover { background: #f8fafc; color: #111; }
+
+    .page-wrap { padding: 40px; max-width: 1400px; margin: 0; }
+
+    /* Supplier header */
+    .s-nav a { color: var(--text-muted); font-size: 14px; font-weight: 500; text-decoration: none; padding-bottom: 4px; }
+    .s-nav a.active { color: #111; font-weight: 700; border-bottom: 2px solid var(--primary); }
+
+    .back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-muted); text-decoration: none; margin-bottom: 14px; cursor: pointer; }
+    .back-link:hover { color: #111; }
+
+    .rfq-title-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .rfq-title-row h1 { font-size: 26px; font-weight: 800; color: #111; letter-spacing:0; }
+
+    /* Client info bar */
+    .client-bar {
+      background: white; border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px 24px; display: flex; align-items: center; gap: 32px;
+      margin-bottom: 20px;
+    }
+    .client-icon { width: 44px; height: 44px; background: var(--bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--text-muted); flex-shrink: 0; }
+    .client-field { display: flex; flex-direction: column; gap: 2px; }
+    .client-label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+    .client-value { font-size: 14px; font-weight: 700; color: #111; display: flex; align-items: center; gap: 5px; }
+    .rating { color: var(--primary); font-size: 13px; }
+
+    /* Tabs */
+    .tab-bar { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+    .tab { padding: 10px 20px; font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+    .tab.active { color: #111; border-bottom-color: var(--primary); }
+    .tab-badge { background: var(--primary); color: #000; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 99px; margin-left: 4px; }
+
+    /* Spec table */
+    .spec-table { width: 100%; border-collapse: collapse; }
+    .spec-table tr { border-bottom: 1px solid var(--border); }
+    .spec-table tr:last-child { border-bottom: none; }
+    .spec-table td { padding: 11px 0; font-size: 14px; vertical-align: top; }
+    .spec-key { color: var(--text-muted); width: 130px; font-weight: 500; }
+    .spec-val { color: #111; font-weight: 600; }
+    .spec-notes { list-style: none; padding: 0; }
+    .spec-notes li { font-size: 13px; color: #333; padding: 2px 0; display: flex; align-items: flex-start; gap: 6px; }
+    .spec-notes li::before { content: '•'; color: var(--primary-dark); font-weight: 900; margin-top: 1px; }
+
+    /* Part image */
+    .part-img { background: linear-gradient(135deg, #2a2a2a, #444); border-radius: 10px; height: 220px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .part-img i { font-size: 64px; color: rgba(255,255,255,0.15); }
+    .zoom-btn { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 16px; }
+
+    /* Comments */
+    .comment-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .comment-item:last-of-type { border-bottom: none; }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .comment-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .comment-name { font-size: 13px; font-weight: 700; color: #111; }
+    .comment-role { background: #E0F2FE; color: #0369A1; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
+    .comment-time { font-size: 12px; color: var(--text-muted); }
+    .comment-text { font-size: 13px; color: #333; line-height: 1.6; }
+    .chat-input { display: flex; gap: 10px; padding: 14px 0 0; }
+    .chat-input input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; }
+    .chat-input input:focus { border-color: var(--primary); }
+
+    /* Sidebar: Progress */
+    .prog-timeline { display: flex; flex-direction: column; }
+    .pt-item { display: flex; gap: 12px; padding: 10px 0; position: relative; }
+    .pt-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; border: 2px solid var(--border); background: white; color: var(--text-muted); }
+    .pt-item.active .pt-dot { background: var(--primary); border-color: var(--primary); color: #000; }
+    .pt-item.done .pt-dot { background: #111; border-color: #111; color: white; }
+    .pt-content { flex: 1; }
+    .pt-title { font-size: 13px; font-weight: 700; color: #111; }
+    .pt-item:not(.active):not(.done) .pt-title { color: var(--text-muted); font-weight: 500; }
+    .pt-date { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .pt-line { width: 2px; background: var(--border); height: 16px; margin-left: 13px; }
+    .pt-line.done { background: #111; }
+
+    /* Sidebar: next action */
+    .detail-action { display: grid; gap: 12px; }
+    .detail-action-note {
+      border: 1px solid #fde68a;
+      border-left: 4px solid var(--primary);
+      background: #fffbeb;
+      border-radius: 8px;
+      padding: 14px;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .detail-action .btn-primary,
+    .detail-action .btn-outline {
+      justify-content: center;
+      text-decoration: none;
+    }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<div class="dash-container">
+  <aside class="dash-sidebar">
+    <div class="dash-logo">IMM<span>A</span></div>
+    <nav class="dash-nav">
+      <a href="/supplier"><i class="ri-dashboard-line"></i> 대시보드</a>
+      <a href="/supplier-workbench" class="active"><i class="ri-file-list-3-line"></i> 오더리스트</a>
+      <a href="/supplier-workbench#reply"><i class="ri-mail-send-line"></i> 작업정보 회신</a>
+      <a href="/supplier-workbench#orders"><i class="ri-stack-line"></i> 발주·생산</a>
+      <a href="/supplier-workbench#capacity"><i class="ri-settings-3-line"></i> 스케줄·영업상태</a>
+      <a href="/supplier-workbench#delivery"><i class="ri-truck-line"></i> 납품 관리</a>
+      <a href="/supplier-messages"><i class="ri-message-3-line"></i> 메시지 <span class="badge badge-red">3</span></a>
+      <div class="nav-divider"></div>
+      <a href="/support"><i class="ri-customer-service-2-line"></i> 고객지원</a>
+      <a href="/supplier-settings"><i class="ri-settings-4-line"></i> 설정</a>
+    </nav>
+    <div class="dash-user">
+      <div class="u-avatar"><i class="ri-user-3-fill"></i></div>
+      <div class="u-info">
+        <div class="u-name">(주)한빛정밀</div>
+        <div class="u-role">공급사 파트너</div>
+      </div>
+      <i class="ri-logout-box-r-line logout-btn"></i>
+    </div>
+  </aside>
+
+  <main class="dash-main">
+    <header class="dash-topbar">
+      <div class="topbar-search">
+        <i class="ri-search-line"></i>
+        <input type="text" placeholder="오더번호, 도면명, 클라이언트명 검색">
+      </div>
+      <div class="topbar-actions">
+        <span class="status-chip green"><i class="ri-checkbox-circle-line"></i> 영업중</span>
+        <span class="status-chip yellow"><i class="ri-loader-2-line"></i> 가동률 78%</span>
+        <button class="action-item" type="button" aria-label="알림"><i class="ri-notification-3-line"></i></button>
+        <button class="action-item" type="button" aria-label="도움말"><i class="ri-question-line"></i></button>
+        <a href="/#home" class="topbar-logout">로그아웃</a>
+      </div>
+    </header>
+
+<div class="page-wrap">
+  <a class="back-link" href="/supplier"><i class="ri-arrow-left-line"></i> 견적 요청 목록으로</a>
+
+  <div class="rfq-title-row">
+    <h1>견적 요청 상세</h1>
+    <span class="badge badge-yellow">신규</span>
+    <span style="color:var(--text-muted);font-size:14px;">RFQ-250520-001</span>
+    <span style="color:var(--text-muted);font-size:14px;">|</span>
+    <span style="color:var(--text-muted);font-size:14px;">요청일 2026-05-06</span>
+  </div>
+
+  <!-- Client bar -->
+  <div class="client-bar">
+    <div class="client-icon"><i class="ri-building-2-line"></i></div>
+    <div class="client-field">
+      <span class="client-label">요청 업체</span>
+      <span class="client-value">브라빗 하우징 <span class="rating"><i class="ri-star-fill"></i> 4.8</span></span>
+    </div>
+    <div class="client-field">
+      <span class="client-label">담당자</span>
+      <span class="client-value">김현우 차장</span>
+    </div>
+    <div class="client-field">
+      <span class="client-label">연락처</span>
+      <span class="client-value">010-1234-5678</span>
+    </div>
+    <div class="client-field">
+      <span class="client-label">이메일</span>
+      <span class="client-value">kim.h@brabit.com</span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start;">
+    <!-- Main -->
+    <div class="card">
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <div class="tab active">요청 정보</div>
+        <div class="tab">도면 및 파일 <span class="tab-badge">3</span></div>
+        <div class="tab">히스토리</div>
+      </div>
+
+      <!-- Spec grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;">
+        <div>
+          <table class="spec-table">
+            <tr><td class="spec-key">품명</td><td class="spec-val">CNC 가공 부품</td></tr>
+            <tr><td class="spec-key">가공 공정</td><td class="spec-val">CNC 밀링 (3축)</td></tr>
+            <tr><td class="spec-key">주요 재질</td><td class="spec-val">알루미늄 6061-T6</td></tr>
+            <tr><td class="spec-key">표면 처리</td><td class="spec-val">무처리</td></tr>
+            <tr><td class="spec-key">수량</td><td class="spec-val">200 EA</td></tr>
+            <tr><td class="spec-key">허용 공차</td><td class="spec-val">±0.05</td></tr>
+            <tr><td class="spec-key">요청 납기</td><td class="spec-val">2026-05-27 (화)</td></tr>
+            <tr>
+              <td class="spec-key" style="padding-top:14px;">특이사항 / 요구사항</td>
+              <td class="spec-val" style="padding-top:14px;">
+                <ul class="spec-notes">
+                  <li>모서리 C0.3 이하</li>
+                  <li>눈카로운 부분 면이 안전하게 가공 요망</li>
+                  <li>품질 확인 후 출하 요망</li>
+                </ul>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div>
+          <div class="part-img">
+            <i class="ri-settings-4-line"></i>
+            <button class="zoom-btn" aria-label="도면 확대 보기" title="도면 확대 보기"><i class="ri-zoom-in-line"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Comments -->
+      <div class="card-title">문의 및 코멘트</div>
+      <div>
+        <div class="comment-item">
+          <div class="avatar">김</div>
+          <div style="flex:1;">
+            <div class="comment-meta">
+              <span class="comment-name">김현우 차장</span>
+              <span class="comment-role">구매 담당자</span>
+              <span class="comment-time">2026-05-06 14:30</span>
+            </div>
+            <div class="comment-text">해당 부분의 모서리 R 가공 가능할까요? R0.5 이하로 필요합니다.</div>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input">
+        <input type="text" placeholder="메시지를 입력하세요.">
+        <button class="btn-primary" style="padding:10px 18px;">전송</button>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <!-- Progress -->
+      <div class="card">
+        <div class="card-title">견적 진행 현황</div>
+        <div class="prog-timeline">
+          <div class="pt-item done">
+            <div class="pt-dot"><i class="ri-check-line" style="font-size:12px;"></i></div>
+            <div class="pt-content">
+              <div class="pt-title">요청 접수</div>
+              <div class="pt-date">2026-05-06</div>
+            </div>
+          </div>
+          <div class="pt-line done"></div>
+          <div class="pt-item active">
+            <div class="pt-dot">2</div>
+            <div class="pt-content">
+              <div class="pt-title">견적 중</div>
+              <div class="pt-date">대기 중</div>
+            </div>
+          </div>
+          <div class="pt-line"></div>
+          <div class="pt-item">
+            <div class="pt-dot">3</div>
+            <div class="pt-content">
+              <div class="pt-title">작업정보 회신</div>
+              <div class="pt-date">대기 중</div>
+            </div>
+          </div>
+          <div class="pt-line"></div>
+          <div class="pt-item">
+            <div class="pt-dot">4</div>
+            <div class="pt-content">
+              <div class="pt-title">요청 업체 검토</div>
+              <div class="pt-date">대기 중</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Next action -->
+      <div class="card">
+        <div class="card-title">다음 작업</div>
+        <div class="detail-action">
+          <div class="detail-action-note">
+            이 화면은 견적 요청 내용을 검토하고 클라이언트 문의를 확인하는 상세 화면입니다.
+            예상 납기와 금액 입력은 작업정보 회신 화면에서 별도로 작성합니다.
+          </div>
+          <a href="/supplier-workbench#reply" class="btn-primary btn-lg">
+            <i class="ri-mail-send-line"></i> 작업정보 회신으로 이동
+          </a>
+          <a href="/supplier-workbench" class="btn-outline">
+            <i class="ri-arrow-left-line"></i> 오더리스트로 돌아가기
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

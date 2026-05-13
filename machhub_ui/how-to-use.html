@@ -1,0 +1,325 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 이용 방법 가이드</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    body { background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; font-family: 'Pretendard', sans-serif; }
+    
+    .guide-header {
+      background: #111;
+      padding: 120px 20px;
+      text-align: center;
+      color: white;
+      background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url('https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&q=80&w=2070');
+      background-size: cover;
+      background-position: center;
+    }
+    .guide-header h1 { font-size: 48px; font-weight: 800; margin-bottom: 16px; letter-spacing:0; }
+    .guide-header p { font-size: 18px; color: rgba(255,255,255,0.7); font-weight: 300; }
+
+    .guide-wrap {
+      max-width: 1000px;
+      margin: 40px auto;
+      display: flex;
+      gap: 40px;
+      padding: 0 20px;
+      flex: 1;
+    }
+
+    .guide-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+    }
+    .guide-nav {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 0;
+      position: sticky;
+      top: 40px;
+    }
+    .g-nav-title {
+      font-size: 13px; font-weight: 800; color: var(--text-dark);
+      padding: 32px 20px 12px; text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .g-nav-title:first-child { padding-top: 48px; }
+    .g-nav-item {
+      display: block; padding: 12px 20px; font-size: 14px; font-weight: 600; color: #555; text-decoration: none;
+      transition: all 0.2s;
+    }
+    .g-nav-item:hover { background: var(--bg); color: #111; }
+    .g-nav-item.active { border-left: 3px solid var(--primary); color: var(--primary-dark); background: rgba(255,209,0,0.05); }
+
+    .guide-content { flex: 1; }
+
+    .guide-section {
+      background: white; border: 1px solid var(--border); border-radius: 12px; padding: 40px;
+      margin-bottom: 32px;
+      scroll-margin-top: 100px;
+    }
+    .guide-section h2 { font-size: 24px; font-weight: 800; color: #111; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    
+    .step-list { display: flex; flex-direction: column; gap: 24px; }
+    .step-item { display: flex; gap: 20px; }
+    .step-num {
+      width: 40px; height: 40px; border-radius: 50%; background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; color: #000; flex-shrink: 0;
+    }
+    .step-body h3 { font-size: 18px; font-weight: 700; color: #111; margin-bottom: 8px; }
+    .step-body p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+    .step-body .action-link { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--primary-dark); text-decoration: none; }
+    .step-body .action-link:hover { text-decoration: underline; }
+
+    .note-box {
+      background: rgba(59,130,246,0.05);
+      border-left: 3px solid #3B82F6;
+      padding: 16px 20px;
+      border-radius: 4px;
+      margin-top: 16px;
+      font-size: 13px; color: #1E3A8A;
+    }
+
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/client">대시보드</a></li>
+    <li><a href="/#service-intro">서비스 소개</a></li>
+    <li><a href="/how-to-use" class="active">이용 방법</a></li>
+    <li><a href="/process-flow">프로세스</a></li>
+    <li><a href="/search-suppliers">업체 찾기</a></li>
+    <li><a href="/support">고객지원</a></li>
+  </ul>
+  <div class="header-actions">
+    <a class="btn-login" href="/">로그인</a>
+    <a class="btn-signup" href="/">회원가입</a>
+  </div>
+</header>
+
+<div class="guide-header">
+  <h1>이용 방법 가이드</h1>
+  <p>IMMA 플랫폼을 통해 빠르고 안전하게 가공업체를 찾고 발주하는 방법을 안내합니다.</p>
+</div>
+
+<div class="guide-wrap">
+  <aside class="guide-sidebar">
+    <nav class="guide-nav">
+      <div class="g-nav-title">클라이언트 (발주처)</div>
+      <a href="#client-guide" class="g-nav-item active">견적 요청 및 발주 방법</a>
+      <a href="#client-dashboard" class="g-nav-item">진행 상황 추적하기</a>
+      <a href="#client-fulfillment-guide" class="g-nav-item">납품·리뷰 관리</a>
+      
+      <div class="g-nav-title" style="margin-top:12px;">가공업체 (수주처)</div>
+      <a href="#supplier-guide" class="g-nav-item">견적서 제출 방법</a>
+      <a href="#supplier-manage" class="g-nav-item">주문 및 납품 관리</a>
+      <a href="#supplier-workbench-guide" class="g-nav-item">업체 워크벤치</a>
+      <a href="#admin-guide" class="g-nav-item">관리자 컨트롤센터</a>
+    </nav>
+  </aside>
+
+  <main class="guide-content">
+    
+    <section id="client-guide" class="guide-section">
+      <h2>🚀 클라이언트: 견적 요청부터 발주까지</h2>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>도면 업로드 및 견적 요청</h3>
+            <p>메인 화면이나 상단 메뉴의 <strong>[견적 요청]</strong> 버튼을 클릭하여 3D/2D 도면 파일을 업로드하세요. AI가 도면을 분석하여 적합한 가공 공정을 자동으로 추천해 드립니다. 필요한 수량, 재질, 희망 납기일을 입력하고 요청을 완료합니다.</p>
+            <a href="/quote-request" class="action-link">견적 요청 화면 미리보기 &gt;</a>
+          </div>
+        </div>
+        
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>AI 추천 및 견적서 비교</h3>
+            <p>요청이 등록되면 전국 12,000개 이상의 파트너사 중 요구사항에 가장 적합한 업체들이 자동으로 매칭됩니다. 파트너사들이 제출한 견적 금액, 예상 납기일, 평점, 주요 설비를 한 화면에서 비교할 수 있습니다.</p>
+            <a href="/matching-ui" class="action-link">견적 비교 화면 미리보기 &gt;</a>
+            <div class="note-box">
+              <strong>Tip:</strong> 'AI 매칭 점수'가 높은 업체일수록 해당 도면 가공에 특화된 장비와 경험을 보유하고 있습니다.
+            </div>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>업체 선정 및 안전 결제</h3>
+            <p>마음에 드는 업체를 선택한 후 <strong>[매칭 신청 및 결제]</strong>를 진행합니다. 에스크로 방식의 안전 결제가 지원되며, 신용카드 및 세금계산서 발행(가상계좌)을 선택할 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="client-dashboard" class="guide-section">
+      <h2>📊 진행 상황 추적하기</h2>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num"><i class="ri-dashboard-line"></i></div>
+          <div class="step-body">
+            <h3>대시보드 및 알림</h3>
+            <p>로그인 후 <strong>[대시보드]</strong>에 접속하면 진행 중인 모든 프로젝트를 한눈에 볼 수 있습니다. 가공 파트너가 생산을 시작하거나 특정 공정을 마칠 때마다 사진과 함께 실시간 알림이 도착합니다.</p>
+            <a href="/client?preview=1" class="action-link">대시보드 화면 미리보기 &gt;</a>
+          </div>
+        </div>
+        
+        <div class="step-item">
+          <div class="step-num"><i class="ri-truck-line"></i></div>
+          <div class="step-body">
+            <h3>검수 및 납품 완료</h3>
+            <p>가공이 완료되면 플랫폼 내에서 출하 및 배송 정보를 확인할 수 있습니다. 물품을 수령하고 최종 검수를 마친 뒤 '구매 확정'을 누르면 결제 대금이 업체로 전달됩니다.</p>
+            <a href="/client-fulfillment?preview=1" class="action-link">납품·리뷰 화면 미리보기 &gt;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="client-fulfillment-guide" class="guide-section">
+      <h2>📦 납품·리뷰 관리</h2>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>납품 인증 체크</h3>
+            <p>업체가 발송 전 최종 상태 이미지와 포장 이미지를 공유하면 클라이언트는 수령 방식, 배송 상태, 품질 문서를 함께 확인합니다. 제품 수령 후 자체 QC를 마치면 납품 인증 체크를 진행합니다.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>AS 문의 및 리뷰 등록</h3>
+            <p>사용 중 질문이나 AS가 필요하면 관리자에게 문의를 남길 수 있고, 거래가 완료된 뒤에는 업체 작업에 대한 리뷰와 평점을 등록합니다. 리뷰는 이후 업체 매칭 품질을 높이는 기준으로 활용됩니다.</p>
+            <a href="/client-fulfillment?preview=1" class="action-link">납품·리뷰 화면 미리보기 &gt;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Supplier Guide Sections Added Below -->
+    <section id="supplier-guide" class="guide-section">
+      <h2>🏭 가공업체: 견적서 제출 방법</h2>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>신규 견적 요청 확인</h3>
+            <p>업체의 전문 분야(가공 공정, 재질 등)와 일치하는 새로운 도면이 등록되면 알림을 받게 됩니다. 대시보드의 <strong>[수신된 견적 요청]</strong> 메뉴에서 도면과 상세 요구사항을 확인하세요.</p>
+            <a href="/supplier?preview=1" class="action-link">가공업체 대시보드 미리보기 &gt;</a>
+          </div>
+        </div>
+        
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>견적서 작성 및 제출</h3>
+            <p>도면을 분석한 후 가공 단가, 예상 납기일, 추가 옵션 비용 등을 기입하여 견적서를 제출합니다. 클라이언트에게 업체의 강점(빠른 납기, 정밀 가공 등)을 어필할 수 있는 메모를 함께 남길 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="supplier-manage" class="guide-section">
+      <h2>📦 주문 및 납품 관리</h2>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num"><i class="ri-settings-4-line"></i></div>
+          <div class="step-body">
+            <h3>생산 진행 상황 업데이트</h3>
+            <p>클라이언트가 업체를 최종 선정하고 결제를 완료하면 발주가 확정됩니다. 원자재 입고, 1차 가공, 2차 가공 등 공정 단계가 넘어갈 때마다 사진과 함께 진행 상황을 업데이트하여 클라이언트와 투명하게 소통하세요.</p>
+            <a href="/supplier-workbench?preview=1" class="action-link">업체 워크벤치 미리보기 &gt;</a>
+          </div>
+        </div>
+        
+        <div class="step-item">
+          <div class="step-num"><i class="ri-truck-line"></i></div>
+          <div class="step-body">
+            <h3>출하 및 대금 정산</h3>
+            <p>가공 및 자체 검수가 완료되면 출하 정보를 등록합니다. 클라이언트가 물품 수령 후 '구매 확정'을 진행하면, 지정된 정산 주기에 맞춰 플랫폼 수수료를 제외한 대금이 안전하게 입금됩니다.</p>
+            <a href="/support" class="action-link">정산 문의는 고객지원으로 이동 &gt;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="supplier-workbench-guide" class="guide-section">
+      <h2>🛠 업체 워크벤치</h2>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>실시간 스케줄·영업 상태 관리</h3>
+            <p>업체는 주요 재질, 제공 서비스, 최소 작업량, 장비 가동률, 다음 가능 슬롯을 갱신합니다. 이 정보는 관리자가 오더리스트를 선별하고 클라이언트에게 현실적인 납기 후보를 제시하는 기준이 됩니다.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>작업정보 회신과 추가 정보 요청</h3>
+            <p>수락 가능한 오더에는 예상 납기와 금액을 회신하고, 도면 치수나 수령 방식처럼 보완이 필요한 항목은 관리자에게 추가 정보 요청으로 남깁니다.</p>
+            <a href="/supplier-workbench?preview=1" class="action-link">업체 워크벤치 미리보기 &gt;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="admin-guide" class="guide-section">
+      <h2>🖥 관리자 컨트롤센터</h2>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>AI 보완·매칭·오더 발송 관리</h3>
+            <p>관리자는 클라이언트 요청서와 도면에서 누락된 치수, 수량, 수령 방식 등을 확인하고 보완 요청을 보냅니다. 이후 업체 정보, 장비, 재질, 스케줄을 기준으로 오더리스트를 선별합니다.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>계약·결제·납품·리뷰 운영</h3>
+            <p>계약 서비스, 급행 요청, 납기 지연 보상, 결제대행, 납품 인증, 리뷰·평점 DB까지 클라이언트와 업체 사이의 운영 흐름을 한 화면에서 관리합니다.</p>
+            <a href="/admin-control-center?preview=1" class="action-link">관리자 컨트롤센터 미리보기 &gt;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer class="imma-footer" style="margin-top:auto;">
+  <div class="footer-inner" style="justify-content:center; text-align:center;">
+    <div class="footer-desc">지능형 제조 매칭 플랫폼 © 2026 IMMA. All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+  const navItems = document.querySelectorAll('.g-nav-item');
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      navItems.forEach(n => n.classList.remove('active'));
+      e.target.classList.add('active');
+    });
+  });
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

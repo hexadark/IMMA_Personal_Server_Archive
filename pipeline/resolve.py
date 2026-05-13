@@ -11,7 +11,11 @@ import db
 
 logger = logging.getLogger(__name__)
 from models import VlmPart, ResolvedPart
-from lookup import get_table
+from lookup import (
+    get_table, parse_it,
+    PROC_NORMALIZE, PRECISION_PROCESSES, PROCESS_TO_LOOKUP_PROCESSES,
+    CATEGORY_TEXT_TO_CODE,
+)
 
 
 # ── 룩업 JSON에서 KS_B_ISO_2768_1 로드하여 등급별 허용값 테이블 구성 ──
@@ -89,35 +93,37 @@ _GENERAL_TOL_GRADE_MAP.setdefault("c", 16)
 _GENERAL_TOL_GRADE_MAP.setdefault("v", 17)
 
 
-# VLM category 텍스트 → DB category_code 매핑
-_CATEGORY_TEXT_TO_CODE: dict[str, str] = {
-    # DB category_name_ko 기준
-    "탄소강": "carbon_steel",
-    "합금강": "alloy_steel",
-    "스테인리스강": "stainless_steel",
-    "회주철": "gray_cast_iron",
-    "주강": "cast_steel",
-    "알루미늄 합금": "aluminum_alloy",
-    "구리합금": "copper_alloy",
-    "판금용 강판": "sheet_steel",
-    "공구강": "tool_steel",
-    # VLM이 출력할 수 있는 변형
-    "크롬몰리브덴강": "alloy_steel",
-    "크롬강": "alloy_steel",
-    "니켈크롬몰리브덴강": "alloy_steel",
-    "스테인리스": "stainless_steel",
-    "스텐": "stainless_steel",
-    "스뎅": "stainless_steel",
-    "주철": "gray_cast_iron",
-    "알루미늄": "aluminum_alloy",
-    "구리": "copper_alloy",
-    "황동": "copper_alloy",
-    "쾌삭강": "carbon_steel",
-    "기계구조용 탄소강": "carbon_steel",
-    "구조용 강재": "carbon_steel",
-    "스프링강": "alloy_steel",
-    "탄소주강": "cast_steel",
-}
+# ── 룩업 JSON에서 MATERIAL_PROCESS_COMPATIBILITY 로드 ──
+# {material_group: {process: {"compatibility": str, "machinability": str, "notes": str}}}
+_MATERIAL_COMPAT: dict[str, dict[str, dict]] = {}
+
+for _entry in get_table("MATERIAL_PROCESS_COMPATIBILITY"):
+    _mg = _entry.get("material_group", "")
+    _proc = _entry.get("process", "")
+    if _mg and _proc:
+        _MATERIAL_COMPAT.setdefault(_mg, {})[_proc] = {
+            "compatibility": _entry.get("compatibility", ""),
+            "machinability": _entry.get("machinability", ""),
+            "notes": _entry.get("notes", ""),
+        }
+
+
+
+# ── 룩업 JSON에서 PROCESS_ACHIEVABLE_TOLERANCE 로드 (도면 피드백용) ──
+
+
+_PROCESS_TOLERANCE_FOR_FEEDBACK: dict[str, dict] = {}
+
+for _entry in get_table("PROCESS_ACHIEVABLE_TOLERANCE"):
+    _proc = _entry.get("process", "")
+    _normalized = PROC_NORMALIZE.get(_proc, _proc)
+    _ait = _entry.get("achievable_IT", {})
+    _PROCESS_TOLERANCE_FOR_FEEDBACK[_normalized] = {
+        "precision_it_min": parse_it(_ait.get("precision", {}).get("min")),
+        "precision_it_max": parse_it(_ait.get("precision", {}).get("max")),
+    }
+
+
 
 
 def resolve_material(raw_text: str) -> tuple[str | None, str | None, str | None, str | None]:
@@ -131,7 +137,7 @@ def resolve_material(raw_text: str) -> tuple[str | None, str | None, str | None,
         (material_id, material_code, category_code, match_type)
         match_type: "code" | "alias" | "category" | None
     """
-    if not raw_text:
+    if not raw_text or not raw_text.strip():
         return (None, None, None, None)
 
     clean = raw_text.strip()
@@ -185,8 +191,31 @@ def resolve_material(raw_text: str) -> tuple[str | None, str | None, str | None,
             r = rows[0]
             return (str(r["material_id"]), r["material_code"], r["category_code"], "alias")
 
-    # Step 1-d: _CATEGORY_TEXT_TO_CODE 딕셔너리 직접 lookup
-    cat_code = _CATEGORY_TEXT_TO_CODE.get(clean)
+    # Step 1-c-2: 템퍼 접미사 제거 (A6061-T6 → A6061)
+    temper_stripped = re.sub(r'[-\s]?[TtHhOoFf]\d{1,4}$', '', clean).strip()
+    if temper_stripped and temper_stripped != clean:
+        rows = db.execute_query(
+            """SELECT material_id, material_code, category_code
+               FROM imma.materials
+               WHERE material_code = %s AND is_active = true""",
+            (temper_stripped,),
+        )
+        if rows:
+            r = rows[0]
+            return (str(r["material_id"]), r["material_code"], r["category_code"], "code")
+        rows = db.execute_query(
+            """SELECT m.material_id, m.material_code, m.category_code
+               FROM imma.material_aliases a
+               JOIN imma.materials m ON m.material_id = a.material_id
+               WHERE a.alias_text = %s AND m.is_active = true""",
+            (temper_stripped,),
+        )
+        if rows:
+            r = rows[0]
+            return (str(r["material_id"]), r["material_code"], r["category_code"], "alias")
+
+    # Step 1-d: CATEGORY_TEXT_TO_CODE 딕셔너리 직접 lookup
+    cat_code = CATEGORY_TEXT_TO_CODE.get(clean)
     if cat_code is not None:
         return (None, None, cat_code, "category")
 
@@ -201,8 +230,13 @@ def resolve_material(raw_text: str) -> tuple[str | None, str | None, str | None,
         return (None, None, rows[0]["category_code"], "category")
 
     # Step 3: 패턴 기반 카테고리 추정
-    # AISI 쾌삭강 (12L14, 1215 등) → carbon_steel
-    if re.match(r'^1[012]\d{2}L?\d*$', clean) or re.match(r'^12L\d+', clean):
+    # AISI 쾌삭강 (12L14, 1213, 1215, 1144 등) → free_cutting_steel
+    if re.match(r'^12L\d+', clean) or clean in ("1213", "1215"):
+        return (None, None, "free_cutting_steel", "category")
+    if re.match(r'^11[34]\d$', clean):  # 1144 등 중탄소쾌삭강 계열
+        return (None, None, "free_cutting_steel", "category")
+    # AISI 10xx/11xx 일반 탄소강 (1010, 1020, 1045 등)
+    if re.match(r'^1[01]\d{2}$', clean):
         return (None, None, "carbon_steel", "category")
     # DIN/인도 합금강 (20MnCr, 20Mn.Cr. 등) → alloy_steel
     if re.match(r'^\d+Mn', clean, re.IGNORECASE):
@@ -262,10 +296,11 @@ def get_general_tolerance_values(grade: str, nominal_mm: float | None = None) ->
 def determine_shape_type(processes: list[str], diameter: float | None) -> str:
     """공정 목록과 외경 유무로 축물/각형물을 분류한다.
 
-    turning이 포함되고 diameter가 존재하면 "turning",
-    아니면 "prismatic".
+    turning 계열(turning, turning_rough, turning_finish)이 포함되고
+    diameter가 존재하면 "turning", 아니면 "prismatic".
     """
-    if "turning" in processes and diameter is not None:
+    TURNING_FAMILY = {"turning", "turning_rough", "turning_finish"}
+    if TURNING_FAMILY & set(processes) and diameter is not None:
         return "turning"
     return "prismatic"
 
@@ -286,6 +321,147 @@ def check_mandatory_fields(part: VlmPart) -> tuple[bool, list[str]]:
     return (len(missing) == 0, missing)
 
 
+def _check_material_process_compatibility(
+    category_code: str | None,
+    required_processes: list[str],
+) -> list[str]:
+    """재질 카테고리와 필수 공정 목록의 호환성을 검증한다.
+
+    MATERIAL_PROCESS_COMPATIBILITY 룩업 테이블 참조.
+    Returns: 경고 문자열 리스트 (비어 있으면 문제 없음)
+    """
+    warnings: list[str] = []
+    if not category_code or not required_processes:
+        return warnings
+
+    mat_data = _MATERIAL_COMPAT.get(category_code)
+    if mat_data is None:
+        # 해당 재질 그룹의 호환성 데이터 없음 — 검증 불가, 경고 없이 통과
+        return warnings
+
+    for proc in required_processes:
+        # 파이프라인 process_code → 룩업 process(들)로 변환
+        lookup_procs = PROCESS_TO_LOOKUP_PROCESSES.get(proc, [proc])
+
+        for lp in lookup_procs:
+            info = mat_data.get(lp)
+            if info is None:
+                # 해당 공정의 호환성 데이터 없음 (비가공 공정 등) — 스킵
+                continue
+
+            compat = info["compatibility"]
+            if compat == "unsuitable":
+                warnings.append(
+                    f"[재질-공정 부적합] {category_code} + {lp}: "
+                    f"이 재질에 이 공정은 적용 불가 (unsuitable). "
+                    f"{info['notes'][:80]}"
+                )
+            elif compat == "limited":
+                warnings.append(
+                    f"[재질-공정 호환성 주의] {category_code} + {lp}: "
+                    f"compatibility={compat}, 가공성={info['machinability']}. "
+                    f"{info['notes'][:80]}"
+                )
+
+    return warnings
+
+
+def _check_drawing_feedback(
+    vlm_part: VlmPart,
+    tightest_it: int | None,
+    finest_ra: float | None,
+) -> list[str]:
+    """도면 품질에 대한 정보성 경고를 생성한다.
+
+    VlmPart의 각 필드를 검사하여 모순, 누락, 비정상 조합을 탐지한다.
+    Returns: 경고 문자열 리스트
+    """
+    warnings: list[str] = []
+
+    # ── 규칙 1: IT 등급 ≤ 6인데 정밀 공정(grinding, honing, lapping)이 없으면 경고 ──
+    if tightest_it is not None and tightest_it <= 6:
+        has_precision = any(p in PRECISION_PROCESSES for p in vlm_part.required_processes)
+        if not has_precision:
+            warnings.append(
+                f"[도면 피드백] IT{tightest_it} 요구이나 정밀 공정(연삭/호닝/래핑)이 "
+                f"공정 목록에 없음. 달성 가능성을 확인하세요."
+            )
+
+    # ── 규칙 2: Ra ≤ 0.4 µm인데 lapping/honing이 없으면 경고 ──
+    if finest_ra is not None and finest_ra <= 0.4:
+        has_super_finish = any(p in {"honing", "lapping"} for p in vlm_part.required_processes)
+        if not has_super_finish:
+            warnings.append(
+                f"[도면 피드백] Ra {finest_ra}µm 요구이나 초정밀 공정(호닝/래핑)이 "
+                f"공정 목록에 없음. 달성 가능성을 확인하세요."
+            )
+
+    # ── 규칙 3: 외형 치수 전부 누락 ──
+    has_diameter = vlm_part.envelope_diameter is not None
+    has_box = (vlm_part.envelope_length is not None or
+               vlm_part.envelope_width is not None or
+               vlm_part.envelope_height is not None)
+    if not has_diameter and not has_box:
+        warnings.append(
+            "[도면 피드백] 외형 치수(외경, 길이×폭×높이) 전부 미추출. "
+            "크기 기반 매칭이 비활성화됩니다."
+        )
+
+    # ── 규칙 4: turning 공정이 있는데 외경이 없음 ──
+    if "turning" in vlm_part.required_processes and not has_diameter:
+        warnings.append(
+            "[도면 피드백] turning 공정이 있으나 외경(diameter) 미추출. "
+            "축물 크기 매칭이 불가합니다."
+        )
+
+    # ── 규칙 5: post_treatment가 있는데 구체적 조건이 없음 ──
+    if vlm_part.post_treatment:
+        pt_lower = vlm_part.post_treatment.lower()
+        # "열처리"만 있고 HRC/HV 등 경도 조건이 없으면
+        if ("열처리" in pt_lower or "heat" in pt_lower) and \
+           not any(kw in pt_lower for kw in ["hrc", "hv", "hrb", "경도"]):
+            warnings.append(
+                "[도면 피드백] 후처리에 열처리가 명시되었으나 경도 조건(HRC/HV 등)이 "
+                "미기재. 업체 견적 시 확인 필요."
+            )
+
+    # ── 규칙 6: GDT 항목이 있는데 IT/Ra가 모두 None ──
+    if vlm_part.gdt and tightest_it is None and finest_ra is None:
+        warnings.append(
+            "[도면 피드백] 기하공차(GD&T) 항목이 존재하나 치수공차(IT)와 "
+            "표면조도(Ra)가 모두 미추출. 도면 판독 재확인 필요."
+        )
+
+    # ── 규칙 7: 공정별 달성 가능 공차 사전 경고 ──
+    # PROCESS_ACHIEVABLE_TOLERANCE 참조
+    # 정밀 공정이 이미 있으면 중간/황삭 공정의 "단독 달성 불가" 경고를 억제
+    has_precision_proc = bool(set(vlm_part.required_processes) & PRECISION_PROCESSES)
+
+    _SKIP_WHEN_PRECISION_EXISTS = {"turning", "milling", "drilling", "threading",
+                                   "turning_rough", "turning_finish",
+                                   "milling_rough", "milling_finish"}
+
+    if tightest_it is not None:
+        for proc in vlm_part.required_processes:
+            lookup_procs = PROCESS_TO_LOOKUP_PROCESSES.get(proc, [proc])
+            for lp in lookup_procs:
+                # 정밀 공정이 이미 있으면 중간/황삭 공정의 경고 억제
+                if has_precision_proc and lp in _SKIP_WHEN_PRECISION_EXISTS:
+                    continue
+                ref = _PROCESS_TOLERANCE_FOR_FEEDBACK.get(lp)
+                if ref is None:
+                    continue
+                precision_min = ref.get("precision_it_min")
+                if precision_min is not None and tightest_it < precision_min:
+                    warnings.append(
+                        f"[공차 달성 사전경고] {lp}: 도면 요구 IT{tightest_it} < "
+                        f"이론적 precision 하한 IT{precision_min}. "
+                        f"해당 공정 단독으로는 달성 불가."
+                    )
+
+    return warnings
+
+
 def resolve_part(vlm_part: VlmPart, standards: list) -> ResolvedPart:
     """VlmPart 하나를 ResolvedPart로 변환한다."""
 
@@ -295,8 +471,8 @@ def resolve_part(vlm_part: VlmPart, standards: list) -> ResolvedPart:
     # 카테고리 코드: materials에서 온 것이 없으면 VLM의 category 텍스트로 재시도
     if cat_code is None and vlm_part.material_category:
         cat_text = (vlm_part.material_category or "").strip()
-        # _CATEGORY_TEXT_TO_CODE 딕셔너리로 먼저 직접 변환 시도
-        direct_cat = _CATEGORY_TEXT_TO_CODE.get(cat_text)
+        # CATEGORY_TEXT_TO_CODE 딕셔너리로 먼저 직접 변환 시도
+        direct_cat = CATEGORY_TEXT_TO_CODE.get(cat_text)
         if direct_cat is not None:
             cat_code = direct_cat
             if match_type is None:
@@ -320,6 +496,17 @@ def resolve_part(vlm_part: VlmPart, standards: list) -> ResolvedPart:
     # 필수 필드 검증
     is_valid, missing = check_mandatory_fields(vlm_part)
 
+    # ★ 재질-공정 호환성 검증
+    ontology_warnings = _check_material_process_compatibility(
+        cat_code, vlm_part.required_processes
+    )
+
+    # ★ 도면 피드백 확장
+    drawing_warnings = _check_drawing_feedback(
+        vlm_part, tightest_it, vlm_part.finest_ra
+    )
+    ontology_warnings.extend(drawing_warnings)
+
     return ResolvedPart(
         part_no=vlm_part.part_no,
         part_name=vlm_part.part_name,
@@ -341,4 +528,5 @@ def resolve_part(vlm_part: VlmPart, standards: list) -> ResolvedPart:
         post_treatment=vlm_part.post_treatment,
         is_valid=is_valid,
         missing_fields=missing,
+        ontology_warnings=ontology_warnings,
     )

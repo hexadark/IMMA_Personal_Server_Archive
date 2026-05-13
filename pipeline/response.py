@@ -4,9 +4,9 @@
 """
 
 import logging
-from dataclasses import asdict
 
 from models import ResolvedPart, MatchCandidate, MatchResponse
+from lookup import FAIL_OPEN_PROCESSES
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +29,20 @@ def build_match_reasons(candidate: MatchCandidate, part: ResolvedPart) -> list[s
     if candidate.material_match_type == "code" and part.material_code:
         reasons.append(f"{part.material_code} 코드 매칭")
     elif candidate.material_match_type == "category" and part.category_code:
-        reasons.append(f"{part.category_code} 카테고리 매칭")
+        # 후보가 요구 카테고리를 직접 보유 vs 상위 카테고리로 fallback된 경우 구분
+        if part.category_code in (candidate.material_category_codes or []):
+            reasons.append(f"{part.category_code} 카테고리 매칭")
+        else:
+            reasons.append(f"{part.category_code} 카테고리 매칭 (상위 카테고리 fallback)")
 
-    # 공정 보유
+    # 공정 보유 (사내 공정과 외주 공정 분리 표시)
     if part.required_processes:
-        procs_str = ", ".join(part.required_processes)
-        reasons.append(f"{procs_str} 보유")
+        inhouse = [p for p in part.required_processes if p not in FAIL_OPEN_PROCESSES]
+        outsource = [p for p in part.required_processes if p in FAIL_OPEN_PROCESSES]
+        if inhouse:
+            reasons.append(f"사내 공정: {', '.join(inhouse)}")
+        if outsource:
+            reasons.append(f"외주 공정: {', '.join(outsource)} (업체 외주망 검토 필요)")
 
     # 크기 충족
     if part.shape_type == "turning":
@@ -117,6 +125,9 @@ def build_match_input(part: ResolvedPart) -> dict:
         warnings.append("공차 미검증")
     if part.finest_ra is None:
         warnings.append("조도 미검증")
+    # ★ 온톨로지 검증 경고 합류
+    if part.ontology_warnings:
+        warnings.extend(part.ontology_warnings)
     if warnings:
         result["warnings"] = warnings
 
@@ -146,7 +157,11 @@ def assemble_response(
                 for f in resolved.missing_fields
             ]
             part_dict["status"] = "rejected"
-            part_dict["rejection_reason"] = "필수 정보 누락"
+            unsup_warnings = [w for w in resolved.ontology_warnings if w.startswith("[unsupported]")]
+            if unsup_warnings:
+                part_dict["rejection_reason"] = unsup_warnings[0]
+            else:
+                part_dict["rejection_reason"] = "필수 정보 누락"
             part_dict["missing_fields"] = resolved.missing_fields
             part_dict["message"] = "; ".join(messages)
         else:
@@ -163,11 +178,23 @@ def assemble_response(
                     "best_it_grade": cand.best_it_grade,
                     "best_ra_um": cand.best_ra_um,
                     "overall_status": cand.overall_status,
-                    "avg_rating": round(cand.avg_rating_overall, 1) if cand.avg_rating_overall else None,
+                    "avg_rating": round(cand.avg_rating_overall, 1) if cand.avg_rating_overall is not None else None,
                     "review_count": cand.review_count,
                     "next_available_date": cand.next_available_date,
                     "equipment_verified": cand.equipment_verified,
+                    "equipment_verified_warning": cand.equipment_verified_warning,
                 })
+
+        # 후보를 recommended / conditional로 분리 (기존 candidates 키 유지)
+        all_cands = part_dict.get("candidates", [])
+        part_dict["recommended_candidates"] = [
+            c for c in all_cands
+            if c.get("equipment_verified") and not c.get("equipment_verified_warning")
+        ]
+        part_dict["conditional_candidates"] = [
+            c for c in all_cands
+            if not c.get("equipment_verified") or c.get("equipment_verified_warning")
+        ]
 
         parts.append(part_dict)
 

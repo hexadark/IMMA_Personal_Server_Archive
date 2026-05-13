@@ -1,0 +1,345 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 가공업체 찾기</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    body { background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
+    
+    /* Internal overrides if needed */
+    .search-header {
+      background: #111;
+      padding: 80px 20px;
+      text-align: center;
+      color: white;
+      background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=2070');
+      background-size: cover;
+      background-position: center;
+    }
+    .search-header h1 { font-size: 40px; font-weight: 900; margin-bottom: 20px; letter-spacing:0; }
+    .search-header p { font-size: 17px; color: rgba(255,255,255,0.6); margin-bottom: 40px; }
+    
+    .search-bar-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      background: white;
+      border-radius: 16px;
+      padding: 10px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    .search-input {
+      flex: 1;
+      border: none;
+      padding: 18px 24px;
+      font-size: 17px;
+      outline: none;
+      font-family: inherit;
+      color: #111;
+      font-weight: 500;
+    }
+    .search-btn {
+      background: var(--primary);
+      color: #000;
+      border: none;
+      padding: 0 40px;
+      font-size: 17px;
+      font-weight: 900;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .search-btn:hover { background: var(--primary-hover); transform: scale(1.02); }
+
+    .filter-wrap {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 20px 0;
+    }
+    .filter-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .filter-dropdown {
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+    }
+    .filter-dropdown:hover { border-color: #999; color: #111; }
+    .filter-dropdown.active { border-color: var(--primary); color: var(--primary-dark); background: rgba(255,209,0,0.05); }
+
+    .result-wrap {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 20px;
+      width: 100%;
+    }
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .result-count span { color: var(--primary-accent); font-weight: 800; }
+    
+    .sup-meta {
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      font-size: 12px;
+    }
+    .meta-item { display: flex; flex-direction: column; gap: 4px; }
+    .meta-item span:first-child { color: var(--text-muted); }
+    .meta-item span:last-child { font-weight: 700; color: #111; display: flex; align-items: center; gap: 3px; }
+    .meta-item .star { color: var(--primary); }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 60px;
+    }
+    .page-btn {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      font-size: 14px; font-weight: 600; color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .page-btn:hover { border-color: #999; color: #111; }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #000; }
+
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/client">대시보드</a></li>
+    <li><a href="/#service-intro">서비스 소개</a></li>
+    <li><a href="/how-to-use">이용 방법</a></li>
+    <li><a href="/process-flow">프로세스</a></li>
+    <li><a href="/search-suppliers" class="active">업체 찾기</a></li>
+    <li><a href="/support">고객지원</a></li>
+  </ul>
+  <div class="header-actions">
+    <a class="btn-login" href="/">로그인</a>
+    <a class="btn-signup" href="/">회원가입</a>
+  </div>
+</header>
+
+<div class="search-header">
+  <h1>전국 12,000+ 가공업체를 한눈에</h1>
+  <p>CNC 가공, 판금, 사출 등 원하는 가공 방식을 지원하는 최적의 파트너를 찾아보세요.</p>
+  <div class="search-bar-wrap">
+    <input type="text" class="search-input" placeholder="가공 방식, 재질, 장비명, 업체명으로 검색해보세요.">
+    <button class="search-btn"><i class="ri-search-line"></i> 검색</button>
+  </div>
+</div>
+
+<div class="filter-wrap">
+  <div class="filter-inner">
+    <button class="filter-dropdown active">가공 공정 <i class="ri-arrow-down-s-line"></i></button>
+    <button class="filter-dropdown">재질 <i class="ri-arrow-down-s-line"></i></button>
+    <button class="filter-dropdown">지역 <i class="ri-arrow-down-s-line"></i></button>
+    <button class="filter-dropdown">인증 및 역량 <i class="ri-arrow-down-s-line"></i></button>
+    <div style="flex:1;"></div>
+    <button class="filter-dropdown" style="border:none;background:transparent;"><i class="ri-refresh-line"></i> 초기화</button>
+  </div>
+</div>
+
+<div class="result-wrap">
+  <div class="result-head">
+    <div class="result-count">총 <span>12,543</span>개의 파트너</div>
+    <select style="padding:8px 12px; border:1px solid var(--border); border-radius:8px; outline:none; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;">
+      <option>추천순</option>
+      <option>평점 높은순</option>
+      <option>견적 회신 빠른순</option>
+      <option>가나다순</option>
+    </select>
+  </div>
+
+  <div class="company-grid">
+    <!-- Card 1 -->
+    <div class="company-card" data-demo-action="supplier-detail">
+      <div class="company-thumb">
+        <i class="ri-settings-3-line"></i>
+        <div class="company-rank">인증 완료</div>
+      </div>
+      <div class="company-info">
+        <div class="company-name">CNC 머시닝센터 #1</div>
+        <div class="company-loc"><i class="ri-map-pin-line"></i> 경기도 시흥시 정왕동</div>
+        <div class="company-tags">
+          <span class="company-tag">CNC 밀링</span>
+          <span class="company-tag">알루미늄</span>
+          <span class="company-tag">5축 가공</span>
+        </div>
+        <div class="company-stats">
+          <span class="company-rating"><i class="ri-star-fill"></i> 4.8 (128)</span>
+          <span class="company-time">30분 이내 회신</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="company-card" data-demo-action="supplier-detail">
+      <div class="company-thumb" style="background:linear-gradient(135deg, #1a2a1a, #2a3d2a);">
+        <i class="ri-tools-line"></i>
+        <div class="company-rank">인증 완료</div>
+      </div>
+      <div class="company-info">
+        <div class="company-name">CNC 선반 #2</div>
+        <div class="company-loc"><i class="ri-map-pin-line"></i> 인천 남동구 남촌동</div>
+        <div class="company-tags">
+          <span class="company-tag">CNC 선반</span>
+          <span class="company-tag">스틸/SUS</span>
+          <span class="company-tag">대량 양산</span>
+        </div>
+        <div class="company-stats">
+          <span class="company-rating"><i class="ri-star-fill"></i> 4.6 (97)</span>
+          <span class="company-time">1시간 이내 회신</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="company-card" data-demo-action="supplier-detail">
+      <div class="company-thumb" style="background:linear-gradient(135deg, #2a1a1a, #3d2a2a);">
+        <i class="ri-cut-line"></i>
+        <div class="company-rank">인증 완료</div>
+      </div>
+      <div class="company-info">
+        <div class="company-name">정밀 판금 & 절곡 전문</div>
+        <div class="company-loc"><i class="ri-map-pin-line"></i> 경상남도 김해시</div>
+        <div class="company-tags">
+          <span class="company-tag">레이저 절단</span>
+          <span class="sup-tag">NCT 판금</span>
+          <span class="sup-tag">용접</span>
+        </div>
+        <div class="company-stats">
+          <span class="company-rating"><i class="ri-star-fill"></i> 4.9 (210)</span>
+          <span class="company-time">2시간 이내 회신</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Card 4 -->
+    <div class="company-card" data-demo-action="supplier-detail">
+      <div class="company-thumb" style="background:linear-gradient(135deg, #2a2a1a, #3d3d2a);">
+        <i class="ri-shape-fill"></i>
+        <div class="company-rank" style="background:#444; color:white;">신규 가입</div>
+      </div>
+      <div class="company-info">
+        <div class="company-name">미래 3D 프린팅 랩</div>
+        <div class="company-loc"><i class="ri-map-pin-line"></i> 서울시 구로구</div>
+        <div class="company-tags">
+          <span class="company-tag">SLA / FDM</span>
+          <span class="company-tag">시제품 제작</span>
+        </div>
+        <div class="company-stats">
+          <span class="company-rating">신규 업체</span>
+          <span class="company-time">1시간 이내 회신</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Card 5 -->
+    <div class="company-card" data-demo-action="supplier-detail">
+      <div class="company-thumb" style="background:linear-gradient(135deg, #1a2a2a, #2a3d3d);">
+        <i class="ri-drop-line"></i>
+        <div class="company-rank">인증 완료</div>
+      </div>
+      <div class="company-info">
+        <div class="company-name">제일 표면처리 특수도금</div>
+        <div class="company-loc"><i class="ri-map-pin-line"></i> 인천 서구 가좌동</div>
+        <div class="company-tags">
+          <span class="company-tag">아노다이징</span>
+          <span class="company-tag">분체도장</span>
+          <span class="company-tag">크롬도금</span>
+        </div>
+        <div class="company-stats">
+          <span class="company-rating"><i class="ri-star-fill"></i> 4.5 (82)</span>
+          <span class="company-time">1일 이내 회신</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Card 6 -->
+    <div class="sup-card" data-demo-action="supplier-detail">
+      <div class="sup-img" style="background:linear-gradient(135deg, #2a1a2a, #3d2a3d);">
+        <i class="ri-compasses-2-line"></i>
+        <div class="sup-badge"><i class="ri-shield-check-line" style="color:var(--primary);"></i> 우수 파트너</div>
+      </div>
+      <div class="sup-body">
+        <div class="sup-title">다품종 소량 가공랩</div>
+        <div class="sup-loc"><i class="ri-map-pin-line"></i> 대구 북구 노원동</div>
+        <div class="sup-tags">
+          <span class="sup-tag">복합 가공</span>
+          <span class="sup-tag">설계 지원</span>
+          <span class="sup-tag">엔지니어링 플라스틱</span>
+        </div>
+        <div class="sup-meta">
+          <div class="meta-item">
+            <span>평점</span>
+            <span><i class="ri-star-fill star"></i> 5.0 (45)</span>
+          </div>
+          <div class="meta-item" style="text-align:right;">
+            <span>평균 회신</span>
+            <span>10분 이내</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="pagination">
+    <button class="page-btn" aria-label="이전 페이지" title="이전 페이지"><i class="ri-arrow-left-s-line"></i></button>
+    <button class="page-btn active">1</button>
+    <button class="page-btn">2</button>
+    <button class="page-btn">3</button>
+    <button class="page-btn">4</button>
+    <button class="page-btn">5</button>
+    <button class="page-btn" aria-label="다음 페이지" title="다음 페이지"><i class="ri-arrow-right-s-line"></i></button>
+  </div>
+</div>
+
+<footer class="imma-footer">
+  <div class="footer-inner">
+    <div><div class="footer-logo">IMM<span>A</span></div><div class="footer-desc">지능형 제조 매칭 플랫폼<br>© 2026 IMMA. All rights reserved.</div></div>
+    <ul class="footer-links">
+      <li><a href="/how-to-use">회사 소개</a></li><li><a href="/support">이용약관</a></li>
+      <li><a href="/support">개인정보처리방침</a></li><li><a href="/support">파트너 문의</a></li>
+    </ul>
+  </div>
+</footer>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

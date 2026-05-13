@@ -1,0 +1,176 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 개인회원(클라이언트) 가입</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    body { background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
+    
+    .register-wrap {
+      /* 500 → 540: 67% 줌 시연 시 카드가 너무 좁게 보이는 문제 보정.
+         100% 일반 사용 시에는 약간 더 넓어진 정도라 영향 미미. */
+      max-width: 540px;
+      margin: 28px auto 48px;
+      width: 100%;
+      padding: 0 20px;
+    }
+    
+    .register-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 40px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    }
+
+    .reg-header { text-align: center; margin-bottom: 32px; }
+    .reg-header h1 { font-size: 24px; font-weight: 800; color: #111; margin-bottom: 8px; }
+    .reg-header p { font-size: 14px; color: var(--text-muted); }
+
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 700; color: #111; margin-bottom: 8px; }
+    .form-group label span { color: var(--danger); }
+    .form-group input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text-main);
+      outline: none;
+      transition: all 0.2s;
+    }
+    .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+    .pass-auth-row {
+      display: flex; gap: 10px; align-items: stretch;
+    }
+    .pass-auth-row input { flex: 1; }
+    .btn-pass {
+      background: #111; color: white; border: none; border-radius: 8px;
+      padding: 0 20px; font-size: 14px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; white-space: nowrap;
+      transition: background 0.2s; font-family: inherit;
+    }
+    .btn-pass:hover { background: #333; }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--primary);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+    .btn-submit:hover { background: var(--primary-hover); }
+
+    .reg-footer { text-align: center; margin-top: 24px; font-size: 13px; color: var(--text-muted); }
+    .reg-footer a { color: #111; font-weight: 600; text-decoration: none; margin-left: 4px; }
+    .reg-footer a:hover { text-decoration: underline; }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<!-- Header -->
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <div style="flex:1;"></div>
+  <a href="/" style="font-size:14px; color:var(--text-muted); text-decoration:none; font-weight:600;"><i class="ri-home-line"></i> 홈으로</a>
+</header>
+
+<div class="register-wrap">
+  <div class="register-card">
+    <div class="reg-header">
+      <h1>개인회원 가입</h1>
+      <p>클라이언트(고객)용 계정을 생성합니다.</p>
+    </div>
+
+      <form onsubmit="event.preventDefault(); window.location.href='/client';" novalidate>
+      <!-- 이름 -->
+      <div class="form-group">
+        <label>이름 (실명) <span>*</span></label>
+        <input type="text" placeholder="예) 홍길동" required>
+      </div>
+
+      <!-- 연락처 & PASS 인증 -->
+      <div class="form-group">
+        <label>연락처 및 본인인증 <span>*</span></label>
+        <div class="pass-auth-row">
+          <input type="tel" placeholder="010-1234-5678" required>
+          <button type="button" class="btn-pass">PASS 인증</button>
+        </div>
+        <div style="font-size:12px; color:var(--success); margin-top:8px; display:none;" id="pass-success-msg"><i class="ri-checkbox-circle-line"></i> 본인인증이 완료되었습니다.</div>
+      </div>
+
+      <!-- 이메일 -->
+      <div class="form-group">
+        <label>이메일 <span>*</span></label>
+        <input type="email" placeholder="example@domain.com" required>
+      </div>
+
+      <!-- 아이디 -->
+      <div class="form-group">
+        <label>아이디 <span>*</span></label>
+        <div style="display:flex; gap:10px;">
+          <input type="text" placeholder="영문, 숫자 6~20자" required style="flex:1;">
+          <button type="button" class="btn-outline" style="padding:0 20px; white-space:nowrap; border-radius:8px; border:1px solid var(--border); background:#fff; cursor:pointer;">중복 확인</button>
+        </div>
+      </div>
+
+      <!-- 비밀번호 -->
+      <div class="form-group">
+        <label>비밀번호 <span>*</span></label>
+        <input type="password" placeholder="8자 이상 영문, 숫자, 특수문자 조합" required>
+      </div>
+
+      <!-- 비밀번호 확인 -->
+      <div class="form-group">
+        <label>비밀번호 확인 <span>*</span></label>
+        <input type="password" placeholder="비밀번호를 한 번 더 입력해주세요" required>
+      </div>
+
+      <!-- 회사정보 (가공업체 정보) -->
+      <div class="form-group" style="margin-bottom:32px;">
+        <label>회사 정보 (소속 가공업체 / 발주처) <span>*</span></label>
+        <input type="text" placeholder="소속된 회사명 또는 상호를 입력해주세요." required>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">* 개인 고객이더라도 소속된 회사나 부서 정보를 간단히 입력해주세요.</div>
+      </div>
+
+      <button type="submit" class="btn-submit">가입하기</button>
+    </form>
+
+    <div class="reg-footer">
+      이미 계정이 있으신가요? <a href="/">로그인</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Simple interaction for demo
+  document.querySelector('.btn-pass').addEventListener('click', function() {
+    setTimeout(() => {
+      document.getElementById('pass-success-msg').style.display = 'block';
+      this.textContent = "인증 완료";
+      this.style.background = "var(--success)";
+      this.style.color = "#fff";
+      this.disabled = true;
+    }, 500);
+  });
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 가공업체 설정</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link rel="stylesheet" href="/static/role-workflows.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    .settings-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+    .setting-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .setting-full { grid-column: 1 / -1; }
+    .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .switch-row:last-child { border-bottom: 0; }
+    .toggle { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
+    .toggle input { position: absolute; opacity: 0; }
+    .toggle span { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background .2s; }
+    .toggle span::after { content: ""; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: transform .2s; box-shadow: 0 1px 3px rgba(15,23,42,.18); }
+    .toggle input:checked + span { background: var(--primary); }
+    .toggle input:checked + span::after { transform: translateX(20px); }
+    @media (max-width: 1100px) { .settings-layout { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .setting-section { grid-template-columns: 1fr; } }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+  <div class="mw-app">
+    <aside class="mw-side">
+      <a class="mw-side-logo" href="/supplier">IMM<span>A</span></a>
+      <nav class="mw-side-nav">
+        <a href="/supplier"><i class="ri-dashboard-line"></i> 대시보드</a>
+        <a href="/supplier-workbench"><i class="ri-file-list-3-line"></i> 오더리스트</a>
+        <a href="/supplier-workbench#reply"><i class="ri-mail-send-line"></i> 작업정보 회신</a>
+        <a href="/supplier-workbench#orders"><i class="ri-stack-line"></i> 발주·생산</a>
+        <a href="/supplier-workbench#capacity"><i class="ri-calendar-check-line"></i> 스케줄·영업상태</a>
+        <a href="/supplier-workbench#delivery"><i class="ri-truck-line"></i> 납품 관리</a>
+        <a href="/supplier-workbench#reviews"><i class="ri-star-line"></i> 리뷰·평점</a>
+        <a href="/supplier-messages"><i class="ri-message-3-line"></i> 메시지</a>
+        <div class="mw-nav-divider"></div>
+        <a href="/support"><i class="ri-customer-service-2-line"></i> 고객지원</a>
+        <a href="/supplier-settings" class="active"><i class="ri-settings-4-line"></i> 설정</a>
+      </nav>
+      <div class="mw-side-user">
+        <strong style="color:#fff;">(주)서진정밀</strong><br>
+        공급사 파트너 · 경기 시흥
+      </div>
+    </aside>
+
+    <div class="mw-app-main">
+      <header class="mw-app-topbar">
+        <div class="mw-search">
+          <i class="ri-search-line"></i>
+          <input type="text" placeholder="오더번호, 도면명, 클라이언트명 검색">
+        </div>
+        <div class="mw-actions">
+          <span class="mw-chip green"><i class="ri-checkbox-circle-line"></i> 영업중</span>
+          <span class="mw-chip yellow"><i class="ri-loader-2-line"></i> 가동률 78%</span>
+          <button class="mw-icon-action" type="button" aria-label="알림"><i class="ri-notification-3-line"></i></button>
+          <button class="mw-icon-action" type="button" aria-label="도움말"><i class="ri-question-line"></i></button>
+          <a href="/#home" class="btn-outline" style="padding:8px 12px; font-size:12px;">로그아웃</a>
+        </div>
+      </header>
+
+      <main class="mw-app-content">
+        <div class="mw-top">
+          <div class="mw-title">
+            <div class="mw-eyebrow"><i class="ri-settings-4-line"></i> Supplier settings</div>
+            <h1>업체 설정</h1>
+            <p>가입 정보, 회사 역량, 작업 가능 조건, 알림 및 기밀 유지 설정을 관리합니다.</p>
+          </div>
+          <div class="mw-actions">
+            <button class="btn-outline"><i class="ri-notification-3-line"></i> 알림 테스트</button>
+            <button class="btn-primary"><i class="ri-save-3-line"></i> 변경 저장</button>
+          </div>
+        </div>
+
+        <div class="settings-layout">
+          <section class="mw-stack">
+            <article class="mw-card" id="capability">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-building-2-line"></i> 기본 회사 정보</div>
+                  <div class="mw-card-sub">업체 가입 시 입력한 담당자, 사업장, 사업자등록 정보를 관리합니다.</div>
+                </div>
+                <span class="mw-badge green">인증 완료</span>
+              </div>
+              <div class="setting-section">
+                <div class="mw-field">
+                  <label>회사명</label>
+                  <input class="mw-input" value="(주)서진정밀">
+                </div>
+                <div class="mw-field">
+                  <label>담당자</label>
+                  <input class="mw-input" value="김한빛">
+                </div>
+                <div class="mw-field">
+                  <label>연락처</label>
+                  <input class="mw-input" value="010-4321-8765">
+                </div>
+                <div class="mw-field">
+                  <label>이메일</label>
+                  <input class="mw-input" value="contact@seojin-mfg.co.kr">
+                </div>
+                <div class="mw-field setting-full">
+                  <label>사무실 주소</label>
+                  <input class="mw-input" value="경기 시흥시 공단2대로 120">
+                </div>
+              </div>
+            </article>
+
+            <article class="mw-card">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-tools-line"></i> 작업 역량 및 매칭 조건</div>
+                  <div class="mw-card-sub">오더리스트 수락 가능 여부를 판단할 때 관리자 매칭 기준으로 사용됩니다.</div>
+                </div>
+                <span class="mw-badge blue">매칭 반영</span>
+              </div>
+              <div class="setting-section">
+                <div class="mw-field">
+                  <label>주요 재질</label>
+                  <input class="mw-input" value="AL6061, SUS304, S45C, SS400">
+                </div>
+                <div class="mw-field">
+                  <label>제공 가공 서비스</label>
+                  <input class="mw-input" value="CNC 밀링, 선반, 후처리, 조립">
+                </div>
+                <div class="mw-field">
+                  <label>최소 작업량</label>
+                  <input class="mw-input" value="단품 1개 또는 50만원 이상">
+                </div>
+                <div class="mw-field">
+                  <label>주요 연계 업체</label>
+                  <input class="mw-input" value="대성아노다이징, 한빛용접">
+                </div>
+                <div class="mw-field setting-full">
+                  <label>사용 장비</label>
+                  <textarea class="mw-input textarea">머시닝센터 1호기 DNM 750L, 선반 2호기 PUMA 2100, 레이저 절단기 1호기 TruLaser 3030</textarea>
+                </div>
+              </div>
+            </article>
+
+            <article class="mw-card">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><i class="ri-calendar-check-line"></i> 실시간 영업 상태</div>
+                  <div class="mw-card-sub">작업 스케줄과 영업 상태 변동성은 오더리스트 선별에 바로 반영됩니다.</div>
+                </div>
+                <span class="mw-badge green">영업중</span>
+              </div>
+              <div class="mw-grid-3">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">이번 주 가동률</div>
+                    <div class="mw-list-meta">78% · 다음 가능 슬롯 2026-06-24 오전</div>
+                  </div>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">야간 가공</div>
+                    <div class="mw-list-meta">가능 · 급행 오더 우선 검토</div>
+                  </div>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">휴무 계획</div>
+                    <div class="mw-list-meta">2026-07-12 정기 점검</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mw-row-actions" style="justify-content:flex-end; margin-top:16px;">
+                <button class="btn-outline"><i class="ri-calendar-event-line"></i> 휴무 등록</button>
+                <button class="btn-primary"><i class="ri-save-3-line"></i> 변경 저장</button>
+              </div>
+            </article>
+          </section>
+
+          <aside class="mw-stack">
+            <article class="mw-card tight">
+              <div class="mw-card-title"><i class="ri-notification-badge-line"></i> 알림 설정</div>
+              <div class="divider"></div>
+              <div class="switch-row">
+                <div>
+                  <div class="mw-list-title">신규 오더리스트</div>
+                  <div class="mw-list-meta">관리자 선별 오더 수신</div>
+                </div>
+                <label class="toggle"><input type="checkbox" checked><span></span></label>
+              </div>
+              <div class="switch-row">
+                <div>
+                  <div class="mw-list-title">추가 정보 요청</div>
+                  <div class="mw-list-meta">도면 치수, 수령 조건 보완</div>
+                </div>
+                <label class="toggle"><input type="checkbox" checked><span></span></label>
+              </div>
+              <div class="switch-row">
+                <div>
+                  <div class="mw-list-title">납기 지연 경고</div>
+                  <div class="mw-list-meta">예상 납기 변동 알림</div>
+                </div>
+                <label class="toggle"><input type="checkbox" checked><span></span></label>
+              </div>
+            </article>
+
+            <article class="mw-card tight">
+              <div class="mw-card-title"><i class="ri-shield-keyhole-line"></i> 보안·기밀 유지</div>
+              <div class="divider"></div>
+              <div class="mw-list">
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">도면 열람 기록</div>
+                    <div class="mw-list-meta">최근 30일 18건</div>
+                  </div>
+                  <span class="mw-badge green">정상</span>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">기술 기밀 유지 서약</div>
+                    <div class="mw-list-meta">2026-06-20 갱신 완료</div>
+                  </div>
+                  <span class="mw-badge green">완료</span>
+                </div>
+                <div class="mw-list-item soft">
+                  <div>
+                    <div class="mw-list-title">계약 서비스</div>
+                    <div class="mw-list-meta">SGI 연계 요청 가능</div>
+                  </div>
+                  <span class="mw-badge blue">사용 가능</span>
+                </div>
+              </div>
+            </article>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

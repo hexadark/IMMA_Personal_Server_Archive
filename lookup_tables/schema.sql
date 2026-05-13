@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS companies (
     company_id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     neo4j_company_key       text UNIQUE,
     company_name            text NOT NULL,
+    login_id                citext NOT NULL UNIQUE,
     business_registration_no text UNIQUE,
     representative_name     text,
     company_size            text NOT NULL DEFAULT 'unknown'
@@ -115,13 +116,14 @@ CREATE TABLE IF NOT EXISTS companies (
     employee_count          integer CHECK (employee_count IS NULL OR employee_count >= 0),
     established_year        integer CHECK (established_year IS NULL OR established_year BETWEEN 1900 AND 2100),
     main_phone              text,
-    main_email              citext NOT NULL UNIQUE,
-    login_password_hash     text NOT NULL,
+    main_email              citext NOT NULL,
+    password_hash           text NOT NULL,
     website_url             text,
     status                  text NOT NULL DEFAULT 'pending'
                             CHECK (status IN ('pending','active','paused','suspended','deleted')),
     onboarding_status       text NOT NULL DEFAULT 'draft'
                             CHECK (onboarding_status IN ('draft','submitted','verified','rejected')),
+    accepting_orders        boolean NOT NULL DEFAULT true,
     notes                   text,
     created_at              timestamptz NOT NULL DEFAULT now(),
     updated_at              timestamptz NOT NULL DEFAULT now()
@@ -319,8 +321,10 @@ CREATE TABLE IF NOT EXISTS company_capacity_calendar (
 CREATE TABLE IF NOT EXISTS buyers (
     buyer_id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     buyer_name              text NOT NULL,
+    company_name            text,
+    login_id                citext NOT NULL UNIQUE,
     contact_name            text,
-    email                   citext NOT NULL UNIQUE,
+    email                   citext NOT NULL,
     phone                   text,
     password_hash           text NOT NULL,
     region                  text,
@@ -335,10 +339,7 @@ CREATE TABLE IF NOT EXISTS drawings (
     file_uri                text,
     file_sha256             text UNIQUE,
     original_filename       text,
-    vlm_model               text,
-    vlm_model_version       text,
     vlm_result_jsonb        jsonb NOT NULL DEFAULT '{}'::jsonb,
-    extraction_confidence   numeric(5,4) CHECK (extraction_confidence IS NULL OR extraction_confidence BETWEEN 0 AND 1),
     created_at              timestamptz NOT NULL DEFAULT now()
 );
 
@@ -348,14 +349,42 @@ CREATE TABLE IF NOT EXISTS rfqs (
     drawing_id              uuid REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     rfq_no                  text UNIQUE,
     status                  text NOT NULL DEFAULT 'open'
-                            CHECK (status IN ('draft','open','closed','cancelled','ordered')),
+                            CHECK (status IN ('draft','open','quoted','closed','cancelled','ordered')),
     requested_delivery_date date,
-    quote_due_at            timestamptz,
+    order_quantity          integer CHECK (order_quantity IS NULL OR order_quantity > 0),
+    budget_amount           numeric(14,2) CHECK (budget_amount IS NULL OR budget_amount >= 0),
+    budget_currency         char(3) DEFAULT 'KRW',
     general_notes_jsonb     jsonb NOT NULL DEFAULT '[]'::jsonb,
     referenced_standards_jsonb jsonb NOT NULL DEFAULT '[]'::jsonb,
     created_at              timestamptz NOT NULL DEFAULT now(),
     updated_at              timestamptz NOT NULL DEFAULT now()
 );
+
+-- rfq_no 자동 생성 트리거 (RFQ-YYYYMMDD-NNNN)
+CREATE OR REPLACE FUNCTION generate_rfq_no()
+RETURNS TRIGGER AS $$
+DECLARE
+    today_str text;
+    next_seq int;
+BEGIN
+    IF NEW.rfq_no IS NULL THEN
+        today_str := to_char(COALESCE(NEW.created_at, now()), 'YYYYMMDD');
+        SELECT COALESCE(MAX(CAST(SUBSTRING(rfq_no FROM 'RFQ-' || today_str || '-(\d+)') AS int)), 0) + 1
+            INTO next_seq
+            FROM rfqs
+            WHERE rfq_no LIKE 'RFQ-' || today_str || '-%';
+        NEW.rfq_no := 'RFQ-' || today_str || '-' || lpad(next_seq::text, 4, '0');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_rfq_no_auto_gen ON rfqs;
+CREATE TRIGGER trg_rfq_no_auto_gen
+    BEFORE INSERT ON rfqs
+    FOR EACH ROW
+    EXECUTE FUNCTION generate_rfq_no();
+
 
 CREATE TABLE IF NOT EXISTS rfq_parts (
     rfq_part_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -377,6 +406,8 @@ CREATE TABLE IF NOT EXISTS rfq_parts (
     surface_roughness_jsonb jsonb NOT NULL DEFAULT '[]'::jsonb,
     post_treatment_raw      text,
     vlm_part_jsonb          jsonb NOT NULL DEFAULT '{}'::jsonb,
+    part_status             text NOT NULL DEFAULT 'pending'
+                            CHECK (part_status IN ('pending','matched','rejected','supplemented')),
     created_at              timestamptz NOT NULL DEFAULT now()
 );
 
@@ -470,6 +501,8 @@ CREATE TABLE IF NOT EXISTS manufacturing_jobs (
     promised_delivery_date  date,
     actual_delivery_date    date,
 
+    job_status              text NOT NULL DEFAULT 'pending'
+                            CHECK (job_status IN ('pending','material_received','in_progress','post_processing','inspection','packaging','completed','cancelled')),
     quality_status          text CHECK (quality_status IN ('pass','conditional_pass','fail','rework','unknown')),
     rework_count            integer NOT NULL DEFAULT 0 CHECK (rework_count >= 0),
     scrap_count             integer NOT NULL DEFAULT 0 CHECK (scrap_count >= 0),
@@ -575,18 +608,19 @@ CREATE TABLE IF NOT EXISTS match_runs (
 CREATE TABLE IF NOT EXISTS match_candidates (
     match_run_id            uuid NOT NULL REFERENCES match_runs(match_run_id) ON DELETE CASCADE,
     company_id              uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+    rfq_part_id             uuid REFERENCES rfq_parts(rfq_part_id) ON DELETE CASCADE,
     hard_filter_pass        boolean NOT NULL DEFAULT false,
     technical_score         numeric(6,3),
     availability_score      numeric(6,3),
     quality_score           numeric(6,3),
-    price_score             numeric(6,3),
-    vector_similarity_score numeric(6,3),
-    ontology_score          numeric(6,3),
     total_score             numeric(6,3),
     explanation_jsonb       jsonb NOT NULL DEFAULT '{}'::jsonb,
     rank_no                 integer,
+    supplier_response       text NOT NULL DEFAULT 'pending'
+                            CHECK (supplier_response IN ('pending','accepted','declined','expired')),
+    responded_at            timestamptz,
     created_at              timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (match_run_id, company_id)
+    PRIMARY KEY (match_run_id, company_id, rfq_part_id)
 );
 
 CREATE TABLE IF NOT EXISTS ontology_sync_refs (
@@ -598,6 +632,78 @@ CREATE TABLE IF NOT EXISTS ontology_sync_refs (
                             CHECK (sync_status IN ('pending','synced','failed','disabled')),
     PRIMARY KEY (entity_type, entity_id)
 );
+
+-- -----------------------------------------------------------------------------
+-- 7b. Notifications, admins, shipments, delivery_images
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    recipient_type      text NOT NULL CHECK (recipient_type IN ('buyer','supplier','admin')),
+    recipient_id        uuid NOT NULL,
+    event_type          text NOT NULL,
+    title               text NOT NULL,
+    message             text,
+    reference_id        uuid,
+    reference_type      text,
+    is_read             boolean NOT NULL DEFAULT false,
+    created_at          timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS admins (
+    admin_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    login_id            citext NOT NULL UNIQUE,
+    name                text NOT NULL,
+    email               citext NOT NULL,
+    password_hash       text NOT NULL,
+    role                text NOT NULL DEFAULT 'operator'
+                        CHECK (role IN ('operator','manager','superadmin')),
+    created_at          timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS shipments (
+    shipment_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id            uuid NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    shipping_method     text,
+    tracking_number     text,
+    shipped_at          timestamptz,
+    delivery_address    text,
+    notes               text,
+    created_at          timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS delivery_images (
+    image_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id              uuid NOT NULL REFERENCES manufacturing_jobs(job_id) ON DELETE CASCADE,
+    image_type          text NOT NULL CHECK (image_type IN ('final_product','packaging','inspection_report')),
+    file_uri            text NOT NULL,
+    uploaded_at         timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
+-- 7c. Equipment daily schedule (일단위 장비 스케줄)
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS equipment_daily_schedule (
+    schedule_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    equipment_id        uuid NOT NULL REFERENCES equipment(equipment_id) ON DELETE CASCADE,
+    company_id          uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+    schedule_date       date NOT NULL,
+    status              text NOT NULL DEFAULT 'available'
+                        CHECK (status IN ('available','partially_booked','fully_booked','maintenance','holiday','off')),
+    planned_hours       numeric(5,2) NOT NULL DEFAULT 8.0 CHECK (planned_hours >= 0),
+    booked_hours        numeric(5,2) NOT NULL DEFAULT 0 CHECK (booked_hours >= 0),
+    available_hours     numeric(5,2) GENERATED ALWAYS AS (GREATEST(planned_hours - booked_hours, 0)) STORED,
+    order_id            uuid REFERENCES orders(order_id) ON DELETE SET NULL,
+    job_id              uuid REFERENCES manufacturing_jobs(job_id) ON DELETE SET NULL,
+    memo                text,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (equipment_id, schedule_date)
+);
+CREATE INDEX IF NOT EXISTS idx_eds_company_date ON equipment_daily_schedule(company_id, schedule_date);
+CREATE INDEX IF NOT EXISTS idx_eds_available ON equipment_daily_schedule(company_id, schedule_date, status)
+    WHERE status IN ('available','partially_booked');
 
 -- -----------------------------------------------------------------------------
 -- 8. Materialized summary view for Phase 1 hard filters
@@ -615,10 +721,23 @@ WITH mat AS (
     WHERE cmc.is_active = true
       AND cmc.capability_level IN ('regular','possible','consult')
     GROUP BY cmc.company_id
+), expanded_proc AS (
+    SELECT cpc.company_id, cpc.process_code
+    FROM company_process_capabilities cpc
+    WHERE cpc.is_active = true AND cpc.capability_level != 'not_preferred'
+    UNION
+    SELECT cpc.company_id, pc.parent_process_code
+    FROM company_process_capabilities cpc
+    JOIN process_catalog pc ON pc.process_code = cpc.process_code
+    WHERE cpc.is_active = true AND cpc.capability_level != 'not_preferred'
+      AND pc.parent_process_code IS NOT NULL
+), expanded_agg AS (
+    SELECT company_id, array_agg(DISTINCT process_code) AS process_codes
+    FROM expanded_proc
+    GROUP BY company_id
 ), proc AS (
     SELECT
         cpc.company_id,
-        array_agg(DISTINCT cpc.process_code) FILTER (WHERE cpc.is_active = true AND cpc.capability_level != 'not_preferred') AS process_codes,
         array_agg(DISTINCT cpc.process_code) FILTER (WHERE cpc.is_active = true AND cpc.capability_level != 'not_preferred' AND cpc.service_mode IN ('in_house','both')) AS inhouse_process_codes,
         array_agg(DISTINCT cpc.process_code) FILTER (WHERE cpc.is_active = true AND cpc.capability_level != 'not_preferred' AND cpc.service_mode IN ('outsourced','both')) AS outsourced_process_codes,
         min(cpc.best_achievable_it_grade) FILTER (WHERE cpc.best_achievable_it_grade IS NOT NULL AND cpc.capability_level != 'not_preferred') AS best_company_it_grade,
@@ -660,7 +779,7 @@ SELECT
         (SELECT array_agg(DISTINCT x) FROM unnest(COALESCE(mat.explicit_material_category_codes, ARRAY[]::text[]) || COALESCE(mat.material_category_codes_from_materials, ARRAY[]::text[])) AS x),
         ARRAY[]::text[]
     ) AS material_category_codes,
-    COALESCE(proc.process_codes, ARRAY[]::text[]) AS process_codes,
+    COALESCE(ea.process_codes, ARRAY[]::text[]) AS process_codes,
     COALESCE(proc.inhouse_process_codes, ARRAY[]::text[]) AS inhouse_process_codes,
     COALESCE(proc.outsourced_process_codes, ARRAY[]::text[]) AS outsourced_process_codes,
     eq.max_x_mm,
@@ -682,12 +801,14 @@ SELECT
     COALESCE(rating.review_count, 0) AS review_count
 FROM companies c
 LEFT JOIN mat ON mat.company_id = c.company_id
+LEFT JOIN expanded_agg ea ON ea.company_id = c.company_id
 LEFT JOIN proc ON proc.company_id = c.company_id
 LEFT JOIN eq ON eq.company_id = c.company_id
 LEFT JOIN company_availability_snapshot av ON av.company_id = c.company_id
 LEFT JOIN rating ON rating.company_id = c.company_id
 WHERE c.status = 'active'
-  AND c.onboarding_status = 'verified';
+  AND c.onboarding_status = 'verified'
+  AND c.accepting_orders = true;
 
 -- -----------------------------------------------------------------------------
 -- 9. Recommended indexes
@@ -724,7 +845,6 @@ CREATE INDEX IF NOT EXISTS idx_capacity_process_week ON company_capacity_calenda
 
 -- RFQ/quote/order/history indexes
 CREATE INDEX IF NOT EXISTS idx_drawings_vlm_jsonb ON drawings USING gin (vlm_result_jsonb jsonb_path_ops);
-CREATE INDEX IF NOT EXISTS idx_rfqs_status_due ON rfqs(status, quote_due_at);
 CREATE INDEX IF NOT EXISTS idx_rfq_parts_material ON rfq_parts(material_id, material_category_code);
 CREATE INDEX IF NOT EXISTS idx_rfq_parts_requirements ON rfq_parts(tightest_it_grade, finest_ra_um);
 CREATE INDEX IF NOT EXISTS idx_rfq_part_processes_process ON rfq_part_processes(process_code);
@@ -781,6 +901,18 @@ INSERT INTO process_catalog(process_code, parent_process_code, process_name_ko, 
 ('centerless_grinding',  'grinding', '센터리스 연삭',   'Centerless grinding',        'cutting')
 ON CONFLICT (process_code) DO NOTHING;
 
+-- GPT-Pro 검증 보강: 누락 공정 + rough/finish 하위 공정
+INSERT INTO process_catalog(process_code, parent_process_code, process_name_ko, process_name_en, process_group) VALUES
+('reaming',              NULL,       '리밍',           'Reaming',                    'cutting'),
+('lapping',              'grinding', '래핑',           'Lapping',                    'cutting'),
+('gear_grinding',        'grinding', '기어 연삭',       'Gear grinding',              'gear_cutting'),
+('polishing',            NULL,       '폴리싱',          'Polishing',                  'post_process'),
+('turning_rough',        'turning',  '황삭 선삭',       'Rough turning',              'cutting'),
+('turning_finish',       'turning',  '정삭 선삭',       'Finish turning',             'cutting'),
+('milling_rough',        'milling',  '황삭 밀링',       'Rough milling',              'cutting'),
+('milling_finish',       'milling',  '정삭 밀링',       'Finish milling',             'cutting')
+ON CONFLICT (process_code) DO NOTHING;
+
 INSERT INTO equipment_category_catalog(equipment_category_code, category_name_ko, category_name_en, default_process_group) VALUES
 ('cnc_lathe', 'CNC선반', 'CNC lathe', 'cutting'),
 ('general_lathe', '범용선반', 'Manual lathe', 'cutting'),
@@ -801,7 +933,9 @@ INSERT INTO equipment_category_catalog(equipment_category_code, category_name_ko
 ('mill_turn', '복합가공기', 'Mill-turn center', 'cutting'),
 ('press_machine', '프레스', 'Press machine', 'forming'),
 ('plasma_cutting_machine', '플라즈마 절단기', 'Plasma cutting machine', 'sheet_metal'),
-('waterjet_cutting_machine', '워터젯 절단기', 'Waterjet cutting machine', 'special_cutting')
+('waterjet_cutting_machine', '워터젯 절단기', 'Waterjet cutting machine', 'special_cutting'),
+('cnc_router', 'CNC 라우터', 'CNC router', 'cutting'),
+('casting_foundry', '주조 설비', 'Casting foundry equipment', 'forming')
 ON CONFLICT (equipment_category_code) DO NOTHING;
 
 INSERT INTO material_category_catalog(category_code, category_name_ko, category_name_en) VALUES
@@ -814,8 +948,65 @@ INSERT INTO material_category_catalog(category_code, category_name_ko, category_
 ('copper_alloy', '구리합금', 'Copper alloy'),
 ('sheet_steel', '판금용 강판', 'Sheet steel'),
 ('tool_steel', '공구강', 'Tool steel'),
-('other', '기타', 'Other')
+('engineering_plastic', '엔지니어링 플라스틱', 'Engineering Plastic'),
+('free_cutting_steel', '쾌삭강', 'Free-Cutting Steel'),
+('ductile_cast_iron', '구상흑연주철', 'Ductile Cast Iron'),
+('composite_insulation', '복합재/절연재', 'Composite/Insulation'),
+('other', '기타', 'Other'),
+('stainless_cast_steel', '스테인리스 주강', 'Stainless cast steel')
 ON CONFLICT (category_code) DO NOTHING;
+
+-- ── company_material_process_capabilities: 재질-공정-업체 결합 테이블 ──
+CREATE TABLE IF NOT EXISTS company_material_process_capabilities (
+    company_material_process_capability_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id              uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+    material_id             uuid REFERENCES materials(material_id) ON DELETE CASCADE,
+    material_category_code  text REFERENCES material_category_catalog(category_code),
+    process_code            text NOT NULL REFERENCES process_catalog(process_code),
+    service_mode            text NOT NULL DEFAULT 'in_house'
+                            CHECK (service_mode IN ('in_house','outsourced','both')),
+    capability_level        text NOT NULL DEFAULT 'regular'
+                            CHECK (capability_level IN ('primary','regular','secondary','possible','consult','not_preferred')),
+    equipment_id            uuid REFERENCES equipment(equipment_id) ON DELETE SET NULL,
+    equipment_category_code text REFERENCES equipment_category_catalog(equipment_category_code),
+    typical_it_grade        smallint CHECK (typical_it_grade IS NULL OR typical_it_grade BETWEEN 1 AND 18),
+    best_achievable_it_grade smallint CHECK (best_achievable_it_grade IS NULL OR best_achievable_it_grade BETWEEN 1 AND 18),
+    typical_tolerance_mm    numeric(10,5) CHECK (typical_tolerance_mm IS NULL OR typical_tolerance_mm >= 0),
+    best_tolerance_mm       numeric(10,5) CHECK (best_tolerance_mm IS NULL OR best_tolerance_mm >= 0),
+    typical_ra_um           numeric(8,3) CHECK (typical_ra_um IS NULL OR typical_ra_um >= 0),
+    best_ra_um              numeric(8,3) CHECK (best_ra_um IS NULL OR best_ra_um >= 0),
+    max_x_mm                numeric(12,3) CHECK (max_x_mm IS NULL OR max_x_mm >= 0),
+    max_y_mm                numeric(12,3) CHECK (max_y_mm IS NULL OR max_y_mm >= 0),
+    max_z_mm                numeric(12,3) CHECK (max_z_mm IS NULL OR max_z_mm >= 0),
+    max_turning_diameter_mm numeric(12,3) CHECK (max_turning_diameter_mm IS NULL OR max_turning_diameter_mm >= 0),
+    max_turning_length_mm   numeric(12,3) CHECK (max_turning_length_mm IS NULL OR max_turning_length_mm >= 0),
+    max_sheet_thickness_mm  numeric(12,3) CHECK (max_sheet_thickness_mm IS NULL OR max_sheet_thickness_mm >= 0),
+    lot_size_min            integer CHECK (lot_size_min IS NULL OR lot_size_min >= 0),
+    lot_size_max            integer CHECK (lot_size_max IS NULL OR lot_size_max >= 0),
+    special_requirements    jsonb NOT NULL DEFAULT '[]'::jsonb,
+    safety_controls         jsonb NOT NULL DEFAULT '[]'::jsonb,
+    notes                   text,
+    capability_source       text NOT NULL DEFAULT 'self_reported'
+                            CHECK (capability_source IN ('self_reported','manual_verified','document_verified','job_history_verified','inspection_verified','engineering_reference_estimate','spec_based_estimate','manufacturer_catalog','unknown')),
+    verification_level      text NOT NULL DEFAULT 'self_reported'
+                            CHECK (verification_level IN ('self_reported','document_verified','job_history_verified','inspection_verified')),
+    is_active               boolean NOT NULL DEFAULT true,
+    created_at              timestamptz NOT NULL DEFAULT now(),
+    updated_at              timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT cmpc_material_scope_chk CHECK (
+        (material_id IS NOT NULL AND material_category_code IS NULL)
+        OR (material_id IS NULL AND material_category_code IS NOT NULL)
+    ),
+    CONSTRAINT cmpc_equipment_scope_chk CHECK (
+        NOT (equipment_id IS NOT NULL AND equipment_category_code IS NOT NULL)
+    ),
+    CONSTRAINT cmpc_lot_range_chk CHECK (lot_size_min IS NULL OR lot_size_max IS NULL OR lot_size_min <= lot_size_max)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cmpc_company_process ON company_material_process_capabilities (company_id, process_code) WHERE is_active;
+CREATE INDEX IF NOT EXISTS idx_cmpc_material_process ON company_material_process_capabilities (material_id, process_code) WHERE is_active AND material_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cmpc_category_process ON company_material_process_capabilities (material_category_code, process_code) WHERE is_active AND material_category_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cmpc_equipment_category ON company_material_process_capabilities (equipment_category_code, process_code) WHERE is_active AND equipment_category_code IS NOT NULL;
 
 -- Refresh instruction:
 -- REFRESH MATERIALIZED VIEW CONCURRENTLY imma.company_capability_summary;

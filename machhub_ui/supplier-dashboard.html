@@ -1,0 +1,399 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 가공업체 대시보드</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    /* DASHBOARD LAYOUT */
+    .dash-container { display: flex; height: 100vh; overflow: hidden; background: #f4f7fa; }
+    .dash-sidebar { width: 260px; background: #1a1c1e; color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
+    .dash-logo { padding: 32px 24px; font-size: 24px; font-weight: 900; color: white; letter-spacing:0; }
+    .dash-logo span { color: var(--primary); }
+    .dash-nav { flex: 1; padding: 0 16px; }
+    .dash-nav a { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: #a0aec0; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 12px; transition: all 0.2s; margin-bottom: 4px; }
+    .dash-nav a:hover { background: rgba(255,255,255,0.05); color: white; }
+    .dash-nav a.active { background: var(--primary); color: #000; }
+    .dash-nav a i { font-size: 20px; }
+    .nav-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0; }
+    .dash-user { padding: 24px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; }
+    .u-avatar { width: 40px; height: 40px; border-radius: 10px; background: #2d3748; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #a0aec0; }
+    .u-info { flex: 1; }
+    .u-name { font-size: 14px; font-weight: 700; color: white; }
+    .u-role { font-size: 12px; color: #a0aec0; }
+    .logout-btn { color: #a0aec0; cursor: pointer; transition: color 0.2s; }
+    .logout-btn:hover { color: #fc8181; }
+
+    .dash-main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+    .dash-topbar { height: 72px; background: white; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 40px; position: sticky; top: 0; z-index: 10; }
+    .topbar-search { display: flex; align-items: center; gap: 12px; background: #f7fafc; padding: 10px 16px; border-radius: 10px; width: 400px; border: 1px solid transparent; transition: all 0.2s; }
+    .topbar-search:focus-within { background: white; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,209,0,0.1); }
+    .topbar-search input { border: none; background: transparent; outline: none; font-family: inherit; font-size: 14px; width: 100%; }
+    .topbar-search i { color: #a0aec0; font-size: 18px; }
+    .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .action-item { width: 38px; height: 38px; border-radius: 8px; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; color: #4a5568; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border); }
+    .action-item:hover { background: #edf2f7; color: #111; }
+    .status-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; font-weight: 800; padding: 7px 12px; white-space: nowrap; }
+    .status-chip.green { background: #ecfdf5; border-color: #bbf7d0; color: #047857; }
+    .status-chip.yellow { background: #fef9c3; border-color: #fde68a; color: #92400e; }
+    .topbar-logout { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text-main); font-size: 12px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+    .topbar-logout:hover { background: #f8fafc; color: #111; }
+
+    .page-wrap { padding: 40px; max-width: 1400px; margin: 0; }
+
+    /* KPI Cards */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+    .kpi-card {
+      background: white; border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px 22px; display: flex; align-items: center; gap: 16px;
+      transition: box-shadow 0.2s;
+    }
+    .kpi-card:hover { box-shadow: var(--shadow-md); }
+    .kpi-icon {
+      width: 52px; height: 52px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    .kpi-icon.yellow { background: rgba(255,209,0,0.15); color: var(--primary-dark); }
+    .kpi-icon.blue   { background: rgba(59,130,246,0.12); color: #1D4ED8; }
+    .kpi-icon.green  { background: rgba(34,197,94,0.12);  color: #166534; }
+    .kpi-icon.orange { background: rgba(249,115,22,0.12); color: #C2410C; }
+    .kpi-num { font-size: 28px; font-weight: 900; color: #111; letter-spacing:0; line-height: 1; }
+    .kpi-label { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+    .kpi-link { font-size: 12px; color: var(--primary-dark); font-weight: 600; margin-top: 5px; cursor: pointer; display: flex; align-items: center; gap: 2px; text-decoration: none; }
+
+    /* RFQ Table */
+    .section-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .section-title-row h2 { font-size: 16px; font-weight: 800; color: #111; }
+    .count-badge { background: var(--primary); color: #000; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 99px; }
+    .see-all { margin-left: auto; font-size: 13px; color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 2px; }
+
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border); background: #FAFBFC; }
+    .data-table td { padding: 13px 12px; font-size: 13px; color: #333; border-bottom: 1px solid var(--border); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #FAFBFC; }
+    .td-primary { font-weight: 700; color: #111; }
+
+    /* Order progress */
+    .order-progress-row {
+      background: white; border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px 20px; margin-bottom: 10px;
+    }
+    .order-prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .order-prog-tabs { display: flex; gap: 0; background: var(--bg); border-radius: 8px; padding: 3px; margin-bottom: 14px; }
+    .op-tab { padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; }
+    .op-tab.active { background: white; color: #111; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .op-count { font-size: 12px; font-weight: 700; padding: 1px 5px; border-radius: 99px; }
+    .op-tab.active .op-count { background: var(--primary); color: #000; }
+    .op-tab:not(.active) .op-count { background: var(--border); color: var(--text-muted); }
+
+    /* Sidebar */
+    .sidebar-right { display: flex; flex-direction: column; gap: 16px; }
+
+    .equip-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .equip-item:last-child { border-bottom: none; }
+    .equip-thumb { width: 48px; height: 40px; background: linear-gradient(135deg,#222,#444); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .equip-thumb i { font-size: 20px; color: rgba(255,255,255,0.3); }
+    .equip-name { font-size: 13px; font-weight: 700; color: #111; }
+    .equip-model { font-size: 12px; color: var(--text-muted); }
+    .equip-status { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.on { background: var(--success); }
+    .status-dot.warn { background: var(--warning); }
+    .util-ring {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: conic-gradient(var(--primary) var(--pct), var(--border) 0);
+      display: flex; align-items: center; justify-content: center;
+      margin-left: auto; flex-shrink: 0;
+      font-size: 12px; font-weight: 800; color: #111;
+      position: relative;
+    }
+    .util-ring::before {
+      content: ''; position: absolute;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: white;
+    }
+    .util-ring span { position: relative; z-index: 1; }
+
+    /* Quick actions */
+    .quick-actions { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .qa-btn { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 14px 8px; background: white; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); transition: all 0.2s; text-decoration: none; }
+    .qa-btn:hover { border-color: var(--primary); background: rgba(255,209,0,0.05); color: #111; }
+    .qa-btn i { font-size: 22px; color: var(--primary-dark); }
+    .dashboard-title-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+    .demo-supplier-order-link { display: inline-flex; align-items: center; gap: 2px; }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<div class="dash-container">
+  <aside class="dash-sidebar">
+    <div class="dash-logo">IMM<span>A</span></div>
+    <nav class="dash-nav">
+      <a href="/supplier" class="active"><i class="ri-dashboard-line"></i> 대시보드</a>
+      <a href="/supplier-workbench"><i class="ri-file-list-3-line"></i> 오더리스트</a>
+      <a href="/supplier-workbench#reply"><i class="ri-mail-send-line"></i> 작업정보 회신</a>
+      <a href="/supplier-workbench#orders"><i class="ri-stack-line"></i> 발주 수락</a>
+      <a href="/supplier-workbench#production"><i class="ri-settings-3-line"></i> 생산 진행</a>
+      <a href="/supplier-workbench#capacity"><i class="ri-calendar-check-line"></i> 스케줄·영업상태</a>
+      <a href="/supplier-workbench#delivery"><i class="ri-truck-line"></i> 납품 관리</a>
+      <a href="/supplier-messages"><i class="ri-message-3-line"></i> 메시지 <span class="badge badge-red">3</span></a>
+      <div class="nav-divider"></div>
+      <a href="/support"><i class="ri-customer-service-2-line"></i> 고객지원</a>
+      <a href="/supplier-settings"><i class="ri-settings-4-line"></i> 설정</a>
+    </nav>
+    <div class="dash-user">
+      <div class="u-avatar"><i class="ri-user-3-fill"></i></div>
+      <div class="u-info">
+        <div class="u-name">(주)한빛정밀</div>
+        <div class="u-role">공급사 파트너</div>
+      </div>
+      <i class="ri-logout-box-r-line logout-btn"></i>
+    </div>
+  </aside>
+
+  <main class="dash-main">
+    <header class="dash-topbar">
+      <div class="topbar-search">
+        <i class="ri-search-line"></i>
+        <input type="text" placeholder="오더번호, 도면명, 클라이언트명 검색">
+      </div>
+      <div class="topbar-actions">
+        <span class="status-chip green"><i class="ri-checkbox-circle-line"></i> 영업중</span>
+        <span class="status-chip yellow"><i class="ri-loader-2-line"></i> 가동률 78%</span>
+        <button class="action-item" type="button" aria-label="알림"><i class="ri-notification-3-line"></i></button>
+        <button class="action-item" type="button" aria-label="도움말"><i class="ri-question-line"></i></button>
+        <a href="/#home" class="topbar-logout">로그아웃</a>
+      </div>
+    </header>
+
+<div class="page-wrap">
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;">
+    <div>
+      <h1 style="font-size:26px;font-weight:900;color:#111;letter-spacing:0;margin-bottom:4px;">가공업체 대시보드</h1>
+      <p style="font-size:14px;color:var(--text-muted);">👋 안녕하세요, (주)한빛정밀 김한빛님! 오늘도 안전한 하루 되세요.</p>
+    </div>
+    <div class="dashboard-title-actions">
+      <span style="font-size:13px;color:var(--text-muted);">오늘은 2026년 5월 6일 (수)</span>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon yellow"><i class="ri-file-list-3-line"></i></div>
+      <div>
+        <div class="kpi-num">4 <span style="font-size:16px;font-weight:600;color:var(--text-muted);">건</span></div>
+        <div class="kpi-label">신규 견적 요청</div>
+        <a class="kpi-link demo-supplier-order-link" href="/supplier-workbench#rfq">오더리스트 확인하기 &gt;</a>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon blue"><i class="ri-stack-line"></i></div>
+      <div>
+        <div class="kpi-num">7 <span style="font-size:16px;font-weight:600;color:var(--text-muted);">건</span></div>
+        <div class="kpi-label">진행 주문</div>
+        <a class="kpi-link" href="/supplier-workbench#orders">전체 보기 &gt;</a>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon green"><i class="ri-percent-line"></i></div>
+      <div>
+        <div class="kpi-num">78<span style="font-size:18px;">%</span></div>
+        <div class="kpi-label">가동률</div>
+        <a class="kpi-link" href="/supplier-workbench#capacity">상세 보기 &gt;</a>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon orange"><i class="ri-won-line"></i></div>
+      <div>
+        <div class="kpi-num" style="font-size:20px;">47,800,000</div>
+        <div class="kpi-label">이번 달 매출 <span style="font-size:12px;">원</span></div>
+        <a class="kpi-link" href="/supplier-workbench#orders">상세 보기 &gt;</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:24px;align-items:start;">
+    <div>
+      <!-- RFQ Table -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-title-row">
+          <h2>신규 견적 요청</h2>
+          <span class="count-badge">4</span>
+          <a class="see-all" href="/supplier-workbench">전체 보기 &gt;</a>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>요청번호</th><th>품명</th><th>공정</th><th>수량</th><th>납기</th><th>상태</th><th>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-primary">RFQ-250520-001</td>
+              <td>브라켓 하우징</td><td>CNC 가공</td><td>100</td><td>2026-05-27</td>
+              <td><span class="badge badge-yellow">신규</span></td>
+              <td><a href="/supplier-rfq-detail" class="btn-primary" style="padding:6px 14px;font-size:12px;">요청 상세</a></td>
+            </tr>
+            <tr>
+              <td class="td-primary">RFQ-250520-002</td>
+              <td>샤프트</td><td>선반 가공</td><td>150</td><td>2026-05-29</td>
+              <td><span class="badge badge-yellow">신규</span></td>
+              <td><a href="/supplier-rfq-detail" class="btn-primary" style="padding:6px 14px;font-size:12px;">요청 상세</a></td>
+            </tr>
+            <tr>
+              <td class="td-primary">RFQ-250519-004</td>
+              <td>기어 플레이트</td><td>밀링 가공</td><td>80</td><td>2026-06-02</td>
+              <td><span class="badge badge-yellow">신규</span></td>
+              <td><a href="/supplier-rfq-detail" class="btn-primary" style="padding:6px 14px;font-size:12px;">요청 상세</a></td>
+            </tr>
+            <tr>
+              <td class="td-primary">RFQ-250519-003</td>
+              <td>커버 플레이트</td><td>레이저 절단</td><td>120</td><td>2026-05-28</td>
+              <td><span class="badge badge-yellow">신규</span></td>
+              <td><a href="/supplier-rfq-detail" class="btn-primary" style="padding:6px 14px;font-size:12px;">요청 상세</a></td>
+            </tr>
+            <tr>
+              <td class="td-primary">RFQ-250518-002</td>
+              <td>베이스 블록</td><td>CNC 가공</td><td>60</td><td>2026-05-26</td>
+              <td><span class="badge badge-yellow">신규</span></td>
+              <td><a href="/supplier-rfq-detail" class="btn-primary" style="padding:6px 14px;font-size:12px;">요청 상세</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Order Progress -->
+      <div class="card">
+        <div class="section-title-row" style="margin-bottom:10px;">
+          <h2>주문 진행 현황</h2>
+        </div>
+        <div class="order-prog-tabs">
+          <div class="op-tab active">전체 주문 <span class="op-count">12</span></div>
+          <div class="op-tab">제작 준비 중 <span class="op-count">2</span></div>
+          <div class="op-tab">제작 중 <span class="op-count">6</span></div>
+          <div class="op-tab">검수 중 <span class="op-count">2</span></div>
+          <div class="op-tab">완료 <span class="op-count">2</span></div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>주문번호</th><th>품명</th><th>납기</th><th>상태</th><th>진행률</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-primary">ORD-250520-001</td>
+              <td>브라켓 하우징</td><td>2026-06-27</td>
+              <td><span class="badge badge-blue">제작 중</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="flex:1;height:5px;background:var(--border);border-radius:99px;overflow:hidden;width:80px;"><div style="width:65%;height:100%;background:var(--primary);border-radius:99px;"></div></div>
+                  <span style="font-size:12px;font-weight:700;">65%</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="td-primary">ORD-250515-003</td>
+              <td>샤프트 어셈블리</td><td>2026-06-15</td>
+              <td><span class="badge badge-green">검수 중</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="flex:1;height:5px;background:var(--border);border-radius:99px;overflow:hidden;width:80px;"><div style="width:90%;height:100%;background:var(--success);border-radius:99px;"></div></div>
+                  <span style="font-size:12px;font-weight:700;">90%</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar-right">
+      <!-- Equipment Status -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin:0;">설비 상태</div>
+      <a href="/supplier-workbench#capacity" style="font-size:12px;color:var(--text-muted);cursor:pointer;text-decoration:none;">전체 보기 &gt;</a>
+        </div>
+        <div class="equip-item">
+          <div class="equip-thumb"><i class="ri-settings-3-line"></i></div>
+          <div style="flex:1;">
+            <div class="equip-name">머시닝센터 1호기</div>
+            <div class="equip-model">DNM 750L</div>
+            <div class="equip-status"><span class="status-dot on"></span><span style="color:var(--success);font-size:12px;font-weight:600;">가동 중</span></div>
+          </div>
+          <div class="util-ring" style="--pct:82%;">
+            <span>82%</span>
+          </div>
+        </div>
+        <div class="equip-item">
+          <div class="equip-thumb"><i class="ri-tools-line"></i></div>
+          <div style="flex:1;">
+            <div class="equip-name">선반 2호기</div>
+            <div class="equip-model">PUMA 2100</div>
+            <div class="equip-status"><span class="status-dot on"></span><span style="color:var(--success);font-size:12px;font-weight:600;">가동 중</span></div>
+          </div>
+          <div class="util-ring" style="--pct:74%;">
+            <span>74%</span>
+          </div>
+        </div>
+        <div class="equip-item">
+          <div class="equip-thumb"><i class="ri-cut-line"></i></div>
+          <div style="flex:1;">
+            <div class="equip-name">레이저 절단기 1호기</div>
+            <div class="equip-model">TruLaser 3030</div>
+            <div class="equip-status"><span class="status-dot warn"></span><span style="color:var(--warning);font-size:12px;font-weight:600;">세팅 중</span></div>
+          </div>
+          <div class="util-ring" style="--pct:43%;">
+            <span>43%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-title">빠른 작업</div>
+        <div class="quick-actions">
+          <a class="qa-btn" href="/supplier-workbench#reply">
+            <i class="ri-mail-send-line"></i>작업정보 회신
+          </a>
+          <a class="qa-btn" href="/supplier-settings#capability">
+            <i class="ri-cpu-line"></i>설비 등록
+          </a>
+          <a class="qa-btn" href="/supplier-workbench#capacity">
+            <i class="ri-calendar-check-line"></i>일정 확인
+          </a>
+          <a class="qa-btn" href="/supplier-workbench#delivery">
+            <i class="ri-truck-line"></i>납품 준비
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer style="background:#111;color:#555;padding:20px 40px;text-align:center;font-size:12px;margin-top:40px;">
+  © 2026 IMMA. All rights reserved. &nbsp;|&nbsp; <a href="/support" style="color:#666;text-decoration:none;">이용약관</a> &nbsp;|&nbsp; <a href="/support" style="color:#666;text-decoration:none;">개인정보처리방침</a> &nbsp;|&nbsp; <a href="/support" style="color:#666;text-decoration:none;">고객센터</a>
+</footer>
+
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('.op-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.op-tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

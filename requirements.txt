@@ -3,3 +3,10 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 python-dotenv
+PyJWT
+python-multipart
+requests
+neo4j
+langchain-core
+langchain-google-genai
+langgraph

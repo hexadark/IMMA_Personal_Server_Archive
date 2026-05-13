@@ -27,6 +27,8 @@ class VlmPart:
     envelope_width: float | None = None
     envelope_height: float | None = None
     material_source: str = "vlm"          # "vlm" | "client_input"
+    unsupported: bool = False
+    unsupported_reason: str | None = None
 
 
 @dataclass
@@ -53,6 +55,7 @@ class ResolvedPart:
     material_source: str = "vlm"     # "vlm" | "client_input"
     is_valid: bool = True
     missing_fields: list[str] = field(default_factory=list)
+    ontology_warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -78,6 +81,7 @@ class MatchCandidate:
     material_match_type: str | None = None   # "code" | "category"
     match_reasons: list[str] = field(default_factory=list)
     equipment_verified: bool = True
+    equipment_verified_warning: bool = False
 
 
 @dataclass

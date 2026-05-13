@@ -1,0 +1,145 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 결제 완료</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    body { background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
+    
+    .success-wrap {
+      max-width: 600px;
+      margin: 80px auto;
+      width: 100%;
+      padding: 0 20px;
+    }
+    
+    .success-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 50px 40px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    }
+
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 40px;
+      color: #000;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .success-title { font-size: 24px; font-weight: 800; color: #111; margin-bottom: 12px; }
+    .success-desc { font-size: 14px; color: var(--text-muted); margin-bottom: 40px; line-height: 1.5; }
+
+    .receipt-box {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: left;
+      margin-bottom: 40px;
+    }
+
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border);
+      font-size: 14px;
+    }
+    .receipt-row:last-child { border-bottom: none; }
+    .receipt-label { color: var(--text-muted); }
+    .receipt-value { font-weight: 700; color: #111; }
+    .receipt-value.total { color: var(--primary-dark); font-size: 18px; font-weight: 900; }
+
+    .action-btns {
+      display: flex;
+      gap: 12px;
+    }
+    .action-btns a {
+      flex: 1;
+      justify-content: center;
+      font-size: 15px;
+    }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/client">대시보드</a></li>
+    <li><a href="/#service-intro">서비스 소개</a></li>
+    <li><a href="/how-to-use">이용 방법</a></li>
+    <li><a href="/process-flow">프로세스</a></li>
+    <li><a href="/search-suppliers">업체 찾기</a></li>
+    <li><a href="/support">고객지원</a></li>
+  </ul>
+  <div class="header-actions">
+    <a href="/" style="font-size:14px; color:var(--text-muted); text-decoration:none; font-weight:600;"><i class="ri-home-line"></i> 홈으로</a>
+  </div>
+</header>
+
+<div class="success-wrap">
+  <div class="success-card">
+    <div class="success-icon"><i class="ri-check-line"></i></div>
+    <div class="success-title">결제가 정상적으로 완료되었습니다!</div>
+    <div class="success-desc">스마트정밀 발주 건의 결제대행 입금이 완료되었습니다.<br>발주 진행 화면으로 돌아가 생산 진행도 공유를 기다립니다.</div>
+
+    <div class="receipt-box">
+      <div class="receipt-row">
+        <span class="receipt-label">발주 번호</span>
+        <span class="receipt-value">PO-20260508-001</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-label">결제 일시</span>
+        <span class="receipt-value" id="current-time"></span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-label">결제 수단</span>
+        <span class="receipt-value">결제대행 서비스</span>
+      </div>
+      <div class="receipt-row" style="margin-top:10px; padding-top:16px; border-top:1px solid #ccc; border-bottom:none;">
+        <span class="receipt-label" style="font-size:16px; font-weight:700; color:#111;">선입금 금액</span>
+        <span class="receipt-value total">6,250,000원</span>
+      </div>
+    </div>
+
+    <div class="action-btns">
+      <a href="/order-management?status=paid" class="btn-outline">발주 진행 화면으로 돌아가기</a>
+      <a href="/client" class="btn-primary">대시보드로 이동</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  const now = new Date();
+  const dateStr = now.getFullYear() + '-' + 
+                 String(now.getMonth()+1).padStart(2, '0') + '-' + 
+                 String(now.getDate()).padStart(2, '0') + ' ' + 
+                 String(now.getHours()).padStart(2, '0') + ':' + 
+                 String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('current-time').textContent = dateStr;
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

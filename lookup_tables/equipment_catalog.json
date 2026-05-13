@@ -3267,6 +3267,46 @@
             "phase": "phase2",
             "_description": "추정값이거나 카탈로그 직접값이 아니면 true"
           }
+        },
+        {
+          "process_code": {
+            "value": "boring",
+            "unit": null,
+            "phase": "phase1",
+            "_description": "밀링 스핀들 + 보링바로 보링 공정 수행"
+          },
+          "typical_it_grade": {
+            "value": 8,
+            "unit": "IT grade",
+            "phase": "phase1",
+            "_description": "이 장비/공정 조합의 일반적 달성 가능 IT 등급. 예: 7은 IT7. 해당 없거나 카탈로그로 추정 불가하면 null"
+          },
+          "typical_ra_um": {
+            "value": 1.0,
+            "unit": "µm",
+            "phase": "phase1",
+            "_description": "이 장비/공정 조합의 일반적 달성 가능 표면조도 Ra. 해당 없거나 카탈로그로 추정 불가하면 null"
+          },
+          "capability_source": {
+            "value": "spec_based_estimate",
+            "unit": null,
+            "phase": "phase2",
+            "_description": "capability 값의 출처. 제조사 직접 표기인지, 공학 참고값 추정인지 구분",
+            "allowed_values": [
+              "manufacturer_catalog",
+              "engineering_reference_estimate",
+              "spec_based_estimate",
+              "public_registry",
+              "manual_verified",
+              "unknown"
+            ]
+          },
+          "uncertain": {
+            "value": true,
+            "unit": null,
+            "phase": "phase2",
+            "_description": "추정값이거나 카탈로그 직접값이 아니면 true"
+          }
         }
       ],
       "non_machining_capabilities": [],
@@ -3581,6 +3621,46 @@
           },
           "typical_ra_um": {
             "value": 1.6,
+            "unit": "µm",
+            "phase": "phase1",
+            "_description": "이 장비/공정 조합의 일반적 달성 가능 표면조도 Ra. 해당 없거나 카탈로그로 추정 불가하면 null"
+          },
+          "capability_source": {
+            "value": "spec_based_estimate",
+            "unit": null,
+            "phase": "phase2",
+            "_description": "capability 값의 출처. 제조사 직접 표기인지, 공학 참고값 추정인지 구분",
+            "allowed_values": [
+              "manufacturer_catalog",
+              "engineering_reference_estimate",
+              "spec_based_estimate",
+              "public_registry",
+              "manual_verified",
+              "unknown"
+            ]
+          },
+          "uncertain": {
+            "value": true,
+            "unit": null,
+            "phase": "phase2",
+            "_description": "추정값이거나 카탈로그 직접값이 아니면 true"
+          }
+        },
+        {
+          "process_code": {
+            "value": "boring",
+            "unit": null,
+            "phase": "phase1",
+            "_description": "밀링 스핀들 + 보링바로 보링 공정 수행"
+          },
+          "typical_it_grade": {
+            "value": 8,
+            "unit": "IT grade",
+            "phase": "phase1",
+            "_description": "이 장비/공정 조합의 일반적 달성 가능 IT 등급. 예: 7은 IT7. 해당 없거나 카탈로그로 추정 불가하면 null"
+          },
+          "typical_ra_um": {
+            "value": 1.0,
             "unit": "µm",
             "phase": "phase1",
             "_description": "이 장비/공정 조합의 일반적 달성 가능 표면조도 Ra. 해당 없거나 카탈로그로 추정 불가하면 null"
@@ -12109,6 +12189,46 @@
             "phase": "phase2",
             "_description": "추정값이거나 카탈로그 직접값이 아니면 true"
           }
+        },
+        {
+          "process_code": {
+            "value": "boring",
+            "unit": null,
+            "phase": "phase1",
+            "_description": "밀링 스핀들 + 보링바로 보링 공정 수행"
+          },
+          "typical_it_grade": {
+            "value": 8,
+            "unit": "IT grade",
+            "phase": "phase1",
+            "_description": "이 장비/공정 조합의 일반적 달성 가능 IT 등급. 예: 7은 IT7. 해당 없거나 카탈로그로 추정 불가하면 null"
+          },
+          "typical_ra_um": {
+            "value": 1.0,
+            "unit": "µm",
+            "phase": "phase1",
+            "_description": "이 장비/공정 조합의 일반적 달성 가능 표면조도 Ra. 해당 없거나 카탈로그로 추정 불가하면 null"
+          },
+          "capability_source": {
+            "value": "spec_based_estimate",
+            "unit": null,
+            "phase": "phase2",
+            "_description": "capability 값의 출처. 제조사 직접 표기인지, 공학 참고값 추정인지 구분",
+            "allowed_values": [
+              "manufacturer_catalog",
+              "engineering_reference_estimate",
+              "spec_based_estimate",
+              "public_registry",
+              "manual_verified",
+              "unknown"
+            ]
+          },
+          "uncertain": {
+            "value": true,
+            "unit": null,
+            "phase": "phase2",
+            "_description": "추정값이거나 카탈로그 직접값이 아니면 true"
+          }
         }
       ],
       "non_machining_capabilities": [],
@@ -13190,6 +13310,719 @@
         }
       ],
       "_notes": "값은 AI가 카탈로그/PDF/웹페이지를 분석해 채운다. 카탈로그에 없는 값은 null로 두고, 추정값은 uncertain=true로 표시한다."
+    },
+    {
+      "common": {
+        "model_id": {
+          "value": "thermwood_model_45_5x10",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "manufacturer": {
+          "value": "Thermwood",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "model_name": {
+          "value": "Model 45 5x10",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "equipment_category_code": {
+          "value": "cnc_router",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "max_workpiece_weight_kg": {
+          "value": null,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "source": {
+          "type": {
+            "value": "manufacturer_catalog",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "title": {
+            "value": "Thermwood Model 45 3 Axis CNC Router",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "url": {
+            "value": "https://www.thermwood.com/model-45.htm",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "page": {
+            "value": null,
+            "unit": "page",
+            "phase": "phase1"
+          },
+          "retrieved_at": {
+            "value": "2026-05-12",
+            "unit": null,
+            "phase": "phase1"
+          }
+        }
+      },
+      "category_specs": {
+        "axis_count": {
+          "value": 3,
+          "unit": "axis",
+          "phase": "phase1"
+        },
+        "table_size_x_mm": {
+          "value": 3048,
+          "unit": "mm",
+          "phase": "phase1",
+          "_description": "5x10 ft table: 10 ft converted to mm"
+        },
+        "table_size_y_mm": {
+          "value": 1524,
+          "unit": "mm",
+          "phase": "phase1",
+          "_description": "5x10 ft table: 5 ft converted to mm"
+        },
+        "max_x_travel_mm": {
+          "value": 3048,
+          "unit": "mm",
+          "phase": "phase1"
+        },
+        "max_y_travel_mm": {
+          "value": 1524,
+          "unit": "mm",
+          "phase": "phase1"
+        },
+        "max_z_travel_mm": {
+          "value": null,
+          "unit": "mm",
+          "phase": "phase1"
+        },
+        "spindle_power_hp": {
+          "value": 12,
+          "unit": "hp",
+          "phase": "phase1"
+        },
+        "spindle_power_kw": {
+          "value": 8.95,
+          "unit": "kW",
+          "phase": "phase1"
+        },
+        "spindle_speed_min_rpm": {
+          "value": 3000,
+          "unit": "rpm",
+          "phase": "phase2"
+        },
+        "spindle_max_rpm": {
+          "value": 24000,
+          "unit": "rpm",
+          "phase": "phase1"
+        },
+        "tool_capacity": {
+          "value": 4,
+          "unit": "count",
+          "phase": "phase1"
+        },
+        "vacuum_table_available": {
+          "value": true,
+          "unit": "boolean",
+          "phase": "phase2"
+        },
+        "dust_extraction_required": {
+          "value": true,
+          "unit": "boolean",
+          "phase": "phase2"
+        },
+        "supported_material_groups": {
+          "value": [
+            "engineering_plastic",
+            "composite_insulation",
+            "tooling_board",
+            "aluminum_light_duty",
+            "wood"
+          ],
+          "unit": "string[]",
+          "phase": "phase2"
+        }
+      },
+      "process_capabilities": [
+        {
+          "process_code": {
+            "value": "milling",
+            "unit": null,
+            "phase": "phase1",
+            "_description": "CNC router profile/pocket milling for plastic/composite sheets"
+          },
+          "typical_it_grade": {
+            "value": 10,
+            "unit": "IT grade",
+            "phase": "phase1"
+          },
+          "typical_ra_um": {
+            "value": 3.2,
+            "unit": "µm",
+            "phase": "phase1"
+          },
+          "capability_source": {
+            "value": "engineering_reference_estimate",
+            "unit": null,
+            "phase": "phase2"
+          },
+          "uncertain": {
+            "value": true,
+            "unit": null,
+            "phase": "phase2"
+          }
+        },
+        {
+          "process_code": {
+            "value": "drilling",
+            "unit": null,
+            "phase": "phase1",
+            "_description": "CNC router drilling for plastic/composite sheets"
+          },
+          "typical_it_grade": {
+            "value": 11,
+            "unit": "IT grade",
+            "phase": "phase1"
+          },
+          "typical_ra_um": {
+            "value": 6.3,
+            "unit": "µm",
+            "phase": "phase1"
+          },
+          "capability_source": {
+            "value": "engineering_reference_estimate",
+            "unit": null,
+            "phase": "phase2"
+          },
+          "uncertain": {
+            "value": true,
+            "unit": null,
+            "phase": "phase2"
+          }
+        }
+      ],
+      "non_machining_capabilities": [],
+      "_notes": "복합재/절연재는 장비 자체보다 집진, 공구, 워크홀딩 조건을 company_material_process_capabilities에서 검증한다."
+    },
+    {
+      "common": {
+        "model_id": {
+          "value": "laguna_smartshop_m_5x10",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "manufacturer": {
+          "value": "Laguna Tools",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "model_name": {
+          "value": "SmartShop M 5x10",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "equipment_category_code": {
+          "value": "cnc_router",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "max_workpiece_weight_kg": {
+          "value": null,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "source": {
+          "type": {
+            "value": "manufacturer_catalog",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "title": {
+            "value": "Laguna SmartShop M CNC Router",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "url": {
+            "value": "https://lagunatools.com/cnc/smartshop-series/smartshop-m/",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "page": {
+            "value": null,
+            "unit": "page",
+            "phase": "phase1"
+          },
+          "retrieved_at": {
+            "value": "2026-05-12",
+            "unit": null,
+            "phase": "phase1"
+          }
+        }
+      },
+      "category_specs": {
+        "axis_count": {
+          "value": 3,
+          "unit": "axis",
+          "phase": "phase1"
+        },
+        "table_size_x_mm": {
+          "value": 3048,
+          "unit": "mm",
+          "phase": "phase1",
+          "_description": "5x10 ft table: 10 ft converted to mm"
+        },
+        "table_size_y_mm": {
+          "value": 1524,
+          "unit": "mm",
+          "phase": "phase1",
+          "_description": "5x10 ft table: 5 ft converted to mm"
+        },
+        "max_x_travel_mm": {
+          "value": 3048,
+          "unit": "mm",
+          "phase": "phase1"
+        },
+        "max_y_travel_mm": {
+          "value": 1524,
+          "unit": "mm",
+          "phase": "phase1"
+        },
+        "max_z_travel_mm": {
+          "value": 330,
+          "unit": "mm",
+          "phase": "phase1",
+          "_description": "13 in Z travel converted to mm"
+        },
+        "z_clearance_mm": {
+          "value": 305,
+          "unit": "mm",
+          "phase": "phase2",
+          "_description": "12 in Z clearance converted to mm"
+        },
+        "spindle_power_hp": {
+          "value": 6,
+          "unit": "hp",
+          "phase": "phase1"
+        },
+        "spindle_power_kw": {
+          "value": 4.47,
+          "unit": "kW",
+          "phase": "phase1"
+        },
+        "spindle_speed_min_rpm": {
+          "value": 5000,
+          "unit": "rpm",
+          "phase": "phase2"
+        },
+        "spindle_max_rpm": {
+          "value": 24000,
+          "unit": "rpm",
+          "phase": "phase1"
+        },
+        "tool_capacity": {
+          "value": 8,
+          "unit": "count",
+          "phase": "phase1"
+        },
+        "tool_taper": {
+          "value": "ISO 30",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "vacuum_table_zones": {
+          "value": 4,
+          "unit": "zone",
+          "phase": "phase2"
+        },
+        "vacuum_table_available": {
+          "value": true,
+          "unit": "boolean",
+          "phase": "phase2"
+        },
+        "dust_extraction_required": {
+          "value": true,
+          "unit": "boolean",
+          "phase": "phase2"
+        },
+        "supported_material_groups": {
+          "value": [
+            "engineering_plastic",
+            "composite_insulation",
+            "wood",
+            "foam"
+          ],
+          "unit": "string[]",
+          "phase": "phase2"
+        }
+      },
+      "process_capabilities": [
+        {
+          "process_code": {
+            "value": "milling",
+            "unit": null,
+            "phase": "phase1",
+            "_description": "CNC router profile/pocket milling for plastic/composite sheets"
+          },
+          "typical_it_grade": {
+            "value": 10,
+            "unit": "IT grade",
+            "phase": "phase1"
+          },
+          "typical_ra_um": {
+            "value": 3.2,
+            "unit": "µm",
+            "phase": "phase1"
+          },
+          "capability_source": {
+            "value": "engineering_reference_estimate",
+            "unit": null,
+            "phase": "phase2"
+          },
+          "uncertain": {
+            "value": true,
+            "unit": null,
+            "phase": "phase2"
+          }
+        },
+        {
+          "process_code": {
+            "value": "drilling",
+            "unit": null,
+            "phase": "phase1",
+            "_description": "CNC router drilling for plastic/composite sheets"
+          },
+          "typical_it_grade": {
+            "value": 11,
+            "unit": "IT grade",
+            "phase": "phase1"
+          },
+          "typical_ra_um": {
+            "value": 6.3,
+            "unit": "µm",
+            "phase": "phase1"
+          },
+          "capability_source": {
+            "value": "engineering_reference_estimate",
+            "unit": null,
+            "phase": "phase2"
+          },
+          "uncertain": {
+            "value": true,
+            "unit": null,
+            "phase": "phase2"
+          }
+        }
+      ],
+      "non_machining_capabilities": [],
+      "_notes": "보급형/중형 라우터 기준. 금속 MC 대비 강성은 낮으므로 금속 정밀 IT 값을 적용하지 않는다."
+    },
+    {
+      "common": {
+        "model_id": {
+          "value": "pillar_steel_frame_furnace_45_1361kg",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "manufacturer": {
+          "value": "Pillar Induction",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "model_name": {
+          "value": "Steel Frame Furnace 100–3000 lb",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "equipment_category_code": {
+          "value": "casting_foundry",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "max_workpiece_weight_kg": {
+          "value": 1361,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "source": {
+          "type": {
+            "value": "manufacturer_catalog",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "title": {
+            "value": "Pillar Steel Frame Furnace",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "url": {
+            "value": "https://www.pillar.com/default.asp?id=106",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "page": {
+            "value": null,
+            "unit": "page",
+            "phase": "phase1"
+          },
+          "retrieved_at": {
+            "value": "2026-05-12",
+            "unit": null,
+            "phase": "phase1"
+          }
+        }
+      },
+      "category_specs": {
+        "foundry_equipment_type": {
+          "value": "coreless_induction_melting_furnace",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "furnace_frame_type": {
+          "value": "steel_frame",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "steel_capacity_min_kg": {
+          "value": 45,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "steel_capacity_max_kg": {
+          "value": 1361,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "supported_alloy_groups": {
+          "value": [
+            "stainless_cast_steel",
+            "cast_steel",
+            "gray_cast_iron",
+            "ductile_cast_iron",
+            "copper_alloy"
+          ],
+          "unit": "string[]",
+          "phase": "phase1"
+        },
+        "tilting_or_pouring_type": {
+          "value": "tilting_frame_furnace",
+          "unit": null,
+          "phase": "phase2"
+        },
+        "fume_extraction_required": {
+          "value": true,
+          "unit": "boolean",
+          "phase": "phase2"
+        },
+        "molding_line_included": {
+          "value": false,
+          "unit": "boolean",
+          "phase": "phase2"
+        },
+        "coremaking_included": {
+          "value": false,
+          "unit": "boolean",
+          "phase": "phase2"
+        }
+      },
+      "process_capabilities": [],
+      "non_machining_capabilities": [
+        {
+          "process_code": {
+            "value": "casting",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "casting_process_type": {
+            "value": "melting_furnace_only",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "supported_material_groups": {
+            "value": [
+              "stainless_cast_steel",
+              "cast_steel",
+              "cast_iron",
+              "copper_alloy"
+            ],
+            "unit": "string[]",
+            "phase": "phase1"
+          },
+          "capability_source": {
+            "value": "manufacturer_catalog",
+            "unit": null,
+            "phase": "phase2"
+          },
+          "uncertain": {
+            "value": false,
+            "unit": null,
+            "phase": "phase2"
+          }
+        }
+      ],
+      "_notes": "용해로 단품이므로 조형/주입/사상/NDT 설비는 업체 프로필에서 별도 확인 필요."
+    },
+    {
+      "common": {
+        "model_id": {
+          "value": "inductotherm_heavy_steel_shell_furnace_350kg_100t",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "manufacturer": {
+          "value": "Inductotherm",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "model_name": {
+          "value": "Heavy Steel Shell Furnace 350 kg–100 t",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "equipment_category_code": {
+          "value": "casting_foundry",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "max_workpiece_weight_kg": {
+          "value": 100000,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "source": {
+          "type": {
+            "value": "manufacturer_catalog",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "title": {
+            "value": "Inductotherm Heavy Steel Shell Furnaces",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "url": {
+            "value": "https://inductotherm.co.kr/en/products/heavy-steel-shell-furnaces/",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "page": {
+            "value": null,
+            "unit": "page",
+            "phase": "phase1"
+          },
+          "retrieved_at": {
+            "value": "2026-05-12",
+            "unit": null,
+            "phase": "phase1"
+          }
+        }
+      },
+      "category_specs": {
+        "foundry_equipment_type": {
+          "value": "coreless_induction_melting_furnace",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "furnace_shell_type": {
+          "value": "heavy_steel_shell",
+          "unit": null,
+          "phase": "phase1"
+        },
+        "capacity_min_kg": {
+          "value": 350,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "capacity_max_kg": {
+          "value": 100000,
+          "unit": "kg",
+          "phase": "phase1"
+        },
+        "supported_alloy_groups": {
+          "value": [
+            "stainless_cast_steel",
+            "cast_steel",
+            "gray_cast_iron",
+            "ductile_cast_iron",
+            "copper_alloy",
+            "aluminum_alloy"
+          ],
+          "unit": "string[]",
+          "phase": "phase1"
+        },
+        "safety_options_available": {
+          "value": [
+            "load_cells",
+            "fume_collectors",
+            "hoods",
+            "ground_leak_detection",
+            "safety_pit_guards"
+          ],
+          "unit": "string[]",
+          "phase": "phase2"
+        },
+        "molding_line_included": {
+          "value": false,
+          "unit": "boolean",
+          "phase": "phase2"
+        },
+        "coremaking_included": {
+          "value": false,
+          "unit": "boolean",
+          "phase": "phase2"
+        }
+      },
+      "process_capabilities": [],
+      "non_machining_capabilities": [
+        {
+          "process_code": {
+            "value": "casting",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "casting_process_type": {
+            "value": "melting_furnace_only",
+            "unit": null,
+            "phase": "phase1"
+          },
+          "supported_material_groups": {
+            "value": [
+              "stainless_cast_steel",
+              "cast_steel",
+              "cast_iron",
+              "copper_alloy",
+              "aluminum_alloy"
+            ],
+            "unit": "string[]",
+            "phase": "phase1"
+          },
+          "capability_source": {
+            "value": "manufacturer_catalog",
+            "unit": null,
+            "phase": "phase2"
+          },
+          "uncertain": {
+            "value": false,
+            "unit": null,
+            "phase": "phase2"
+          }
+        }
+      ],
+      "_notes": "대형 주조장/종합 주조라인용 기준 모델. mock 업체 S스텐주조에는 중소 규모 기준으로 Pillar 모델을 우선 배정."
+    }
+  ],
+  "catalog_reference_sources": [
+    {
+      "name": "SIMTOS 서울국제기계기술전시회 전시업체 목록",
+      "url": "https://simtos.org/kor/exhibitors/exhibitor_list.do",
+      "role": "장비 모델 발굴 지시의 초기 탐색 경로. 최종 스펙 출처 URL로 직접 사용되지는 않음"
+    },
+    {
+      "name": "SMEC (삼성공작기계) 공식 사이트",
+      "url": "https://www.smecmachinetools.com/main/main.php",
+      "role": "SMEC 모델(SL 2000B, MCV 6700) 스펙 참조. 최종 source.url은 외부 카탈로그 미러(conceptmachine.com)로 기록"
     }
   ]
 }

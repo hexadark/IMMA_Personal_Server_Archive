@@ -1,0 +1,504 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 발주 및 진행 관리</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    /* Order header info */
+    .order-meta {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 28px;
+      display: grid;
+      grid-template-columns: repeat(5,1fr);
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+    .meta-field { display: flex; flex-direction: column; gap: 3px; }
+    .meta-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    .meta-value { font-size: 14px; font-weight: 700; color: #111; }
+    .meta-sub { font-size: 12px; color: var(--text-muted); }
+    .copy-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+    .payment-status {
+      text-align: right;
+    }
+    .payment-progress { margin-top: 6px; }
+    .pay-bar-outer { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: 4px; }
+    .pay-bar-fill { height: 100%; background: var(--primary); border-radius: 99px; }
+    .pay-pct { font-size: 12px; color: var(--text-muted); text-align: right; }
+
+    /* Process timeline */
+    .process-timeline {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 32px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .pt-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      position: relative;
+    }
+    .pt-icon {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      border: 2px solid var(--border);
+      background: white;
+      color: var(--text-muted);
+      transition: all 0.3s;
+    }
+    .pt-step.done .pt-icon { background: var(--primary); border-color: var(--primary); color: #000; }
+    .pt-step.active .pt-icon {
+      background: white; border-color: #111; color: #111;
+      box-shadow: 0 0 0 4px rgba(255,209,0,0.25);
+    }
+    .pt-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-align: center; }
+    .pt-date { font-size: 12px; color: var(--text-muted); text-align: center; }
+    .pt-step.done .pt-label { color: #111; }
+    .pt-step.active .pt-label { color: #111; font-weight: 800; }
+    .pt-line { flex: 1; height: 3px; background: var(--border); margin-bottom: 40px; }
+    .pt-line.done { background: var(--primary); }
+
+    /* Main grid */
+    .order-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+    }
+    .left-col { display: flex; flex-direction: column; gap: 16px; }
+    .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+    /* Progress updates */
+    .update-list { display: flex; flex-direction: column; gap: 0; }
+    .update-item {
+      display: flex;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .update-item:last-child { border-bottom: none; }
+    .update-time { color: var(--text-muted); font-size: 12px; white-space: nowrap; min-width: 110px; }
+    .update-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--primary); flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .update-tag {
+      background: var(--primary); color: #000;
+      font-size: 12px; font-weight: 700;
+      padding: 1px 6px; border-radius: 3px;
+      margin-right: 4px; white-space: nowrap;
+    }
+    .update-tag.blue { background: rgba(59,130,246,0.12); color: #1D4ED8; }
+    .update-tag.green { background: rgba(34,197,94,0.12); color: #166534; }
+    .new-badge { background: var(--danger); color: white; font-size: 12px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; font-weight: 700; }
+
+    /* Photo grid */
+    .photo-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .photo-thumb {
+      aspect-ratio: 1;
+      background: linear-gradient(135deg, #222, #444);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .photo-thumb i { font-size: 28px; color: rgba(255,255,255,0.2); }
+    .photo-date {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.5);
+      color: white; font-size: 12px;
+      padding: 4px 6px;
+    }
+    .photo-add {
+      border: 2px dashed var(--border);
+      background: var(--bg);
+      cursor: pointer;
+    }
+    .photo-add i { color: var(--text-muted); }
+
+    /* Info rows */
+    .info-row { display: flex; justify-content: space-between; font-size: 13px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { color: var(--text-muted); }
+    .info-val { font-weight: 600; color: #111; display: flex; align-items: center; gap: 6px; }
+    .file-link { color: var(--primary-dark); font-size: 12px; display: flex; align-items: center; gap: 3px; cursor: pointer; }
+
+    /* Payment card */
+    .pay-total { font-size: 22px; font-weight: 900; color: #111; }
+    .pay-meta { font-size: 12px; color: var(--text-muted); }
+
+    /* Review placeholder */
+    .review-placeholder {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px; text-align: center; color: var(--text-muted);
+    }
+    .review-placeholder i { font-size: 32px; color: var(--primary); margin-bottom: 10px; }
+
+    /* Top action buttons */
+    .page-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
+    .page-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/client" class="active">대시보드</a></li>
+    <li><a href="/#service-intro">서비스 소개</a></li>
+    <li><a href="/how-to-use">이용 방법</a></li>
+    <li><a href="/process-flow">프로세스</a></li>
+    <li><a href="/search-suppliers">업체 찾기</a></li>
+    <li><a href="/support">고객지원</a></li>
+  </ul>
+  <div class="header-actions">
+    <a class="btn-login" href="/">로그인</a>
+    <a class="btn-signup" href="/client-register">회원가입</a>
+  </div>
+</header>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="/"><i class="ri-home-4-line"></i></a>
+    <span>&gt;</span>
+    <a href="/client">대시보드</a>
+    <span>&gt;</span>
+    <a href="/order-management">발주 및 진행 관리</a>
+    <span>&gt;</span>
+    <span class="current">ORD-250520-001</span>
+  </div>
+
+  <div class="page-title-row">
+    <div class="page-title">
+      <h1>발주 및 진행 관리</h1>
+      <p>계약부터 납품 완료까지 모든 진행 상황을 한눈에 확인하세요.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn-outline" href="/client-fulfillment"><i class="ri-inbox-archive-line"></i> 납품·리뷰</a>
+      <button class="btn-outline"><i class="ri-list-check-2"></i> 목록으로</button>
+      <button class="btn-outline"><i class="ri-download-line"></i> 다운로드</button>
+    </div>
+  </div>
+
+  <!-- Order Meta -->
+  <div class="order-meta">
+    <div class="meta-field">
+      <span class="meta-label">발주번호</span>
+      <span class="meta-value">PO-20260508-001 <button class="copy-btn">복사</button></span>
+      <span class="meta-sub">발주일: 2026-05-06</span>
+    </div>
+    <div class="meta-field">
+      <span class="meta-label">선정 업체</span>
+      <span class="meta-value">스마트정밀</span>
+      <span class="meta-sub">담당자: 박정우 부장 · <a href="tel:010-4321-8765" style="color:var(--primary-dark);font-size:12px;">010-4321-8765</a></span>
+    </div>
+    <div class="meta-field">
+      <span class="meta-label">총 발주 금액</span>
+      <span class="meta-value" style="font-size:20px;">6,250,000원</span>
+      <span class="meta-sub">부가세 포함</span>
+    </div>
+    <div class="meta-field">
+      <span class="meta-label">납기 예정일</span>
+      <span class="meta-value">2026-06-15 <span style="background:#FEE2E2;color:var(--danger);font-size:12px;padding:2px 6px;border-radius:4px;font-weight:700;">D-7</span></span>
+      <span class="meta-sub">현재 도착 기준</span>
+    </div>
+    <div class="meta-field payment-status">
+      <span class="meta-label">결제 상태</span>
+      <span class="badge badge-green" style="font-size:12px;">결제대행 입금 완료</span>
+      <div class="payment-progress">
+        <div class="pay-bar-outer"><div class="pay-bar-fill" style="width:100%"></div></div>
+        <div class="pay-pct">100% 결제 완료</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Process Timeline -->
+  <div class="process-timeline">
+    <div class="pt-step done">
+      <div class="pt-icon"><i class="ri-file-text-line"></i></div>
+      <div class="pt-label">계약</div>
+      <div class="pt-date">2026-05-06 완료</div>
+    </div>
+    <div class="pt-line done"></div>
+    <div class="pt-step done">
+      <div class="pt-icon"><i class="ri-bank-card-line"></i></div>
+      <div class="pt-label">결제</div>
+      <div class="pt-date">2026-05-21 완료</div>
+    </div>
+    <div class="pt-line done"></div>
+    <div class="pt-step active">
+      <div class="pt-icon"><i class="ri-settings-3-line"></i></div>
+      <div class="pt-label">생산중</div>
+      <div class="pt-date">진행률 65%</div>
+    </div>
+    <div class="pt-line"></div>
+    <div class="pt-step">
+      <div class="pt-icon"><i class="ri-shield-check-line"></i></div>
+      <div class="pt-label">검수</div>
+      <div class="pt-date">대기 중</div>
+    </div>
+    <div class="pt-line"></div>
+    <div class="pt-step">
+      <div class="pt-icon"><i class="ri-truck-line"></i></div>
+      <div class="pt-label">출하</div>
+      <div class="pt-date">대기 중</div>
+    </div>
+    <div class="pt-line"></div>
+    <div class="pt-step">
+      <div class="pt-icon"><i class="ri-checkbox-circle-line"></i></div>
+      <div class="pt-label">납품완료</div>
+      <div class="pt-date">대기 중</div>
+    </div>
+  </div>
+
+  <div class="order-grid">
+    <div class="left-col">
+      <!-- Progress Updates -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin:0;">진행 현황 <span style="color:var(--primary-dark);font-weight:700;">생산중</span> · 진행률 65%</div>
+          <div class="pay-bar-outer" style="width:120px;margin:0;"><div class="pay-bar-fill" style="width:65%;background:#111;"></div></div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:600;">최근 업데이트</div>
+        <div class="update-list">
+          <div class="update-item">
+            <div class="update-time">2026-05-29 14:30</div>
+            <div>
+              <span class="update-tag">생산</span>
+              가공 2차 공정 완료, 3차 가공 진행 중
+              <span class="new-badge">NEW</span>
+            </div>
+          </div>
+          <div class="update-item">
+            <div class="update-time">2026-05-26 10:15</div>
+            <div><span class="update-tag">생산</span> 1차 가공 및 탭가공 완료</div>
+          </div>
+          <div class="update-item">
+            <div class="update-time">2026-05-23 09:40</div>
+            <div><span class="update-tag blue">자재</span> 원자재 입고 완료</div>
+          </div>
+          <div class="update-item">
+            <div class="update-time">2026-05-21 16:20</div>
+            <div><span class="update-tag green">계약</span> 계약서 및 도면 확인</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Photos -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin:0;">진행 사진</div>
+          <a style="font-size:13px;color:var(--text-muted);cursor:pointer;text-decoration:none;">전체 보기 &gt;</a>
+        </div>
+        <div class="photo-grid">
+          <div class="photo-thumb">
+            <i class="ri-image-line"></i>
+            <div class="photo-date">2026-05-29</div>
+          </div>
+          <div class="photo-thumb" style="background:linear-gradient(135deg,#1a2a1a,#2d3d2d)">
+            <i class="ri-image-line"></i>
+            <div class="photo-date">2026-05-26</div>
+          </div>
+          <div class="photo-thumb" style="background:linear-gradient(135deg,#1a1a2a,#2a2a3d)">
+            <i class="ri-image-line"></i>
+            <div class="photo-date">2026-05-23</div>
+          </div>
+          <div class="photo-thumb photo-add">
+            <i class="ri-upload-2-line"></i>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:12px;font-size:12px;color:var(--text-muted);">
+          <span>3차 가공 진행 중</span>
+          <span style="margin:0 4px;">·</span>
+          <span>1차 가공 완료</span>
+          <span style="margin:0 4px;">·</span>
+          <span>원자재 입고</span>
+        </div>
+      </div>
+
+      <!-- Payment Info -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin:0;">결제 정보</div>
+          <a style="font-size:13px;color:var(--text-muted);cursor:pointer;text-decoration:none;">결제 내역 보기 &gt;</a>
+        </div>
+        <div class="info-row">
+          <span class="info-key">총 금액</span>
+          <span class="info-val">128,450,000원</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">결제 완료 (80%)</span>
+          <span class="info-val" style="color:var(--success);">102,760,000원</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">잔금</span>
+          <span class="info-val">25,690,000원 (20%)</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">다음 결제 예정일</span>
+          <span class="info-val">2026-06-20</span>
+        </div>
+        <button class="btn-primary w-full" style="justify-content:center;margin-top:16px;">결제하기</button>
+      </div>
+    </div>
+
+    <div class="right-col">
+      <!-- Order & Contract Info -->
+      <div class="card">
+        <div class="card-title">주문 및 계약 정보</div>
+        <div class="info-row"><span class="info-key">품명</span><span class="info-val">Bracket Assembly</span></div>
+        <div class="info-row"><span class="info-key">수량</span><span class="info-val">100 EA</span></div>
+        <div class="info-row"><span class="info-key">단가</span><span class="info-val">62,500원</span></div>
+        <div class="info-row"><span class="info-key">납기</span><span class="info-val">2026-06-15</span></div>
+        <div class="info-row">
+          <span class="info-key">계약서</span>
+          <span class="info-val">
+            <span class="file-link"><i class="ri-file-pdf-line"></i> 계약서_PO-20260508-001.pdf</span>
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">도면</span>
+          <span class="info-val">
+            <span class="file-link"><i class="ri-file-3-line"></i> Bracket_Assembly.dwg</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Shipping Info -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin:0;">출하 및 배송 정보</div>
+          <a style="font-size:12px;color:var(--text-muted);cursor:pointer;text-decoration:none;">출하 준비 &gt;</a>
+        </div>
+        <div class="info-row"><span class="info-key">출하 예정일</span><span class="info-val">2026-06-05</span></div>
+        <div class="info-row"><span class="info-key">배송 방법</span><span class="info-val">무진동 차량</span></div>
+        <div class="info-row"><span class="info-key">배송지</span><span class="info-val">경기도 화성시 도현로보틱스 사업장</span></div>
+        <div class="info-row"><span class="info-key">분송장 번호</span><span class="info-val">-</span></div>
+        <button class="btn-outline w-full" style="justify-content:center;margin-top:12px;font-size:13px;">배송 정보 업데이트</button>
+      </div>
+
+      <!-- Inspection Info -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin:0;">검수 정보</div>
+          <a style="font-size:12px;color:var(--text-muted);cursor:pointer;text-decoration:none;">대기 중 &gt;</a>
+        </div>
+        <div class="info-row"><span class="info-key">검수 예정일</span><span class="info-val">2026-05-27</span></div>
+        <div class="info-row"><span class="info-key">검수 담당자</span><span class="info-val">납품지 현장 검수</span></div>
+        <div class="info-row"><span class="info-key">연락처</span><span class="info-val">010-9876-5432</span></div>
+        <div class="info-row"><span class="info-key">검수 항목</span><span class="info-val" style="font-size:12px;">치수, 지수, 수량, 도면 일치 여부</span></div>
+        <button class="btn-outline w-full" style="justify-content:center;margin-top:12px;font-size:13px;">검수 준비 체크리스트</button>
+      </div>
+
+      <!-- Review -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin:0;">리뷰 & 평가</div>
+          <a style="font-size:12px;color:var(--text-muted);cursor:pointer;text-decoration:none;">대기 중 &gt;</a>
+        </div>
+        <div class="review-placeholder">
+          <i class="ri-star-line"></i>
+          <p style="font-size:13px;margin-bottom:14px;">납품 완료 후 업체 리뷰를 등록해 주세요.</p>
+          <button class="btn-primary" style="font-size:13px;">
+            <i class="ri-star-line"></i> 리뷰 등록하기
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="imma-footer">
+  <div class="footer-inner">
+    <div><div class="footer-logo">IMM<span>A</span></div><div class="footer-desc">지능형 제조 매칭 플랫폼<br>© 2026 IMMA. All rights reserved.</div></div>
+    <ul class="footer-links">
+      <li><a href="/how-to-use">회사 소개</a></li><li><a href="/support">이용약관</a></li>
+      <li><a href="/support">개인정보처리방침</a></li><li><a href="/support">파트너 문의</a></li>
+      <li><a href="/how-to-use">블로그</a></li><li><a href="/support">공지사항</a></li>
+    </ul>
+    <div style="display:flex;gap:12px;color:#555;font-size:20px;">
+      <i class="ri-youtube-line"></i>
+      <i class="ri-linkedin-box-line"></i>
+      <i class="ri-mail-line"></i>
+    </div>
+  </div>
+</footer>
+<script>
+  // Check if status is paid
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('status') === 'paid') {
+    // 결제 일시: 결제 직후 기준으로 현재 시간 표시
+    const now = new Date();
+    const paidAt = now.getFullYear() + '-' +
+                   String(now.getMonth()+1).padStart(2, '0') + '-' +
+                   String(now.getDate()).padStart(2, '0') + ' ' +
+                   String(now.getHours()).padStart(2, '0') + ':' +
+                   String(now.getMinutes()).padStart(2, '0');
+
+    // Update Payment Info Card — 시연 시나리오: 결제대행 서비스, PO-20260508-001, 6,250,000원
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+      const title = card.querySelector('.card-title');
+      if (title && title.textContent.trim() === '결제 정보') {
+        card.innerHTML = `
+          <div class="flex-between mb-16">
+            <div class="card-title" style="margin:0;">결제 정보</div>
+            <span class="badge" style="background:#dcfce7; color:#166534; font-size:12px; font-weight:800; padding:4px 10px; border-radius:4px;">결제대행 입금 완료</span>
+          </div>
+          <div class="info-row"><span class="info-key">발주 번호</span><span class="info-val">PO-20260508-001</span></div>
+          <div class="info-row"><span class="info-key">총 결제 금액</span><span class="info-val" style="font-weight:900; font-size:16px;">6,250,000원</span></div>
+          <div class="info-row"><span class="info-key">결제 수단</span><span class="info-val">결제대행 서비스</span></div>
+          <div class="info-row"><span class="info-key">결제 일시</span><span class="info-val">${paidAt}</span></div>
+          <button class="btn-outline w-full" style="justify-content:center;margin-top:16px;font-size:13px;"><i class="ri-file-text-line"></i> 영수증 출력</button>
+        `;
+      }
+    });
+
+    // Update Progress Bar in Meta (if exists)
+    const payPct = document.querySelector('.pay-pct');
+    if (payPct) payPct.textContent = '결제대행 입금 완료';
+    const payFill = document.querySelector('.pay-bar-fill');
+    if (payFill) payFill.style.width = '100%';
+    // 상단 메타의 결제 상태 배지를 결제 완료 톤으로
+    const payStatusBadge = document.querySelector('.payment-status .badge');
+    if (payStatusBadge) {
+      payStatusBadge.textContent = '결제대행 입금 완료';
+      payStatusBadge.className = 'badge badge-green';
+    }
+  }
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

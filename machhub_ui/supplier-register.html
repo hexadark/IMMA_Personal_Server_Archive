@@ -1,0 +1,235 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 기업회원(가공업체) 가입</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    body { background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
+    
+    .register-wrap {
+      max-width: 800px;
+      margin: 60px auto 80px;
+      width: 100%;
+      padding: 0 20px;
+    }
+    
+    .register-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+      margin-bottom: 24px;
+    }
+
+    .reg-header { text-align: center; margin-bottom: 32px; }
+    .reg-header h1 { font-size: 24px; font-weight: 800; color: #111; margin-bottom: 8px; }
+    .reg-header p { font-size: 14px; color: var(--text-muted); }
+
+    .section-title { font-size: 18px; font-weight: 800; color: #111; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #111; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-group.full { grid-column: 1 / -1; }
+    
+    .form-group label { font-size: 13px; font-weight: 700; color: #111; }
+    .form-group > label > span { color: var(--danger); }
+    
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 14px 16px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+      color: var(--text-main); outline: none; transition: all 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { 
+      border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); 
+    }
+
+    /* Tag selection for services/materials */
+    .tag-grid { display: flex; flex-wrap: wrap; gap: 12px 10px; align-items: flex-start; }
+    .tag-grid > label { display: inline-flex; margin: 0; line-height: 1; }
+    .tag-checkbox { display: none; }
+    .tag-label {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 42px;
+      padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 13px; font-weight: 600; color: var(--text-muted);
+      line-height: 1.35; cursor: pointer; transition: all 0.2s; user-select: none;
+    }
+    .tag-checkbox:checked + .tag-label {
+      background: var(--primary); border-color: var(--primary-dark); color: #000;
+    }
+
+    .other-input {
+      display: none;
+      margin-top: 12px;
+    }
+    .other-input.is-visible {
+      display: block;
+    }
+    .other-input input {
+      background: #fbfcff;
+    }
+
+    .btn-submit {
+      width: 100%; background: var(--primary); color: #000; border: none;
+      border-radius: 8px; padding: 16px; font-size: 16px; font-weight: 800;
+      cursor: pointer; transition: background 0.2s; font-family: inherit;
+    }
+    .btn-submit:hover { background: var(--primary-hover); }
+
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<!-- Header -->
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <div style="flex:1;"></div>
+  <a href="/" style="font-size:14px; color:var(--text-muted); text-decoration:none; font-weight:600;"><i class="ri-home-line"></i> 홈으로</a>
+</header>
+
+<div class="register-wrap">
+  <div class="reg-header">
+    <h1>기업회원 가입</h1>
+    <p>가공업체 파트너로 등록하여 맞춤형 발주를 받아보세요.</p>
+  </div>
+
+      <form onsubmit="event.preventDefault(); window.location.href='/supplier';" novalidate>
+    
+    <!-- 1. 업체 가입 -->
+    <div class="register-card">
+      <div class="section-title">1. 업체 가입</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>이름 (담당자) <span>*</span></label>
+          <input type="text" placeholder="예) 홍길동" required>
+        </div>
+        <div class="form-group">
+          <label>연락처 <span>*</span></label>
+          <input type="tel" placeholder="010-1234-5678" required>
+        </div>
+        <div class="form-group full">
+          <label>이메일 <span>*</span></label>
+          <input type="email" placeholder="example@domain.com" required>
+        </div>
+        <div class="form-group full">
+          <label>아이디 <span>*</span></label>
+          <div style="display:flex; gap:10px;">
+            <input type="text" placeholder="영문, 숫자 6~20자" required style="flex:1;">
+            <button type="button" class="btn-outline" style="padding:0 20px; white-space:nowrap; border-radius:8px; border:1px solid var(--border); background:#fff; cursor:pointer;">중복 확인</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>비밀번호 <span>*</span></label>
+          <input type="password" placeholder="8자 이상 영문/숫자/특수문자 조합" required>
+        </div>
+        <div class="form-group">
+          <label>비밀번호 확인 <span>*</span></label>
+          <input type="password" placeholder="비밀번호 재입력" required>
+        </div>
+        <div class="form-group">
+          <label>회사명 <span>*</span></label>
+          <input type="text" placeholder="예) 한빛정밀 주식회사" required>
+        </div>
+        <div class="form-group">
+          <label>사업자등록번호 <span>*</span></label>
+          <div style="display:flex; gap:10px;">
+            <input type="text" placeholder="000-00-00000" style="flex:1;" required>
+            <button type="button" class="btn-outline" style="white-space:nowrap; padding:0 20px;">인증</button>
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>사무실 주소 <span>*</span></label>
+          <input type="text" placeholder="사무실 및 공장 주소를 입력해주세요." required>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 업체 정보 -->
+    <div class="register-card">
+      <div class="section-title">2. 업체 정보</div>
+      
+      <div class="form-group" style="margin-bottom:28px;">
+        <label>회사 규모 <span>*</span></label>
+        <select required>
+          <option value="">선택하세요</option>
+          <option>1인 기업</option>
+          <option>5인 미만</option>
+          <option>5인 ~ 20인</option>
+          <option>20인 ~ 50인</option>
+          <option>50인 이상</option>
+        </select>
+      </div>
+
+      <div class="form-group full" style="margin-bottom:28px;">
+        <label>다루는 재질 <span>*</span></label>
+        <div class="tag-grid">
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">알루미늄</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">스테인리스 (SUS)</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">스틸 (SS, S45C 등)</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">동 / 황동</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">플라스틱 / 아크릴</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">특수합금 / 티타늄</span></label>
+          <label><input type="checkbox" class="tag-checkbox other-toggle" data-other-target="material-other"><span class="tag-label">기타</span></label>
+        </div>
+        <div class="other-input" id="material-other" hidden>
+          <input type="text" name="material_other" placeholder="그 외 다루는 재질을 입력해주세요. (예: 인코넬, 마그네슘, 세라믹)">
+        </div>
+      </div>
+
+      <div class="form-group full" style="margin-bottom:28px;">
+        <label>제공 가공 서비스 <span>*</span></label>
+        <div class="tag-grid">
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">CNC 밀링</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">CNC 선반</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">범용 가공</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">레이저 절단</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">판금 / 절곡</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">용접</span></label>
+          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">표면처리 / 도장</span></label>
+          <label><input type="checkbox" class="tag-checkbox other-toggle" data-other-target="service-other"><span class="tag-label">기타</span></label>
+        </div>
+        <div class="other-input" id="service-other" hidden>
+          <input type="text" name="service_other" placeholder="그 외 제공 가능한 가공 서비스를 입력해주세요. (예: 열처리, 연마, 조립, 검사 대행)">
+        </div>
+      </div>
+
+      <div class="form-group full">
+        <label>사용 장비 <span>*</span></label>
+        <textarea rows="4" placeholder="보유하고 계신 주요 가공 장비와 수량을 자유롭게 입력해주세요. (예: 5축 CNC 2대, 범용 선반 1대)" required style="resize:vertical;"></textarea>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-submit">기업회원 가입 완료</button>
+  </form>
+</div>
+  <script>
+    document.querySelectorAll('.other-toggle').forEach((toggle) => {
+      const target = document.getElementById(toggle.dataset.otherTarget);
+      const input = target ? target.querySelector('input') : null;
+      if (!target || !input) return;
+
+      const syncOtherInput = () => {
+        target.hidden = !toggle.checked;
+        target.classList.toggle('is-visible', toggle.checked);
+        input.required = toggle.checked;
+        if (toggle.checked) {
+          window.setTimeout(() => input.focus(), 0);
+        } else {
+          input.value = '';
+        }
+      };
+
+      toggle.addEventListener('change', syncOtherInput);
+      syncOtherInput();
+    });
+  </script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables (토큰·DB 비밀번호 — push 절대 금지)
+.env
+.env.*
+!.env.example
+
+# 업로드 도면 (런타임 사용자 데이터)
+uploads/
+
+# 백업·임시 파일
+*.bak
+*.backup
+*.tmp
+*.zip
+*.tar.gz
+sed??????
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 로컬 검증·테스트 스크립트 (개인 영역)
+/tmp/*
+/test_local/
+
+# 런타임 로그
+*.log
+logs/
+
+# Railway·배포 메타
+.railway/

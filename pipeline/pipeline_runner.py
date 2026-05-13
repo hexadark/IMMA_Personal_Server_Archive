@@ -10,15 +10,12 @@ import sys
 import hashlib
 from pathlib import Path
 
-import psycopg2
-import psycopg2.extras
-
 import db
 
 logger = logging.getLogger(__name__)
 from parse import parse_vlm_json
 from resolve import resolve_part
-from match import run_hard_filter, run_equipment_verification
+from match import run_hard_filter, run_equipment_verification, check_process_sequence
 from response import assemble_response, to_json
 
 
@@ -33,33 +30,50 @@ def _ensure_buyer(conn, buyer_name: str = "CLI_테스트_바이어") -> str:
         return str(rows[0]["buyer_id"])
     row = db.execute_returning_with_conn(
         conn,
-        """INSERT INTO imma.buyers (buyer_name, email)
-           VALUES (%s, %s) RETURNING buyer_id""",
-        (buyer_name, "cli_pipeline@imma.local"),
+        """INSERT INTO imma.buyers (buyer_name, login_id, email, password_hash)
+           VALUES (%s, %s, %s, %s) RETURNING buyer_id""",
+        (buyer_name, "cli_pipeline", "cli_pipeline@imma.local",
+         "cli_no_login:0000000000000000000000000000000000000000000000000000000000000000"),
     )
     return str(row[0])
 
 
-def _insert_drawing(conn, buyer_id: str, file_uri: str, vlm_json: dict) -> str:
-    """drawings 테이블에 INSERT하고 drawing_id를 반환한다."""
+def _insert_drawing(conn, buyer_id: str, file_uri: str, vlm_json: dict,
+                    drawing_id: str | None = None) -> str:
+    """drawings 테이블에 vlm_result_jsonb를 기록하고 drawing_id를 반환한다.
+
+    drawing_id가 주어지면(API 흐름): 기존 row를 재사용. vlm_result_jsonb는 vlm.py가
+    이미 순수 VLM output을 저장해둔 상태이므로 갱신 없이 존재 검증만 수행.
+    pipeline 입력 dict는 _buyer_id 등 주입 키를 포함하므로 그대로 덮어쓰면 오염됨.
+
+    drawing_id가 없으면(CLI/개발 흐름): JSON sha256으로 식별하여 재사용 또는 새 INSERT.
+    """
+    if drawing_id:
+        rows = db.execute_query_with_conn(
+            conn,
+            "SELECT 1 FROM imma.drawings WHERE drawing_id = %s::uuid",
+            (drawing_id,),
+        )
+        if not rows:
+            raise ValueError(f"drawing_id not found: {drawing_id}")
+        return drawing_id
+
+    vlm_json_str = json.dumps(vlm_json, ensure_ascii=False)
     drawing_no = vlm_json.get("drawing_no", "")
-    # TODO: 원본 도면 파일 해시로 교체 필요. 현재는 파이프라인이 JSON만 받으므로
-    #       VLM JSON 기반 해시를 사용. 동일 JSON이면 기존 drawing을 재사용한다.
-    json_bytes = json.dumps(vlm_json, ensure_ascii=False).encode("utf-8")
+    # CLI/개발: VLM JSON 기반 해시로 재사용 또는 새로 만든다
+    json_bytes = vlm_json_str.encode("utf-8")
     file_sha256 = hashlib.sha256(json_bytes).hexdigest()
 
-    # 동일 sha256이면 기존 drawing 재사용
     rows = db.execute_query_with_conn(
         conn,
         "SELECT drawing_id FROM imma.drawings WHERE file_sha256 = %s",
         (file_sha256,),
     )
     if rows:
-        # vlm_result_jsonb 갱신
         db.execute_insert_with_conn(
             conn,
-            "UPDATE imma.drawings SET vlm_result_jsonb = %s WHERE drawing_id = %s",
-            (json.dumps(vlm_json, ensure_ascii=False), str(rows[0]["drawing_id"])),
+            "UPDATE imma.drawings SET vlm_result_jsonb = %s::jsonb WHERE drawing_id = %s",
+            (vlm_json_str, str(rows[0]["drawing_id"])),
         )
         return str(rows[0]["drawing_id"])
 
@@ -69,8 +83,7 @@ def _insert_drawing(conn, buyer_id: str, file_uri: str, vlm_json: dict) -> str:
            (buyer_id, drawing_no, file_uri, file_sha256, vlm_result_jsonb)
            VALUES (%s, %s, %s, %s, %s::jsonb)
            RETURNING drawing_id""",
-        (buyer_id, drawing_no, file_uri, file_sha256,
-         json.dumps(vlm_json, ensure_ascii=False)),
+        (buyer_id, drawing_no, file_uri, file_sha256, vlm_json_str),
     )
     return str(row[0])
 
@@ -99,17 +112,20 @@ def _insert_rfq(conn, buyer_id: str, drawing_id: str, vlm_json: dict) -> str:
     standards = vlm_json.get("referenced_standards", [])
     general_notes = vlm_json.get("client_notes") or vlm_json.get("general_notes_jsonb") or {}
     delivery_date = _extract_delivery_date(vlm_json)
+    order_quantity = vlm_json.get("order_quantity")
+    budget_amount = vlm_json.get("budget_amount")
+    budget_currency = vlm_json.get("budget_currency") or "KRW"
     row = db.execute_returning_with_conn(
         conn,
         """INSERT INTO imma.rfqs
            (buyer_id, drawing_id, referenced_standards_jsonb, general_notes_jsonb,
-            requested_delivery_date)
-           VALUES (%s, %s, %s::jsonb, %s::jsonb, %s)
+            requested_delivery_date, order_quantity, budget_amount, budget_currency)
+           VALUES (%s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s)
            RETURNING rfq_id""",
         (buyer_id, drawing_id,
          json.dumps(standards, ensure_ascii=False),
          json.dumps(general_notes, ensure_ascii=False),
-         delivery_date),
+         delivery_date, order_quantity, budget_amount, budget_currency),
     )
     return str(row[0])
 
@@ -136,7 +152,20 @@ def _insert_rfq_part(conn, rfq_id: str, vlm_part, resolved) -> str:
          json.dumps(vlm_part.tolerances, ensure_ascii=False),
          json.dumps(vlm_part.surface_roughness, ensure_ascii=False),
          vlm_part.post_treatment,
-         json.dumps({"part_no": vlm_part.part_no}, ensure_ascii=False)),
+         json.dumps({
+             "part_no": vlm_part.part_no,
+             "part_name": vlm_part.part_name,
+             "material_raw_text": vlm_part.material_raw_text,
+             "quantity": vlm_part.quantity,
+             "required_processes": vlm_part.required_processes,
+             "dimensions": vlm_part.dimensions,
+             "tolerances": vlm_part.tolerances,
+             "gdt": vlm_part.gdt,
+             "surface_roughness": vlm_part.surface_roughness,
+             "post_treatment": vlm_part.post_treatment,
+             "unsupported": vlm_part.unsupported,
+             "unsupported_reason": vlm_part.unsupported_reason,
+         }, ensure_ascii=False)),
     )
     return str(row[0])
 
@@ -227,8 +256,14 @@ def _run_pipeline_core(raw: dict, file_uri: str) -> dict:
     resolved_list = []
     rfq_part_id_list = []
     with db.transaction() as conn:
-        buyer_id = _ensure_buyer(conn)
-        drawing_id = _insert_drawing(conn, buyer_id, file_uri, raw)
+        # API 호출 시 로그인 사용자의 buyer_id를 우선 사용, CLI 실행 시 기존 fallback
+        _api_buyer_id = raw.get("_buyer_id")
+        if _api_buyer_id:
+            buyer_id = _api_buyer_id
+        else:
+            buyer_id = _ensure_buyer(conn)
+        _api_drawing_id = raw.get("_drawing_id")
+        drawing_id = _insert_drawing(conn, buyer_id, file_uri, raw, drawing_id=_api_drawing_id)
         rfq_id = _insert_rfq(conn, buyer_id, drawing_id, raw)
 
         for vp in vlm_parts:
@@ -250,8 +285,15 @@ def _run_pipeline_core(raw: dict, file_uri: str) -> dict:
 
     # [5] 매칭 (DB 읽기 전용이므로 트랜잭션 밖에서)
     parts_with_candidates = []
-    for i, resolved in enumerate(resolved_list):
+    for i, (resolved, vp) in enumerate(zip(resolved_list, vlm_parts)):
         rpid = rfq_part_id_list[i]
+        if vp.unsupported:
+            resolved.is_valid = False
+            resolved.ontology_warnings.append(
+                f"[unsupported] {vp.unsupported_reason or '지원 범위 외 부품'}"
+            )
+            parts_with_candidates.append((resolved, [], rpid))
+            continue
         if not resolved.is_valid:
             parts_with_candidates.append((resolved, [], rpid))
             continue
@@ -261,6 +303,10 @@ def _run_pipeline_core(raw: dict, file_uri: str) -> dict:
 
         # 장비 검증
         candidates = run_equipment_verification(candidates, resolved)
+
+        # ★ 공정 순서 검증
+        seq_warnings = check_process_sequence(resolved)
+        resolved.ontology_warnings.extend(seq_warnings)
 
         parts_with_candidates.append((resolved, candidates, rpid))
 

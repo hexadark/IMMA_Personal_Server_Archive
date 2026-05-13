@@ -1,0 +1,636 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 지능형 제조 매칭 플랫폼</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <style>
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      min-height: calc(100vh - 76px);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      background: #111;
+    }
+    .hero-video {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      opacity: 0.6;
+    }
+    .hero-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%);
+      z-index: 1;
+    }
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .hero-title {
+      font-size: 56px;
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing:0;
+      color: white;
+      margin-bottom: 24px;
+    }
+    .hero-title .highlight { color: var(--primary); }
+    .hero-sub {
+      font-size: 19px;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.6;
+      margin-bottom: 48px;
+    }
+    .hero-btns { display: flex; gap: 16px; margin-bottom: 48px; }
+    .hero-features {
+      display: flex;
+      gap: 24px;
+    }
+    .hero-feat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.9);
+      font-weight: 500;
+    }
+    .hero-feat i { color: var(--primary); font-size: 18px; }
+
+    /* ===== HOW IT WORKS ===== */
+    .how-section {
+      background: white;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 40px 80px;
+    }
+    .how-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 0;
+    }
+    .how-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 0 32px;
+      border-right: 1px solid var(--border);
+    }
+    .how-step:first-child { padding-left: 0; }
+    .how-step:last-child { border-right: none; }
+    .how-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #000;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+    .how-text h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #111; }
+    .how-text p  { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+    /* ===== MAIN CONTENT ===== */
+    .main-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 48px 40px;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* ===== QUICK QUOTE ===== */
+    .quick-quote {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      position: sticky;
+      top: 76px;
+    }
+    .quick-quote h2 { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 4px; }
+    .quick-quote .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    .qq-upload {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 28px 16px;
+      text-align: center;
+      background: #FAFBFC;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .qq-upload i { font-size: 28px; color: var(--text-muted); margin-bottom: 8px; display: block; }
+    .qq-upload p { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+    .qq-upload span { font-size: 11px; color: #BFC7D4; }
+    .qq-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .qq-form select, .qq-form input {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-main);
+      outline: none;
+    }
+    .qq-disclaimer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    /* ===== STATS ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 0;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 32px;
+      overflow: hidden;
+    }
+    .stat-item {
+      padding: 24px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-num {
+      font-size: 28px;
+      font-weight: 900;
+      color: #111;
+      letter-spacing:0;
+    }
+    .stat-label { font-size: 13px; color: var(--text-muted); }
+    .stat-icon { font-size: 22px; color: var(--primary); margin-bottom: 6px; }
+
+    /* ===== CATEGORIES ===== */
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .section-head h2 { font-size: 18px; font-weight: 800; color: #111; }
+    .section-head a { font-size: 13px; color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 2px; }
+    .cat-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .cat-tab {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      background: white;
+      transition: all 0.2s;
+    }
+    .cat-tab.active, .cat-tab:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #000;
+    }
+
+
+    .star { color: var(--primary); }
+
+    /* ===== MODALS ===== */
+    .imma-modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); z-index: 9999;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .imma-modal {
+      background: white; border-radius: 16px; width: 400px;
+      padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      position: relative;
+    }
+    .imma-modal-close {
+      position: absolute; top: 16px; right: 16px; font-size: 24px;
+      cursor: pointer; color: var(--text-muted); transition: color 0.2s;
+    }
+    .imma-modal-close:hover { color: #111; }
+    .imma-modal h2 { font-size: 22px; font-weight: 800; color: #111; text-align: center; margin-bottom: 24px; }
+    .imma-modal-btns { display: flex; flex-direction: column; gap: 12px; }
+    .imma-modal-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 700;
+      cursor: pointer; text-decoration: none; transition: all 0.2s;
+    }
+    .imma-modal-btn.corp { background: var(--primary); color: #000; border: 1px solid var(--primary-dark); }
+    .imma-modal-btn.corp:hover { background: var(--primary-hover); }
+    .imma-modal-btn.indi { background: white; color: #111; border: 1px solid var(--border); }
+    .imma-modal-btn.indi:hover { background: var(--bg); border-color: #999; }
+  </style>
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="imma-header">
+  <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+  <ul class="imma-nav">
+    <li><a href="/client">대시보드</a></li>
+    <li><a href="/#service-intro">서비스 소개</a></li>
+    <li><a href="/how-to-use">이용 방법</a></li>
+    <li><a href="/process-flow">프로세스</a></li>
+    <li><a href="/search-suppliers">업체 찾기</a></li>
+    <li><a href="/support">고객지원</a></li>
+  </ul>
+  <div class="header-actions">
+    <a class="btn-login" href="javascript:void(0)" onclick="openModal('loginModal')">로그인</a>
+    <a class="btn-signup" href="javascript:void(0)" onclick="openModal('signupModal')">회원가입</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <video class="hero-video" src="/static/imma_intro_proto_c.mp4" autoplay loop muted playsinline></video>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <h1 class="hero-title">도면 한 장으로,<br>정확한 가공 견적을,<br><span class="highlight">빠르게 매칭</span>하세요</h1>
+    <p class="hero-sub">지능형 분석과 전국 가공 네트워크로<br>정확한 견적과 빠른 납기를 보장합니다.</p>
+    <div class="hero-btns">
+      <a href="#quick-quote" class="btn-primary btn-lg"><i class="ri-file-text-line"></i> 견적 요청하기</a>
+      <a href="/search-suppliers" class="btn-outline btn-lg" style="color:white; border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.1);"><i class="ri-search-line"></i> 업체 찾기 &gt;</a>
+    </div>
+    <div class="hero-features">
+      <div class="hero-feat"><i class="ri-time-line"></i> 도면 업로드 30초</div>
+      <div class="hero-feat"><i class="ri-price-tag-3-line"></i> 무료 견적 비교</div>
+      <div class="hero-feat"><i class="ri-shield-check-line"></i> 검증된 가공업체</div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS SECTION (Dark Theme from Proposal) -->
+<section class="stats-section" style="background:#111; padding:60px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
+  <div class="stats-inner" style="max-width:1200px; margin:0 auto; display:grid; grid-template-columns:repeat(4,1fr); text-align:center;">
+    <div class="stat-item">
+      <div class="stat-num" style="font-size:40px; font-weight:900; color:white; margin-bottom:8px;">12,842<span style="color:var(--primary); font-size:24px; margin-left:4px;">+</span></div>
+      <div class="stat-label" style="font-size:14px; color:#888; font-weight:700;">누적 견적 요청</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" style="font-size:40px; font-weight:900; color:white; margin-bottom:8px;">4,987<span style="color:var(--primary); font-size:24px; margin-left:4px;">+</span></div>
+      <div class="stat-label" style="font-size:14px; color:#888; font-weight:700;">등록 가공업체</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" style="font-size:40px; font-weight:900; color:white; margin-bottom:8px;">98.6<span style="color:var(--primary); font-size:24px; margin-left:4px;">%</span></div>
+      <div class="stat-label" style="font-size:14px; color:#888; font-weight:700;">매칭 성공률</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" style="font-size:40px; font-weight:900; color:white; margin-bottom:8px;">32,154<span style="color:var(--primary); font-size:24px; margin-left:4px;">+</span></div>
+      <div class="stat-label" style="font-size:14px; color:#888; font-weight:700;">누적 거래 건수</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section" id="how-to-use">
+  <div class="how-inner">
+    <a href="/how-to-use#client-guide" class="how-step" style="text-decoration:none; color:inherit;">
+      <div class="how-num">1</div>
+      <div class="how-text">
+        <h3>도면 업로드</h3>
+        <p>도면 파일과 가공 정보를 입력하면<br>AI가 자동으로 분석합니다.</p>
+      </div>
+    </a>
+    <a href="/how-to-use#client-guide" class="how-step" style="text-decoration:none; color:inherit;">
+      <div class="how-num">2</div>
+      <div class="how-text">
+        <h3>업체 매칭 & 견적 비교</h3>
+        <p>최적의 가공업체를 매칭하고<br>견적과 납기를 비교할 수 있습니다.</p>
+      </div>
+    </a>
+    <a href="/how-to-use#client-dashboard" class="how-step" style="text-decoration:none; color:inherit;">
+      <div class="how-num">3</div>
+      <div class="how-text">
+        <h3>발주 & 진행 관리</h3>
+        <p>선택한 업체에 발주하고<br>실시간으로 진행 상황을 확인하세요.</p>
+      </div>
+    </a>
+  </div>
+</section>
+
+<!-- MAIN -->
+<div class="main-wrap" id="service-intro">
+  <!-- Quick Quote Sidebar -->
+  <aside>
+    <div class="quick-quote" id="quick-quote">
+      <h2>지금 바로 견적을 요청하세요</h2>
+      <p class="sub">회원가입 없이도 무료로 견적을 받아보실 수 있습니다.</p>
+      <div class="qq-upload">
+        <i class="ri-upload-cloud-2-line"></i>
+        <p>도면 파일을 드래그하거나 클릭하여 업로드</p>
+        <span>DWG, DXF, PDF, STEP, IGES 등 (최대 50MB)</span>
+      </div>
+      <div class="qq-form">
+        <select><option value="">가공 방식 (선택)</option><option>CNC 가공</option><option>선반 가공</option><option>밀링</option></select>
+        <input type="number" placeholder="예상 수량 (선택) - 약: 100">
+        <input type="date" placeholder="희망 납기 (선택)">
+      </div>
+      <a href="/quote-request" class="btn-primary w-full" style="justify-content:center;">견적 요청하기</a>
+      <p class="qq-disclaimer"><i class="ri-lock-line"></i> 회원가입 없이도 무료로 견적을 받아보실 수 있습니다.</p>
+    </div>
+  </aside>
+
+  <!-- Right Content -->
+  <div>
+    <!-- Stats -->
+
+
+    <!-- Categories -->
+    <div class="section-head">
+      <h2>주요 가공 카테고리</h2>
+    </div>
+    <div class="cat-tabs">
+      <div class="cat-tab active">CNC 가공</div>
+      <div class="cat-tab">선반 가공</div>
+      <div class="cat-tab">밀링 가공</div>
+      <div class="cat-tab">판금 가공</div>
+      <div class="cat-tab">용접/조립</div>
+      <div class="cat-tab">표면처리</div>
+      <div class="cat-tab">3D 프린팅</div>
+      <div class="cat-tab">기타</div>
+    </div>
+
+    <!-- Companies -->
+    <div class="section-head">
+      <h2>추천 가공업체</h2>
+      <a href="/search-suppliers">더 보기 <i class="ri-arrow-right-s-line"></i></a>
+    </div>
+    <div class="company-grid">
+      <div class="company-card">
+        <div class="company-thumb">
+          <i class="ri-tools-line"></i>
+          <span class="company-rank">추천 1위</span>
+        </div>
+        <div class="company-info">
+          <div class="company-name">CNC 머시닝센터 #1</div>
+          <div class="company-loc"><i class="ri-map-pin-line"></i> 경기 시흥시</div>
+          <div class="company-tags">
+            <span class="company-tag">CNC 가공 전문</span>
+          </div>
+          <div class="company-stats">
+            <span class="company-rating"><i class="ri-star-fill star"></i> 4.8 (128)</span>
+            <span>평균 견적 1.2일</span>
+          </div>
+        </div>
+      </div>
+      <div class="company-card">
+        <div class="company-thumb" style="background:linear-gradient(135deg,#1a2a1a,#2d3d2d)">
+          <i class="ri-settings-3-line"></i>
+          <span class="company-rank">추천 2위</span>
+        </div>
+        <div class="company-info">
+          <div class="company-name">정밀테크놀로지</div>
+          <div class="company-loc"><i class="ri-map-pin-line"></i> 인천 남동구</div>
+          <div class="company-tags">
+            <span class="company-tag">정밀/밀링</span>
+            <span class="company-tag">다품종 소량</span>
+          </div>
+          <div class="company-stats">
+            <span class="company-rating"><i class="ri-star-fill star"></i> 4.9 (97)</span>
+            <span>평균 견적 0.9일</span>
+          </div>
+        </div>
+      </div>
+      <div class="company-card">
+        <div class="company-thumb" style="background:linear-gradient(135deg,#1a1a2a,#2d2d3d)">
+          <i class="ri-hammer-line"></i>
+          <span class="company-rank">추천 3위</span>
+        </div>
+        <div class="company-info">
+          <div class="company-name">대한정밀</div>
+          <div class="company-loc"><i class="ri-map-pin-line"></i> 경남 창원시</div>
+          <div class="company-tags">
+            <span class="company-tag">선반/밀링</span>
+            <span class="company-tag">대형 가공</span>
+          </div>
+          <div class="company-stats">
+            <span class="company-rating"><i class="ri-star-fill star"></i> 4.7 (203)</span>
+            <span>평균 견적 1.5일</span>
+          </div>
+        </div>
+      </div>
+      <div class="company-card">
+        <div class="company-thumb" style="background:linear-gradient(135deg,#2a1a1a,#3d2d2d)">
+          <i class="ri-flashlight-line"></i>
+          <span class="company-rank">추천 4위</span>
+        </div>
+        <div class="company-info">
+          <div class="company-name">스마트마킹</div>
+          <div class="company-loc"><i class="ri-map-pin-line"></i> 부산 사상구</div>
+          <div class="company-tags">
+            <span class="company-tag">판금/절곡</span>
+            <span class="company-tag">빠른 납기</span>
+          </div>
+          <div class="company-stats">
+            <span class="company-rating"><i class="ri-star-fill star"></i> 4.6 (74)</span>
+            <span>평균 견적 1.1일</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 실시간 견적 요청 현황 (Proposal Page 1) -->
+    <div class="section-head" style="margin-top:56px; margin-bottom:24px;">
+      <h2 style="font-size:20px; font-weight:900;">실시간 견적 요청 현황</h2>
+      <a href="/matching-ui" style="font-weight:700;">전체 보기 <i class="ri-arrow-right-s-line"></i></a>
+    </div>
+    <div class="card" style="padding:0; overflow:hidden; border-radius:var(--radius-lg); box-shadow:var(--shadow-md);">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>요청일시</th><th>도면명</th><th>가공 방식</th><th>재질</th><th>수량</th><th>희망 납기</th><th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--text-muted); font-size:13px;">2026-05-06 14:35</td>
+            <td class="td-primary">Bracket_001.STEP</td><td>CNC 밀링</td><td>AL6061</td><td>100</td><td>2026-06-10</td>
+            <td><span class="badge badge-yellow">매칭 중</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-muted); font-size:13px;">2026-05-06 13:12</td>
+            <td class="td-primary">Housing_Main.DWG</td><td>CNC 선반</td><td>SUS304</td><td>50</td><td>2026-06-15</td>
+            <td><span class="badge badge-yellow">매칭 중</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-muted); font-size:13px;">2026-05-06 11:45</td>
+            <td class="td-primary">Base_Plate.DXF</td><td>레이저 절단</td><td>SS400</td><td>300</td><td>2026-05-28</td>
+            <td><span class="badge badge-green">매칭 완료</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-muted); font-size:13px;">2026-05-06 10:20</td>
+            <td class="td-primary">Mold_Base_v2.IGS</td><td>정밀 밀링</td><td>S45C</td><td>1</td><td>2026-07-05</td>
+            <td><span class="badge badge-yellow">매칭 중</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="imma-footer">
+  <div class="footer-inner">
+    <div>
+      <div class="footer-logo">IMM<span>A</span></div>
+      <div class="footer-desc">지능형 제조 매칭 플랫폼<br>© 2026 IMMA. All rights reserved.</div>
+    </div>
+    <ul class="footer-links">
+      <li><a href="/how-to-use">회사 소개</a></li>
+      <li><a href="/support">이용약관</a></li>
+      <li><a href="/support">개인정보처리방침</a></li>
+      <li><a href="/support">파트너 문의</a></li>
+      <li><a href="/how-to-use">블로그</a></li>
+      <li><a href="/support">공지사항</a></li>
+    </ul>
+    <div style="display:flex;gap:12px;color:#555;font-size:20px;">
+      <i class="ri-youtube-line" style="cursor:pointer"></i>
+      <i class="ri-linkedin-box-line" style="cursor:pointer"></i>
+      <i class="ri-mail-line" style="cursor:pointer"></i>
+    </div>
+  </div>
+</footer>
+
+<!-- MODALS -->
+<div class="imma-modal-overlay" id="loginModal">
+  <div class="imma-modal">
+    <i class="ri-close-line imma-modal-close" onclick="closeModal('loginModal')"></i>
+    <h2>로그인</h2>
+    
+    <!-- 회원 유형 선택 -->
+    <div id="login-type-selection">
+      <div class="imma-modal-btns">
+        <a href="javascript:void(0)" class="imma-modal-btn indi" onclick="showLoginForm('individual')"><i class="ri-user-line"></i> 개인회원 로그인</a>
+        <a href="javascript:void(0)" class="imma-modal-btn corp" onclick="showLoginForm('corporate')"><i class="ri-building-4-line"></i> 기업회원 로그인</a>
+      </div>
+    </div>
+
+    <!-- 로그인 폼 (아이디/비밀번호) -->
+    <div id="login-form-container" style="display:none;">
+      <p id="login-title" style="text-align:center; font-weight:700; margin-bottom:16px; color:var(--text-muted);"></p>
+      <form onsubmit="event.preventDefault(); submitLogin();">
+        <div style="margin-bottom:12px;">
+          <input type="text" id="login-id" placeholder="아이디 (이메일)" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:8px; outline:none; font-family:inherit;">
+        </div>
+        <div style="margin-bottom:20px;">
+          <input type="password" id="login-pw" placeholder="비밀번호" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:8px; outline:none; font-family:inherit;">
+        </div>
+        <button type="submit" class="imma-modal-btn corp" style="width:100%; border:none; padding:14px;">로그인하기</button>
+      </form>
+      <div style="text-align:center; margin-top:16px;">
+        <a href="javascript:void(0)" onclick="showLoginSelection()" style="font-size:13px; color:var(--text-muted); text-decoration:none;">&lt; 이전 단계로</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="imma-modal-overlay" id="signupModal">
+  <div class="imma-modal">
+    <i class="ri-close-line imma-modal-close" onclick="closeModal('signupModal')"></i>
+    <h2>회원가입</h2>
+    <div class="imma-modal-btns">
+      <a href="/client-register" class="imma-modal-btn indi"><i class="ri-user-add-line"></i> 개인 가입</a>
+      <a href="/supplier-register?type=corporate" class="imma-modal-btn corp"><i class="ri-building-2-line"></i> 기업 가입</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.cat-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+
+  function openModal(id) {
+    document.getElementById(id).style.display = 'flex';
+    // Reset login modal to type selection
+    if (id === 'loginModal') {
+      showLoginSelection();
+    }
+  }
+  function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+  }
+
+  // Login Form Logic
+  let currentLoginType = '';
+  function showLoginForm(type) {
+    currentLoginType = type;
+    document.getElementById('login-type-selection').style.display = 'none';
+    document.getElementById('login-form-container').style.display = 'block';
+    
+    if (type === 'corporate') {
+      document.getElementById('login-title').textContent = "기업회원 (가공업체) 로그인";
+    } else {
+      document.getElementById('login-title').textContent = "개인회원 (클라이언트) 로그인";
+    }
+    document.getElementById('login-id').value = '';
+    document.getElementById('login-pw').value = '';
+    document.getElementById('login-id').focus();
+  }
+  
+  function showLoginSelection() {
+    document.getElementById('login-type-selection').style.display = 'block';
+    document.getElementById('login-form-container').style.display = 'none';
+  }
+  
+  function submitLogin() {
+    // Demo login action
+    if (currentLoginType === 'corporate') {
+      window.location.href = '/supplier';
+    } else {
+      window.location.href = '/client';
+    }
+  }
+  // Close modal when clicking outside
+  window.onclick = function(event) {
+    if (event.target.classList.contains('imma-modal-overlay')) {
+      event.target.style.display = 'none';
+    }
+  }
+</script>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>

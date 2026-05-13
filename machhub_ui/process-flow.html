@@ -1,0 +1,295 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMMA | 3자 프로세스 흐름도</title>
+  <link rel="stylesheet" href="/static/imma-common.css">
+  <link rel="stylesheet" href="/static/role-workflows.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+<script>window.__imma_realmode__ = true;</script>
+<script src="/static/imma-ui-utils.js"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/imma-api.js"></script>
+</head>
+<body>
+  <header class="imma-header">
+    <a class="imma-logo" href="/#home">IMM<span>A</span></a>
+    <ul class="imma-nav">
+      <li><a href="/client">대시보드</a></li>
+      <li><a href="/#service-intro">서비스 소개</a></li>
+      <li><a href="/how-to-use">이용 방법</a></li>
+      <li><a href="/process-flow" class="active">프로세스</a></li>
+      <li><a href="/search-suppliers">업체 찾기</a></li>
+      <li><a href="/support">고객지원</a></li>
+    </ul>
+    <div class="header-actions">
+      <a class="btn-login" href="/">로그인</a>
+      <a class="btn-signup" href="/">회원가입</a>
+    </div>
+  </header>
+
+  <main class="mw-page wide">
+    <div class="mw-top">
+      <div class="mw-title">
+        <div class="mw-eyebrow"><i class="ri-route-line"></i> Manufacturing order workflow</div>
+        <h1>제조 가공 발주 플랫폼 흐름도</h1>
+        <p>클라이언트, 관리자, 가공업체가 같은 발주를 어떤 단계에서 주고받는지 한 화면에서 확인합니다.</p>
+      </div>
+      <div class="mw-actions">
+        <a href="/client-fulfillment?preview=1" class="btn-outline"><i class="ri-user-line"></i> 클라이언트 화면</a>
+        <a href="/admin-control-center?preview=1" class="btn-outline"><i class="ri-computer-line"></i> 관리자 화면</a>
+        <a href="/supplier-workbench?preview=1" class="btn-primary"><i class="ri-factory-line"></i> 업체 화면</a>
+      </div>
+    </div>
+
+    <div class="flow-legend">
+      <div class="flow-legend-item client"><i class="ri-user-3-fill"></i> 클라이언트</div>
+      <div class="flow-legend-item admin"><i class="ri-computer-fill"></i> 관리자 / 플랫폼</div>
+      <div class="flow-legend-item supplier"><i class="ri-factory-fill"></i> 가공업체</div>
+    </div>
+
+    <section class="flow-board" aria-label="3자 프로세스 흐름도">
+      <div class="flow-stage">
+        <span class="flow-num">1</span>
+        <div class="flow-stage-title">회원가입 / 기본정보 구축</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-user-line"></i></div>
+        <ul>
+          <li>이름, 연락처, 회사정보, 이메일 등록</li>
+          <li>PASS 인증으로 계정 신뢰도 확보</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-database-2-line"></i></div>
+        <ul>
+          <li>클라이언트·업체 DB 관리</li>
+          <li>발주 단계, 거래 내역, 평가, 문의 상태 추적</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier">
+        <div class="flow-icon"><i class="ri-building-2-line"></i></div>
+        <ul>
+          <li>회사명, 주소, 사업자등록번호 등록</li>
+          <li>규모, 재질, 서비스, 장비, 스케줄 입력</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">2</span>
+        <div class="flow-stage-title">견적 요청 등록</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-file-upload-line"></i></div>
+        <ul>
+          <li>도면 파일, 납기, 수량, 수령방식, 위치 입력</li>
+          <li>용도, 예산, 양산 계획, 후처리, 품질 인증 요청</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-clipboard-line"></i></div>
+        <ul>
+          <li>견적 요청서 생성</li>
+          <li>파일·도면·입력값 수집 및 접수 상태 관리</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier muted">
+        <div class="flow-icon"><i class="ri-timer-line"></i></div>
+        <ul>
+          <li>오더 수신 전 대기</li>
+          <li>실시간 작업 가능 상태 유지</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">3</span>
+        <div class="flow-stage-title">AI 분석 및 정보 보완</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-robot-2-line"></i></div>
+        <ul>
+          <li>AI가 요청한 추가 정보 입력</li>
+          <li>누락 치수, 수령 방식, 품질 조건 보완</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-brain-line"></i></div>
+        <ul>
+          <li>도면 이미지·텍스트 인식</li>
+          <li>치수, 수량, 공차 등 중요 누락 정보 탐지</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier muted">
+        <div class="flow-icon"><i class="ri-eye-off-line"></i></div>
+        <ul>
+          <li>보완 완료 후 매칭 대상 여부 결정</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">4</span>
+        <div class="flow-stage-title">업체 매칭 및 오더리스트 발송</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-group-line"></i></div>
+        <ul>
+          <li>보완 완료 후 매칭 대기</li>
+          <li>업체 추가 질의가 있으면 응답</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-send-plane-line"></i></div>
+        <ul>
+          <li>가공종류, 크기, 스케줄 기준 업체 선별</li>
+          <li>클라이언트 평점과 리뷰를 업체에 제공</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier">
+        <div class="flow-icon"><i class="ri-clipboard-line"></i></div>
+        <ul>
+          <li>오더리스트 검토 및 수락 여부 결정</li>
+          <li>추가 정보 필요 시 관리자에 요청</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">5</span>
+        <div class="flow-stage-title">작업정보 회신 및 비교</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-scales-3-line"></i></div>
+        <ul>
+          <li>업체별 금액, 납기, 리뷰, 평점 비교</li>
+          <li>최종 후보 업체 선정</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-message-2-line"></i></div>
+        <ul>
+          <li>업체 작업정보를 클라이언트에게 전달</li>
+          <li>업체 평점과 별점 정보 함께 제공</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier">
+        <div class="flow-icon"><i class="ri-mail-send-line"></i></div>
+        <ul>
+          <li>예상 납기와 금액 회신</li>
+          <li>작업 가능 범위와 품질 조건 명시</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">6</span>
+        <div class="flow-stage-title">발주 / 계약 / 결제</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-shake-hands-line"></i></div>
+        <ul>
+          <li>최종 업체 선택 및 발주 진행</li>
+          <li>계약·급행·결제대행 또는 은행 선입금 요청</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-shield-check-line"></i></div>
+        <ul>
+          <li>계약서 양식, SGI, 결제대행 연계</li>
+          <li>NDA·기밀유지 서약 수령 및 전달</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier">
+        <div class="flow-icon"><i class="ri-file-shield-2-line"></i></div>
+        <ul>
+          <li>발주 확인 수락 및 작업 스케줄 업데이트</li>
+          <li>계약 가입, 도면·기술 기밀유지 서약 작성</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">7</span>
+        <div class="flow-stage-title">생산 / 진행도 관리</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-line-chart-line"></i></div>
+        <ul>
+          <li>가공물 작업 진행도 확인</li>
+          <li>지연 및 보상 안내 수신</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-dashboard-3-line"></i></div>
+        <ul>
+          <li>실시간 작업 진행도 시각화 제공</li>
+          <li>납기 지연 요청 처리 및 보상 정책 적용</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier">
+        <div class="flow-icon"><i class="ri-settings-3-line"></i></div>
+        <ul>
+          <li>원자재 입고, 가공 시작, 후처리, 검사 이벤트 공유</li>
+          <li>납기 지연 시 관리자에 지연 서비스 요청</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">8</span>
+        <div class="flow-stage-title">납품 / 검수 / 정산</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-inbox-archive-line"></i></div>
+        <ul>
+          <li>제품 수령 후 자체 QC 및 납품 인증 체크</li>
+          <li>사용 이후 AS와 질문 사항 문의</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-truck-line"></i></div>
+        <ul>
+          <li>최종 상태·포장 이미지와 발송 현황 제공</li>
+          <li>납품 인증 후 결제대행사 또는 은행 정산 요청</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier">
+        <div class="flow-icon"><i class="ri-truck-fill"></i></div>
+        <ul>
+          <li>최종 상태 이미지와 포장 이미지 발송</li>
+          <li>택배, 화물차, 특수화물 등 요청 방식으로 출하</li>
+        </ul>
+      </div>
+
+      <div class="flow-stage">
+        <span class="flow-num">9</span>
+        <div class="flow-stage-title">리뷰 / 평점 / 사후관리</div>
+      </div>
+      <div class="flow-card client">
+        <div class="flow-icon"><i class="ri-star-line"></i></div>
+        <ul>
+          <li>업체 작업에 대한 리뷰와 평점 등록</li>
+          <li>사후 문의 이력 확인</li>
+        </ul>
+      </div>
+      <div class="flow-card admin">
+        <div class="flow-icon"><i class="ri-star-smile-line"></i></div>
+        <ul>
+          <li>상호 리뷰·평점 DB 관리</li>
+          <li>문의, AS, 휴면화 알림 이력 관리</li>
+        </ul>
+      </div>
+      <div class="flow-card supplier">
+        <div class="flow-icon"><i class="ri-user-star-line"></i></div>
+        <ul>
+          <li>클라이언트에 대한 리뷰와 평점 등록</li>
+          <li>재발주 가능 고객 관리</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="flow-link-row">
+      <a href="/quote-request" class="btn-outline"><i class="ri-file-text-line"></i> 견적 요청 화면</a>
+      <a href="/matching-ui" class="btn-outline"><i class="ri-scales-line"></i> 매칭 비교 화면</a>
+      <a href="/order-management" class="btn-outline"><i class="ri-line-chart-line"></i> 발주 진행 화면</a>
+    </div>
+  </main>
+<script src="/static/imma-phase1-pages.js"></script>
+</body>
+</html>
