@@ -104,6 +104,12 @@
     if (!user) return;
 
     target.dataset.immaSessionRendered = 'true';
+
+    // 로그인 상태에서는 기존 .btn-login·.btn-signup CTA를 숨겨 중복 노출 방지.
+    document.querySelectorAll('.btn-login, .btn-signup').forEach(el => {
+      el.style.display = 'none';
+    });
+
     const box = document.createElement('div');
     box.className = 'imma-session-box';
     box.setAttribute('data-imma-session-box', 'true');
