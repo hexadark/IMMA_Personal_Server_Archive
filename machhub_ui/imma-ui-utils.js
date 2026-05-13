@@ -44,7 +44,7 @@
   function formatDate(value) {
     if (!value) return '-';
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return String(value);
+    if (Number.isNaN(d.getTime())) return String(value).slice(0, 10) || '-';
     return d.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
   }
 
@@ -54,10 +54,12 @@
       if (!el.dataset.originalText) el.dataset.originalText = el.textContent || '';
       el.disabled = true;
       el.setAttribute('aria-busy', 'true');
+      el.classList.add('is-loading');
       if (label) el.textContent = label;
     } else {
       el.disabled = false;
       el.removeAttribute('aria-busy');
+      el.classList.remove('is-loading');
       if (el.dataset.originalText) el.textContent = el.dataset.originalText;
       delete el.dataset.originalText;
     }
@@ -69,65 +71,53 @@
 
   function displayName(user) {
     if (!user) return '';
-    return user.name || user.company_name || user.login_id || '';
+    return user.name || user.contact_name || user.company_name || user.login_id || '';
+  }
+
+  function getSessionTarget() {
+    const direct = document.querySelector('[data-imma-session]');
+    if (direct) return direct;
+    const selectors = [
+      'header .header-actions',
+      'header .header-actions-right',
+      'header .topbar-actions',
+      'header .mw-actions',
+      '.mw-app-topbar .mw-actions',
+      '.dash-topbar .topbar-actions',
+      'header nav',
+      '.navbar',
+      'header'
+    ];
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (el) return el;
+    }
+    return null;
   }
 
   function renderSessionHeader() {
     const user = window.imma.getUser ? window.imma.getUser() : null;
-    const anchors = Array.from(document.querySelectorAll('a[href="/"], a[href="/client"], a[href="/supplier"], a[href="/admin-ui"]'));
-    const target = document.querySelector('[data-imma-session]') || document.querySelector('header nav') || document.querySelector('.navbar') || document.querySelector('header');
+    const target = getSessionTarget();
     if (!target || target.dataset.immaSessionRendered === 'true') return;
-    target.dataset.immaSessionRendered = 'true';
 
+    // 비로그인 공개 페이지에는 이미 로그인/회원가입 CTA가 있으므로 중복 링크를 만들지 않는다.
+    if (!user) return;
+
+    target.dataset.immaSessionRendered = 'true';
     const box = document.createElement('div');
     box.className = 'imma-session-box';
-    box.setAttribute('data-imma-session', 'true');
-    if (user) {
-      const home = window.imma.redirectForRole ? window.imma.redirectForRole(user.role) : '/';
-      box.innerHTML = `
-        <span class="imma-session-user">${escapeHtml(displayName(user))}님 · ${escapeHtml(roleLabel(user.role))}</span>
-        <a class="imma-session-link" href="${escapeHtml(home)}">대시보드</a>
-        <button class="imma-session-logout" type="button">로그아웃</button>
-      `;
-      box.querySelector('button').addEventListener('click', () => window.imma.logout && window.imma.logout('manual'));
-    } else {
-      box.innerHTML = `<a class="imma-session-link" href="/">로그인</a>`;
-    }
+    box.setAttribute('data-imma-session-box', 'true');
 
-    if (target.tagName && target.tagName.toLowerCase() === 'nav') target.appendChild(box);
-    else target.insertBefore(box, target.firstChild);
-
-    anchors.forEach(a => {
-      if (user && a.getAttribute('href') === '/') a.dataset.immaPublicHome = 'true';
-    });
-  }
-
-  function ensurePanel(title, description) {
-    let panel = document.getElementById('imma-phase1-panel');
-    if (panel) return panel;
-    panel = document.createElement('section');
-    panel.id = 'imma-phase1-panel';
-    panel.className = 'imma-phase1-panel';
-    panel.innerHTML = `
-      <div class="imma-phase1-head">
-        <div>
-          <p class="imma-eyebrow">IMMA Phase 1 실 API</p>
-          <h2>${escapeHtml(title)}</h2>
-          ${description ? `<p>${escapeHtml(description)}</p>` : ''}
-        </div>
-      </div>
-      <div class="imma-phase1-body"></div>
+    const home = window.imma.redirectForRole ? window.imma.redirectForRole(user.role) : '/';
+    box.innerHTML = `
+      <span class="imma-session-user">${escapeHtml(displayName(user))}님 · ${escapeHtml(roleLabel(user.role))}</span>
+      <a class="imma-session-link" href="${escapeHtml(home)}">대시보드</a>
+      <button class="imma-session-logout" type="button">로그아웃</button>
     `;
-    const main = document.querySelector('main') || document.body;
-    main.insertBefore(panel, main.firstChild);
-    return panel;
-  }
+    box.querySelector('button').addEventListener('click', () => window.imma.logout && window.imma.logout('manual'));
 
-  function setPanelContent(title, description, html) {
-    const panel = ensurePanel(title, description);
-    const body = panel.querySelector('.imma-phase1-body');
-    body.innerHTML = html;
-    return body;
+    if (target.hasAttribute('data-imma-session')) target.appendChild(box);
+    else target.appendChild(box);
   }
 
   function getQueryParam(name) {
@@ -145,8 +135,6 @@
     formatDate,
     setLoading,
     renderSessionHeader,
-    ensurePanel,
-    setPanelContent,
     getQueryParam,
     asArray,
     displayName,

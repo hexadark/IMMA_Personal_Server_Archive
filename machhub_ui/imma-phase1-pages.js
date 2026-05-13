@@ -1,18 +1,25 @@
 (function () {
   'use strict';
 
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const h = value => window.imma.escapeHtml(value);
 
-  function todayPlus(days) {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+  function text(el, value) {
+    if (el) el.textContent = value == null || value === '' ? '-' : String(value);
   }
 
-  function statusBadge(status) {
-    return `<span class="imma-badge imma-badge-${h(status || 'none')}">${h(status || '-')}</span>`;
+  function html(el, value) {
+    if (el) el.innerHTML = value == null ? '' : String(value);
+  }
+
+  function shortId(value) {
+    return value ? String(value).slice(0, 8).toUpperCase() : '-';
+  }
+
+  function numberOnly(value) {
+    const n = Number(String(value || '').replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : 0;
   }
 
   function safeJson(value) {
@@ -20,131 +27,186 @@
     catch (_) { return '{}'; }
   }
 
-  function store(key, value) {
-    localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+  function firstPart(rfq) {
+    return rfq && Array.isArray(rfq.parts) && rfq.parts.length ? rfq.parts[0] : {};
   }
 
-  function read(key, fallback = null) {
-    const v = localStorage.getItem(key);
-    if (v === null) return fallback;
-    try { return JSON.parse(v); } catch (_) { return v; }
+  function processText(part) {
+    if (!part) return '-';
+    if (Array.isArray(part.processes)) return part.processes.join(', ') || '-';
+    return part.processes || part.process || '-';
   }
 
-  function classifyReason(reason) {
-    const r = String(reason || '');
-    if (r.includes('[공정순서 위반]') || r.includes('[unsupported]')) return 'danger';
-    if (r.includes('[WARN_') || r.includes('의심') || r.includes('[공정순서 권장위반]')) return 'warning';
-    if (r.includes('[INFO_')) return 'info';
-    return 'neutral';
+  function partMaterial(part) {
+    return part && (part.material_raw_text || part.material || part.material_category_code) || '-';
   }
 
-  function cleanReason(reason) {
-    return String(reason || '')
-      .replace('[INFO_CATEGORY_FALLBACK]', '카테고리 대체:')
-      .replace('[INFO_PARENT_FALLBACK]', '상위 카테고리 대체:')
-      .replace('[WARN_EQUIPMENT_CAPABILITY_MISSING]', '장비 정보 부족:')
-      .replace('[공정 달성범위 의심·재질override]', '재질 override 정밀도 확인:')
-      .replace('[공정 달성범위 의심]', '정밀도 확인:')
-      .replace('[공정순서 위반]', '공정순서 위반:')
-      .replace('[공정순서 권장위반]', '권장순서 확인:')
-      .replace('[unsupported]', '지원 불가:')
-      .trim();
+  function partTolerance(part) {
+    if (!part) return '-';
+    if (part.tightest_tolerance_mm !== null && part.tightest_tolerance_mm !== undefined) return `±${part.tightest_tolerance_mm} mm`;
+    if (part.tightest_it_grade) return `IT${part.tightest_it_grade}`;
+    return '-';
   }
 
-  function renderReason(reason) {
-    return `<span class="imma-match-chip ${classifyReason(reason)}">${h(cleanReason(reason))}</span>`;
-  }
-
-  function renderCandidate(cand, rfqId, partId) {
-    const reasons = Array.isArray(cand.match_reasons) ? cand.match_reasons : [];
-    const score = cand.total_score == null ? '-' : `${Math.round(Number(cand.total_score) * 100)}%`;
-    const payload = {
-      rfq_id: rfqId,
-      rfq_part_id: cand.rfq_part_id || partId,
-      company_id: cand.company_id || cand.company_code,
-      company_name: cand.company_name,
-      match_run_id: cand.match_run_id,
-      rank_no: cand.rank_no,
-    };
-    const feasible = cand.availability_info && cand.availability_info.delivery_feasible === true;
-    return `
-      <article class="imma-card imma-candidate-card" data-company-id="${h(payload.company_id)}">
-        <div class="imma-card-row">
-          <div>
-            <p class="imma-eyebrow">순위 ${h(cand.rank_no || '-')}</p>
-            <h3>${h(cand.company_name || '업체명 없음')}</h3>
-          </div>
-          <strong class="imma-score">${h(score)}</strong>
-        </div>
-        <div class="imma-card-meta">
-          <span>${cand.equipment_verified ? '장비 검증' : '장비 확인 필요'}</span>
-          <span>${feasible ? '납기 가능' : '납기 확인 필요'}</span>
-          <span>평점 ${h(cand.avg_rating ?? '-')} · 리뷰 ${h(cand.review_count ?? 0)}</span>
-        </div>
-        <div class="imma-chip-wrap">${reasons.map(renderReason).join('') || '<span class="imma-muted">표시할 매칭 사유가 없습니다.</span>'}</div>
-        <button type="button" class="imma-btn select-candidate" data-candidate="${h(safeJson(payload))}">후보로 표시</button>
-      </article>`;
-  }
-
-  function renderPart(part, rfqId) {
-    const partId = part.rfq_part_id || part.part_id || '';
-    if (part.status === 'rejected') {
-      return `
-        <section class="imma-card imma-part-card">
-          <h3>${h(part.part_name || '부품')}</h3>
-          <p class="imma-danger">${h(part.message || part.rejection_reason || '매칭 불가')}</p>
-          <div class="imma-chip-wrap">${(part.missing_fields || []).map(x => `<span class="imma-match-chip danger">${h(x)}</span>`).join('')}</div>
-        </section>`;
+  function setCardValue(card, value, suffix = '건') {
+    const el = card && card.querySelector('.stat-value, .kpi-num, .mw-kpi-value, .kpi-value');
+    if (!el) return;
+    if (suffix) {
+      el.innerHTML = `${h(value)}<span style="font-size:14px;font-weight:600;color:var(--text-muted);">${h(suffix)}</span>`;
+    } else {
+      el.textContent = value;
     }
-    const rec = Array.isArray(part.recommended_candidates) ? part.recommended_candidates : [];
-    const cond = Array.isArray(part.conditional_candidates) ? part.conditional_candidates : [];
-    return `
-      <section class="imma-part-section">
-        <div class="imma-section-title">
-          <h3>${h(part.part_name || '부품')}</h3>
-          <p>RFQ Part ID: ${h(partId || '-')}</p>
-        </div>
-        <h4>추천 후보</h4>
-        <div class="imma-grid">${rec.map(c => renderCandidate(c, rfqId, partId)).join('') || '<p class="imma-empty">추천 후보가 없습니다.</p>'}</div>
-        <details class="imma-details" ${cond.length ? '' : 'open'}>
-          <summary>조건부 후보 ${cond.length}건</summary>
-          <div class="imma-grid">${cond.map(c => renderCandidate(c, rfqId, partId)).join('') || '<p class="imma-empty">조건부 후보가 없습니다.</p>'}</div>
-        </details>
-      </section>`;
+  }
+
+  function scopedSet(keyParts, value) {
+    localStorage.setItem(window.imma.scopedKey(...keyParts), typeof value === 'string' ? value : JSON.stringify(value));
+  }
+
+  function scopedGet(keyParts, fallback = null) {
+    try {
+      const raw = localStorage.getItem(window.imma.scopedKey(...keyParts));
+      if (raw == null) return fallback;
+      try { return JSON.parse(raw); } catch (_) { return raw; }
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function findFixtureDrawingId() {
+    const fromQuery = window.imma.getQueryParam('fixture_drawing_id');
+    if (fromQuery) return fromQuery;
+    const user = window.imma.getUser && window.imma.getUser();
+    if (user && user.id) {
+      const scoped = localStorage.getItem(`imma:${user.id}:fixture_drawing_id`);
+      if (scoped) return scoped;
+    }
+    return localStorage.getItem('imma_fixture_drawing_id') || '';
+  }
+
+  function latestDrawingId() {
+    return scopedGet(['current_drawing_id']) || localStorage.getItem('imma_drawing_id') || findFixtureDrawingId();
+  }
+
+  function storeDrawing(data, fallbackUsed) {
+    if (!data || !data.drawing_id) return;
+    localStorage.setItem('imma_drawing_id', data.drawing_id);
+    if (data.file_uri) localStorage.setItem('imma_drawing_file_uri', data.file_uri);
+    if (data.original_filename) localStorage.setItem('imma_drawing_original_filename', data.original_filename);
+    if (data.file_sha256) localStorage.setItem('imma_drawing_sha256', data.file_sha256);
+    scopedSet(['current_drawing_id'], data.drawing_id);
+    if (fallbackUsed) scopedSet([data.drawing_id, 'vlm_fallback_used'], true);
+  }
+
+  function candidateScore(cand) {
+    const score = Number(cand && cand.total_score);
+    return Number.isFinite(score) ? `${Math.round(score * 100)}%` : '-';
+  }
+
+  function getMatchCandidates(result) {
+    const output = [];
+    const parts = Array.isArray(result && result.parts) ? result.parts : [];
+    parts.forEach(part => {
+      const rec = Array.isArray(part.recommended_candidates) ? part.recommended_candidates : [];
+      const cond = Array.isArray(part.conditional_candidates) ? part.conditional_candidates : [];
+      rec.concat(cond).forEach(cand => output.push({ part, cand }));
+    });
+    return output;
+  }
+
+  async function enrichMatches(matches, limit = 5) {
+    const list = (matches || []).slice(0, limit);
+    const enriched = await Promise.all(list.map(async match => {
+      if (!match.rfq_id) return match;
+      try {
+        const rfq = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(match.rfq_id)}`);
+        const part = firstPart(rfq);
+        return { ...match, rfq, rfq_part: part };
+      } catch (_) {
+        return match;
+      }
+    }));
+    return enriched;
+  }
+
+  function quotePayloadFromWorkbench(match, user) {
+    const dueDate = $('#reply input[type="date"]') && $('#reply input[type="date"]').value;
+    const amountInput = $('#reply input:not([type]), #reply input[type="text"], #reply .mw-input:not([type])');
+    const amount = numberOnly(amountInput && amountInput.value) || 6250000;
+    const note = $('#reply textarea') ? $('#reply textarea').value : 'Phase 1 견적';
+    const rfqPartId = match.rfq_part && match.rfq_part.rfq_part_id;
+    const quantity = match.rfq_part && match.rfq_part.quantity ? Number(match.rfq_part.quantity) : 1;
+    return {
+      rfq_id: match.rfq_id,
+      company_id: user.id,
+      total_price: amount,
+      estimated_lead_days: 7,
+      proposed_delivery_date: dueDate || null,
+      assumptions: note || 'Phase 1 견적',
+      line_items: [{
+        rfq_part_id: rfqPartId || null,
+        process_code: match.processes || null,
+        description: match.part_name || 'Phase 1 견적',
+        quantity,
+        unit_price: quantity > 0 ? Math.round(amount / quantity) : amount,
+        line_total: amount,
+        notes: note || null,
+      }],
+    };
+  }
+
+  function showFallbackChoice(container, file, retryFn) {
+    const fixtureId = findFixtureDrawingId();
+    const box = document.createElement('div');
+    box.style.marginTop = '10px';
+    box.style.display = 'flex';
+    box.style.gap = '8px';
+    box.style.flexWrap = 'wrap';
+    box.innerHTML = `
+      <button type="button" class="btn-primary" style="font-size:12px;padding:7px 10px;">사전 분석 결과로 계속</button>
+      <button type="button" class="btn-outline" style="font-size:12px;padding:7px 10px;">다시 시도</button>
+    `;
+    if (container) container.appendChild(box);
+    box.querySelector('.btn-primary').addEventListener('click', () => {
+      if (!fixtureId) {
+        window.imma.toast('fixture_drawing_id가 없습니다. URL 또는 localStorage에 지정해 주세요.', 'warning');
+        return;
+      }
+      const data = { drawing_id: fixtureId, original_filename: 'sample_00015 fixture' };
+      storeDrawing(data, true);
+      if (container) container.textContent = `사전 분석 결과 사용 중 · drawing_id ${fixtureId}`;
+      window.imma.toast('사전 분석 결과로 전환했습니다.', 'success');
+    });
+    box.querySelector('.btn-outline').addEventListener('click', () => retryFn && retryFn(file));
   }
 
   async function initLanding() {
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('실 API 로그인', 'buyer, supplier, admin 계정으로 실제 JWT 세션을 생성합니다.', `
-      <form id="imma-login-form" class="imma-form">
-        <label>역할
-          <select name="role">
-            <option value="buyer">Buyer</option>
-            <option value="supplier">Supplier</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
-        <label>ID <input name="login_id" value="kim_cheolsu" required></label>
-        <label>Password <input name="password" type="password" value="demo1234" required></label>
-        <button class="imma-btn" type="submit">로그인</button>
-      </form>
-      <p class="imma-muted">관리자: admin / test1234</p>
-    `);
-    const role = $('select[name="role"]', body);
-    role.addEventListener('change', () => {
-      const id = $('input[name="login_id"]', body);
-      const pw = $('input[name="password"]', body);
-      if (role.value === 'admin') { id.value = 'admin'; pw.value = 'test1234'; }
-      else if (role.value === 'buyer') { id.value = 'kim_cheolsu'; pw.value = 'demo1234'; }
-      else { id.value = ''; pw.value = 'demo1234'; }
-    });
-    $('#imma-login-form', body).addEventListener('submit', async e => {
+    const originalShowLoginForm = window.showLoginForm;
+    if (typeof originalShowLoginForm === 'function' && !originalShowLoginForm.__immaWrapped) {
+      window.showLoginForm = function (type) {
+        window.__immaLoginType = type;
+        return originalShowLoginForm.apply(this, arguments);
+      };
+      window.showLoginForm.__immaWrapped = true;
+    }
+
+    const form = $('#login-form-container form');
+    if (!form || form.dataset.immaHooked === 'true') return;
+    form.dataset.immaHooked = 'true';
+    form.removeAttribute('onsubmit');
+    form.onsubmit = null;
+    window.submitLogin = function () { form.requestSubmit(); };
+
+    form.addEventListener('submit', async e => {
       e.preventDefault();
-      const btn = e.submitter || $('button', body);
+      const loginId = $('#login-id') ? $('#login-id').value.trim() : '';
+      const password = $('#login-pw') ? $('#login-pw').value : '';
+      const title = $('#login-title') ? $('#login-title').textContent : '';
+      const role = window.__immaLoginType === 'corporate' || title.includes('기업') ? 'supplier' : 'buyer';
+      const btn = form.querySelector('button[type="submit"]');
       window.imma.setLoading(btn, true, '로그인 중...');
       try {
-        const fd = new FormData(e.currentTarget);
-        const user = await window.imma.login(fd.get('login_id'), fd.get('password'), fd.get('role'));
+        const user = await window.imma.login(loginId, password, role);
         window.imma.toast('로그인되었습니다.', 'success');
         window.location.href = window.imma.redirectForRole(user.role);
       } catch (err) {
@@ -157,218 +219,201 @@
 
   async function initClientRegister() {
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Buyer 회원가입', '가입 후 자동 로그인합니다.', `
-      <form id="imma-buyer-signup" class="imma-form">
-        <label>ID <input name="login_id" required></label>
-        <label>비밀번호 <input name="password" type="password" value="demo1234" required></label>
-        <label>이름 <input name="name" required></label>
-        <label>회사명 <input name="company_name"></label>
-        <label>이메일 <input name="email" type="email" required></label>
-        <label>전화 <input name="phone"></label>
-        <button class="imma-btn" type="submit">가입 후 로그인</button>
-      </form>
-    `);
-    $('#imma-buyer-signup', body).addEventListener('submit', async e => {
+    const form = $('.register-card form');
+    if (!form || form.dataset.immaHooked === 'true') return;
+    form.dataset.immaHooked = 'true';
+    form.removeAttribute('onsubmit');
+    form.onsubmit = null;
+    form.addEventListener('submit', async e => {
       e.preventDefault();
-      const btn = e.submitter;
+      const inputs = $$('input', form);
+      const password = inputs[4] && inputs[4].value;
+      const confirm = inputs[5] && inputs[5].value;
+      if (password !== confirm) {
+        window.imma.toast('비밀번호 확인값이 다릅니다.', 'warning');
+        return;
+      }
+      const payload = {
+        role: 'buyer',
+        name: inputs[0] && inputs[0].value.trim(),
+        phone: inputs[1] && inputs[1].value.trim(),
+        email: inputs[2] && inputs[2].value.trim(),
+        login_id: inputs[3] && inputs[3].value.trim(),
+        password,
+        company_name: inputs[6] && inputs[6].value.trim(),
+      };
+      const btn = e.submitter || form.querySelector('button[type="submit"]');
       window.imma.setLoading(btn, true, '가입 중...');
       try {
-        const fd = new FormData(e.currentTarget);
-        const payload = Object.fromEntries(fd.entries());
-        payload.role = 'buyer';
         await window.imma.apiJson('/signup', { method: 'POST', body: payload });
         await window.imma.login(payload.login_id, payload.password, 'buyer');
+        window.imma.toast('가입되었습니다.', 'success');
         window.location.href = '/client';
-      } catch (err) { window.imma.toast(err.message, 'error'); }
-      finally { window.imma.setLoading(btn, false); }
+      } catch (err) {
+        window.imma.toast(err.message, 'error');
+      } finally {
+        window.imma.setLoading(btn, false);
+      }
     });
   }
 
   async function initSupplierRegister() {
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Supplier 회원가입', '담당자명과 회사명을 분리해 저장하고, 가입 후 자동 로그인합니다.', `
-      <form id="imma-supplier-signup" class="imma-form">
-        <label>ID <input name="login_id" required></label>
-        <label>비밀번호 <input name="password" type="password" value="demo1234" required></label>
-        <label>담당자명 <input name="name" required></label>
-        <label>회사명 <input name="company_name" required></label>
-        <label>이메일 <input name="email" type="email" required></label>
-        <label>전화 <input name="phone"></label>
-        <label>주요 지역 <input name="region" placeholder="경기"></label>
-        <button class="imma-btn" type="submit">가입 후 로그인</button>
-      </form>
-    `);
-    $('#imma-supplier-signup', body).addEventListener('submit', async e => {
+    const form = $('.register-wrap form');
+    if (!form || form.dataset.immaHooked === 'true') return;
+    form.dataset.immaHooked = 'true';
+    form.removeAttribute('onsubmit');
+    form.onsubmit = null;
+    form.addEventListener('submit', async e => {
       e.preventDefault();
-      const btn = e.submitter;
+      const inputs = $$('input[type="text"], input[type="tel"], input[type="email"], input[type="password"]', form);
+      const password = inputs[4] && inputs[4].value;
+      const confirm = inputs[5] && inputs[5].value;
+      if (password !== confirm) {
+        window.imma.toast('비밀번호 확인값이 다릅니다.', 'warning');
+        return;
+      }
+      const payload = {
+        role: 'supplier',
+        name: inputs[0] && inputs[0].value.trim(),
+        phone: inputs[1] && inputs[1].value.trim(),
+        email: inputs[2] && inputs[2].value.trim(),
+        login_id: inputs[3] && inputs[3].value.trim(),
+        password,
+        company_name: inputs[6] && inputs[6].value.trim(),
+      };
+      const btn = e.submitter || form.querySelector('button[type="submit"]');
       window.imma.setLoading(btn, true, '가입 중...');
       try {
-        const fd = new FormData(e.currentTarget);
-        const payload = Object.fromEntries(fd.entries());
-        payload.role = 'supplier';
         await window.imma.apiJson('/signup', { method: 'POST', body: payload });
         const user = await window.imma.login(payload.login_id, payload.password, 'supplier');
         try {
-          await window.imma.apiJson('/api/company/profile', { method: 'PUT', body: {
-            company_id: user.id,
-            company_name: payload.company_name,
-            main_email: payload.email,
-            main_phone: payload.phone,
-            region: payload.region || null,
-          }});
+          await window.imma.apiJson('/api/company/profile', {
+            method: 'PUT',
+            body: {
+              company_id: user.id,
+              company_name: payload.company_name,
+              main_email: payload.email,
+              main_phone: payload.phone,
+            },
+          });
         } catch (profileErr) {
           console.warn('profile 보강 실패', profileErr);
         }
-        window.imma.toast('가입되었습니다. 관리자 승인 화면에서 검수할 수 있습니다.', 'success');
+        window.imma.toast('가입되었습니다.', 'success');
         window.location.href = '/supplier';
-      } catch (err) { window.imma.toast(err.message, 'error'); }
-      finally { window.imma.setLoading(btn, false); }
+      } catch (err) {
+        window.imma.toast(err.message, 'error');
+      } finally {
+        window.imma.setLoading(btn, false);
+      }
     });
   }
 
   async function initClientDashboard() {
-    const user = await window.imma.requireRole('buyer');
+    await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Buyer 대시보드', 'RFQ 상태를 실제 /rfqs 응답에서 집계합니다.', '<p class="imma-loading">불러오는 중...</p>');
     try {
       const data = await window.imma.apiJson('/rfqs');
       const rfqs = data.rfqs || [];
-      const counts = rfqs.reduce((acc, r) => { acc[r.status || 'unknown'] = (acc[r.status || 'unknown'] || 0) + 1; return acc; }, {});
-      body.innerHTML = `
-        <div class="imma-kpis">
-          <div class="imma-kpi"><strong>${rfqs.length}</strong><span>전체 RFQ</span></div>
-          <div class="imma-kpi"><strong>${counts.open || 0}</strong><span>open</span></div>
-          <div class="imma-kpi"><strong>${counts.quoted || 0}</strong><span>quoted</span></div>
-          <div class="imma-kpi"><strong>${counts.ordered || 0}</strong><span>ordered</span></div>
-        </div>
-        <p><a class="imma-btn" href="/quote-request">새 견적 요청</a></p>
-        <div class="imma-table-wrap"><table class="imma-table"><thead><tr><th>RFQ</th><th>상태</th><th>소재</th><th>납기</th><th></th></tr></thead><tbody>
-        ${rfqs.map(r => `<tr><td>${h(r.rfq_no || r.id)}</td><td>${statusBadge(r.status)}</td><td>${h(r.material || '-')}</td><td>${h(r.due_date || '-')}</td><td><a href="/order-management?rfq_id=${encodeURIComponent(r.id)}">견적 보기</a></td></tr>`).join('')}
-        </tbody></table></div>`;
+      const counts = rfqs.reduce((acc, r) => {
+        const status = r.status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      const cards = $$('.stat-card');
+      const inProgress = (counts.ordered || 0) + (counts.in_production || 0) + (counts.inspection || 0) + (counts.shipped || 0);
+      const awaiting = (counts.open || 0) + (counts.quoted || 0);
+      const delivered = (counts.delivered || 0) + (counts.completed || 0);
+      setCardValue(cards[0], inProgress);
+      setCardValue(cards[1], awaiting);
+      setCardValue(cards[2], delivered);
     } catch (err) {
-      body.innerHTML = `<p class="imma-danger">${h(err.message)}</p>`;
+      window.imma.toast(err.message, 'error');
     }
-  }
-
-  function createVlmProgress(container, onFallback, onRetry) {
-    let startedAt = Date.now();
-    let timer = null;
-    const steps = [
-      [0, '도면 업로드 처리 중'],
-      [30, 'AI 분석 준비 중. 최초 분석은 시간이 걸립니다'],
-      [90, '딥러닝 모델 분석 중'],
-      [180, '최종 추출 중'],
-      [240, '분석이 길어지고 있습니다. 실패 시 사전 분석 결과로 계속할 수 있습니다'],
-      [300, 'AI 분석 시간 초과 — 사전 분석 결과로 전환할 수 있습니다'],
-    ];
-    function messageFor(sec) {
-      let msg = steps[0][1];
-      steps.forEach(([at, text]) => { if (sec >= at) msg = text; });
-      return msg;
-    }
-    function render() {
-      const sec = Math.floor((Date.now() - startedAt) / 1000);
-      container.innerHTML = `<p>${h(messageFor(sec))}</p><small>${sec}초 경과</small>`;
-    }
-    return {
-      start() { startedAt = Date.now(); render(); timer = window.setInterval(render, 1000); },
-      stop() { if (timer) window.clearInterval(timer); timer = null; },
-      showFallback(message) {
-        this.stop();
-        container.innerHTML = `
-          <div class="imma-fallback-box">
-            <p class="imma-warning">${h(message || 'AI 분석 시간 초과 — 사전 분석 결과로 계속할 수 있습니다')}</p>
-            <button type="button" class="imma-btn" data-vlm-fallback>사전 분석 결과로 계속</button>
-            <button type="button" class="imma-btn secondary" data-vlm-retry>다시 시도</button>
-          </div>`;
-        $('[data-vlm-fallback]', container).addEventListener('click', onFallback);
-        $('[data-vlm-retry]', container).addEventListener('click', onRetry);
-      },
-    };
-  }
-
-  async function findFixtureDrawingId() {
-    const fromQuery = window.imma.getQueryParam('fixture_drawing_id');
-    if (fromQuery) return fromQuery;
-    const fromStore = localStorage.getItem('imma_fixture_drawing_id');
-    if (fromStore) return fromStore;
-    const results = await window.imma.apiJson('/vlm-results');
-    const rows = results.data || [];
-    const found = rows.find(r => String(r.drawing_no || '').includes('sample_00015') || String(r.id || '').includes('sample_00015')) || rows[0];
-    if (!found) throw new Error('fixture 도면이 없습니다. sample_00015 VLM 결과를 drawings 테이블에 먼저 넣어 주세요.');
-    return found.id;
   }
 
   async function initQuoteRequest() {
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('도면 분석 및 매칭', 'VLM은 /vlm/analyze-upload 경로로 호출하고, 502/504 때 fixture 전환 또는 재시도를 선택합니다.', `
-      <form id="imma-quote-flow" class="imma-form">
-        <label>도면 이미지 <input name="image" type="file" accept="image/*" required></label>
-        <label>수량 <input name="order_quantity" type="number" value="100" min="1"></label>
-        <label>요청 납기 <input name="requested_delivery_date" type="date" value="${todayPlus(30)}"></label>
-        <label>예산 <input name="budget_amount" type="number" value="8000000"></label>
-        <label>메모 <textarea name="note">Phase 1 시연용 RFQ</textarea></label>
-        <button class="imma-btn" type="submit">VLM 분석 후 매칭 실행</button>
-      </form>
-      <div id="imma-vlm-progress" class="imma-progress-box"></div>
-      <div id="imma-match-result-link"></div>
-    `);
-    const form = $('#imma-quote-flow', body);
-    const progressEl = $('#imma-vlm-progress', body);
-    const linkEl = $('#imma-match-result-link', body);
 
-    async function executeMatch(drawingId, fd, fallbackUsed) {
-      const matchPayload = {
-        drawing_id: drawingId,
-        order_quantity: Number(fd.get('order_quantity') || 1),
-        requested_delivery_date: fd.get('requested_delivery_date') || null,
-        budget_amount: fd.get('budget_amount') ? Number(fd.get('budget_amount')) : null,
-        budget_currency: 'KRW',
-        general_notes: { note: fd.get('note') || '', vlm_fallback_used: !!fallbackUsed },
-      };
-      const result = await window.imma.apiJson('/api/match-v2', { method: 'POST', body: matchPayload });
-      const rfqId = result.rfq_id || (result.rfq && result.rfq.id);
-      if (!rfqId) throw new Error('매칭 결과에 rfq_id가 없습니다');
-      store(window.imma.scopedKey('current_rfq_id'), rfqId);
-      store(window.imma.scopedKey(rfqId, 'match_result'), result);
-      store(window.imma.scopedKey('current_drawing_id'), drawingId);
-      linkEl.innerHTML = `<p class="imma-success">매칭이 완료되었습니다.</p><a class="imma-btn" href="/matching-ui?rfq_id=${encodeURIComponent(rfqId)}">매칭 결과 보기</a>`;
+    const fileInput = $('#file-input');
+    const displaySpan = $('#file-name-display');
+    const sFile = $('#s-file');
+
+    window.uploadDrawingToServer = async function (file) {
+      if (!file) throw new Error('파일이 없습니다');
+      const formData = new FormData();
+      const isImage = file.type && file.type.startsWith('image/');
+      formData.append(isImage ? 'image' : 'file', file);
+      if (displaySpan) {
+        displaySpan.textContent = isImage ? `AI 분석 중: ${file.name}...` : `업로드 중: ${file.name}...`;
+        displaySpan.style.color = '#7A5C00';
+      }
+      try {
+        const data = isImage
+          ? await window.imma.apiForm('/vlm/analyze-upload', formData)
+          : await window.imma.apiForm('/api/drawings/upload', formData);
+        storeDrawing(data, false);
+        if (displaySpan) {
+          displaySpan.innerHTML = `도면 준비 완료: ${h(data.original_filename || file.name)}<br><small style="font-size:10px;color:#888;font-weight:400;display:block;margin-top:4px;">ID: ${h(data.drawing_id)}</small>`;
+          displaySpan.style.color = '#059669';
+        }
+        if (sFile) sFile.textContent = '1개 (준비됨)';
+        return data;
+      } catch (err) {
+        if (displaySpan) {
+          displaySpan.textContent = `${isImage ? 'AI 분석' : '업로드'} 실패: ${err.message}`;
+          displaySpan.style.color = '#dc2626';
+          if (isImage && (err.status === 502 || err.status === 504 || err.code === 'NETWORK_ERROR')) {
+            showFallbackChoice(displaySpan, file, window.uploadDrawingToServer);
+          }
+        }
+        window.imma.toast(err.message, 'error');
+        throw err;
+      }
+    };
+
+    if (fileInput && !fileInput.dataset.immaHooked) {
+      fileInput.dataset.immaHooked = 'true';
     }
 
-    async function run(useFixture = false) {
-      const fd = new FormData(form);
-      let drawingId;
-      if (useFixture) {
-        drawingId = await findFixtureDrawingId();
-        await executeMatch(drawingId, fd, true);
+    const submitLink = $('.submit-area a[href="/matching-ui"], a[href="/matching-ui"]');
+    if (!submitLink || submitLink.dataset.immaHooked === 'true') return;
+    submitLink.dataset.immaHooked = 'true';
+    submitLink.addEventListener('click', async e => {
+      e.preventDefault();
+      const drawingId = latestDrawingId();
+      if (!drawingId) {
+        window.imma.toast('도면을 먼저 업로드하거나 fixture_drawing_id를 지정해 주세요.', 'warning');
         return;
       }
-      const upload = new FormData();
-      upload.append('image', fd.get('image'));
-      const vlm = await window.imma.apiForm('/vlm/analyze-upload', upload);
-      drawingId = vlm.drawing_id;
-      await executeMatch(drawingId, fd, false);
-    }
-
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      const btn = e.submitter;
-      const progress = createVlmProgress(progressEl, () => run(true).catch(err => window.imma.toast(err.message, 'error')), () => form.requestSubmit());
-      window.imma.setLoading(btn, true, '분석 중...');
-      progress.start();
+      const quantityInput = $('input[type="number"]');
+      const dateInput = $('input[type="date"]');
+      const noteInput = $('textarea');
+      const payload = {
+        drawing_id: drawingId,
+        order_quantity: Number(quantityInput && quantityInput.value) || 1,
+        requested_delivery_date: dateInput && dateInput.value ? dateInput.value : null,
+        budget_amount: null,
+        budget_currency: 'KRW',
+        general_notes: {
+          note: noteInput && noteInput.value ? noteInput.value : 'Phase 1 시연 RFQ',
+          vlm_fallback_used: Boolean(scopedGet([drawingId, 'vlm_fallback_used'], false)),
+        },
+      };
+      window.imma.setLoading(submitLink, true, '매칭 실행 중...');
       try {
-        await run(false);
-        progress.stop();
+        const result = await window.imma.apiJson('/api/match-v2', { method: 'POST', body: payload });
+        const rfqId = result.rfq_id || (result.rfq && result.rfq.id);
+        if (!rfqId) throw new Error('매칭 응답에 rfq_id가 없습니다');
+        scopedSet(['current_rfq_id'], rfqId);
+        scopedSet([rfqId, 'match_result'], result);
+        window.location.href = `/matching-ui?rfq_id=${encodeURIComponent(rfqId)}`;
       } catch (err) {
-        if (err.status === 502 || err.status === 504 || err.code === 'NETWORK_ERROR') {
-          progress.showFallback(err.message);
-        } else {
-          progress.stop();
-          window.imma.toast(err.message, 'error');
-        }
+        window.imma.toast(err.message, 'error');
       } finally {
-        window.imma.setLoading(btn, false);
+        window.imma.setLoading(submitLink, false);
       }
     });
   }
@@ -376,294 +421,509 @@
   async function initMatching() {
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
-    const rfqId = window.imma.getQueryParam('rfq_id') || read(window.imma.scopedKey('current_rfq_id'));
-    const body = window.imma.setPanelContent('매칭 결과', 'recommended와 conditional 후보를 part별로 표시합니다.', '<p class="imma-loading">불러오는 중...</p>');
-    if (!rfqId) { body.innerHTML = '<p class="imma-danger">rfq_id가 없습니다.</p>'; return; }
-    let result = read(window.imma.scopedKey(rfqId, 'match_result'));
-    if (!result) {
-      body.innerHTML = `<p class="imma-warning">저장된 match result가 없습니다. RFQ 상세만 조회합니다.</p>`;
-      try { await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}`); } catch (_) {}
-      return;
+    const rfqId = window.imma.getQueryParam('rfq_id') || scopedGet(['current_rfq_id']);
+    if (!rfqId) return;
+
+    try {
+      const rfq = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}`);
+      const part = firstPart(rfq);
+      const values = $$('.rfq-summary-card .rfq-value');
+      text(values[0], rfq.rfq_no || shortId(rfq.rfq_id));
+      text(values[1], part.part_name || '도면 기반 부품');
+      text(values[2], processText(part));
+      text(values[3], part.quantity || rfq.order_quantity || '-');
+      text(values[4], rfq.created_at ? rfq.created_at.slice(0, 10) : '-');
+    } catch (err) {
+      console.warn('RFQ summary 조회 실패', err);
     }
-    const parts = Array.isArray(result.parts) ? result.parts : [];
-    body.innerHTML = `
-      <p>RFQ ID: <code>${h(rfqId)}</code></p>
-      ${parts.map(p => renderPart(p, rfqId)).join('') || '<p class="imma-empty">표시할 part가 없습니다.</p>'}
-      <p><a class="imma-btn" href="/order-management?rfq_id=${encodeURIComponent(rfqId)}">견적 비교로 이동</a></p>
-    `;
-    $$('.select-candidate', body).forEach(btn => btn.addEventListener('click', () => {
-      const payload = JSON.parse(btn.dataset.candidate || '{}');
-      store(window.imma.scopedKey(rfqId, 'selected_candidate'), payload);
-      $$('.candidate-selected', body).forEach(x => x.classList.remove('candidate-selected'));
-      btn.closest('.imma-candidate-card').classList.add('candidate-selected');
-      window.imma.toast('후보가 표시되었습니다. 실제 발주는 견적 비교 후 진행합니다.', 'success');
+
+    const result = scopedGet([rfqId, 'match_result']);
+    const candidates = getMatchCandidates(result).slice(0, 3);
+    const rows = $$('.supplier-row');
+    rows.forEach((row, index) => {
+      const item = candidates[index];
+      if (!item) return;
+      const cand = item.cand;
+      const h4 = row.querySelector('.s-info h4');
+      const badge = h4 && h4.querySelector('.ai-badge');
+      if (h4) {
+        h4.textContent = `${cand.company_name || '업체명 없음'} `;
+        if (badge) {
+          badge.textContent = `AI ${candidateScore(cand)}`;
+          h4.appendChild(badge);
+        }
+      }
+      const payload = {
+        rfq_id: rfqId,
+        rfq_part_id: cand.rfq_part_id || item.part.rfq_part_id,
+        company_id: cand.company_id || cand.company_code,
+        company_name: cand.company_name,
+        match_run_id: cand.match_run_id,
+        rank_no: cand.rank_no,
+      };
+      row.dataset.candidate = safeJson(payload);
+      const actionButton = row.querySelector('.s-actions .btn-primary, .s-actions .btn-outline:last-child');
+      if (actionButton) {
+        actionButton.type = 'button';
+        actionButton.dataset.candidate = safeJson(payload);
+        actionButton.addEventListener('click', () => {
+          scopedSet([rfqId, 'selected_candidate'], payload);
+          rows.forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          window.imma.toast(`${payload.company_name || '후보'}를 표시했습니다.`, 'success');
+        });
+      }
+      const checkbox = row.querySelector('.s-checkbox input');
+      if (checkbox) {
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) scopedSet([rfqId, 'selected_candidate'], payload);
+        });
+      }
+    });
+
+    const proceedBtn = $('.compare-box a[href="/order-management"]');
+    if (proceedBtn) proceedBtn.href = `/order-management?rfq_id=${encodeURIComponent(rfqId)}`;
+  }
+
+  function updateTimeline(status) {
+    const order = ['contracting', 'ordered', 'in_production', 'inspection', 'shipped', 'delivered'];
+    const index = Math.max(0, order.indexOf(status));
+    $$('.pt-step').forEach((step, i) => {
+      step.classList.remove('done', 'active');
+      if (i < index) step.classList.add('done');
+      else if (i === index) step.classList.add('active');
+    });
+    $$('.pt-line').forEach((line, i) => line.classList.toggle('done', i < index));
+  }
+
+  function renderOrderActions(order, user) {
+    const transitions = {
+      buyer: {
+        contracting: ['ordered', 'cancelled'],
+        ordered: ['cancelled'],
+        in_production: ['cancelled', 'disputed'],
+        inspection: ['in_production', 'disputed'],
+        shipped: ['delivered', 'disputed'],
+        delivered: ['completed', 'disputed'],
+      },
+      supplier: {
+        contracting: ['ordered'],
+        ordered: ['in_production'],
+        in_production: ['inspection', 'disputed'],
+        inspection: ['shipped', 'disputed'],
+        delivered: ['disputed'],
+      },
+    };
+    const targets = (transitions[user.role] && transitions[user.role][order.status]) || [];
+    if (!targets.length || $('.imma-order-actions')) return;
+    const timeline = $('.process-timeline');
+    if (!timeline) return;
+    const box = document.createElement('div');
+    box.className = 'card imma-order-actions';
+    box.style.margin = '16px 0';
+    box.innerHTML = `
+      <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
+        <div><strong>실 API 상태 전이</strong><div style="font-size:12px;color:var(--text-muted);margin-top:4px;">현재 상태: ${h(order.status)}</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${targets.map(t => `<button type="button" class="btn-outline" data-next-status="${h(t)}" style="font-size:12px;padding:7px 10px;">${h(t)}</button>`).join('')}</div>
+      </div>`;
+    timeline.insertAdjacentElement('afterend', box);
+    $$('button[data-next-status]', box).forEach(btn => btn.addEventListener('click', async () => {
+      window.imma.setLoading(btn, true, '변경 중...');
+      try {
+        await window.imma.apiJson(`/api/orders/${encodeURIComponent(order.order_id)}/status`, { method: 'PUT', body: { status: btn.dataset.nextStatus } });
+        window.imma.toast('주문 상태를 변경했습니다.', 'success');
+        window.location.reload();
+      } catch (err) {
+        window.imma.toast(err.message, 'error');
+      } finally {
+        window.imma.setLoading(btn, false);
+      }
     }));
   }
 
   async function initOrderManagement() {
     const user = await window.imma.requireRole(['buyer', 'supplier']);
     window.imma.renderSessionHeader();
-    const rfqId = window.imma.getQueryParam('rfq_id') || (user.role === 'buyer' ? read(window.imma.scopedKey('current_rfq_id')) : null);
-    const orderId = window.imma.getQueryParam('order_id') || read(window.imma.scopedKey('current_order_id'));
-    const body = window.imma.setPanelContent('견적 및 발주 관리', 'RFQ 견적 비교 또는 order 상태 전이를 실제 API로 수행합니다.', '<p class="imma-loading">불러오는 중...</p>');
+    const rfqId = window.imma.getQueryParam('rfq_id');
+    const orderId = window.imma.getQueryParam('order_id') || scopedGet(['current_order_id']);
 
-    async function renderOrder(id) {
-      const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(id)}`);
-      const allowed = user.role === 'buyer'
-        ? { contracting: ['ordered','cancelled'], ordered: ['cancelled'], in_production: ['cancelled','disputed'], inspection: ['in_production','disputed'], shipped: ['delivered','disputed'], delivered: ['completed','disputed'] }
-        : { contracting: ['ordered'], ordered: ['in_production'], in_production: ['inspection','disputed'], inspection: ['shipped','disputed'], delivered: ['disputed'] };
-      const nexts = allowed[order.status] || [];
-      body.innerHTML = `
-        <div class="imma-card">
-          <h3>Order ${h(order.order_id)}</h3>
-          <p>업체: ${h(order.company_name)} · 상태: ${statusBadge(order.status)} · 금액: ${h(window.imma.formatCurrency(order.total_price, order.currency_code || 'KRW'))}</p>
-          <div class="imma-chip-wrap">${nexts.map(s => `<button class="imma-btn secondary order-status" data-status="${h(s)}">${h(s)}로 전이</button>`).join('') || '<span class="imma-muted">가능한 전이가 없습니다.</span>'}</div>
-        </div>`;
-      $$('.order-status', body).forEach(btn => btn.addEventListener('click', async () => {
-        try {
-          await window.imma.apiJson(`/api/orders/${encodeURIComponent(id)}/status`, { method: 'PUT', body: { status: btn.dataset.status } });
-          window.imma.toast('상태가 변경되었습니다.', 'success');
-          await renderOrder(id);
-        } catch (err) { window.imma.toast(err.message, 'error'); }
-      }));
+    if (orderId) {
+      try {
+        const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(orderId)}`);
+        const meta = $$('.order-meta .meta-field');
+        if (meta[0]) {
+          const v = meta[0].querySelector('.meta-value');
+          if (v) v.innerHTML = `${h(shortId(order.order_id))} <button class="copy-btn">복사</button>`;
+          text(meta[0].querySelector('.meta-sub'), `발주일: ${order.created_at ? order.created_at.slice(0, 10) : '-'}`);
+        }
+        if (meta[1]) text(meta[1].querySelector('.meta-value'), order.company_name || '-');
+        if (meta[2]) text(meta[2].querySelector('.meta-value'), window.imma.formatCurrency(order.total_price, order.currency_code || 'KRW'));
+        if (meta[3]) text(meta[3].querySelector('.meta-value'), order.promised_delivery_date || '-');
+        const badge = $('.payment-status .badge');
+        if (badge) badge.textContent = order.status === 'contracting' ? '계약 진행 중' : order.status;
+        updateTimeline(order.status);
+        renderOrderActions(order, user);
+      } catch (err) {
+        window.imma.toast(err.message, 'error');
+      }
+      return;
     }
 
-    if (orderId) { await renderOrder(orderId); return; }
-    if (!rfqId) { body.innerHTML = '<p class="imma-danger">rfq_id 또는 order_id가 없습니다.</p>'; return; }
-    if (user.role !== 'buyer') { body.innerHTML = '<p class="imma-danger">견적 비교는 buyer만 사용할 수 있습니다.</p>'; return; }
-    try {
-      const data = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}/quotes`);
-      const quotes = data.quotes || [];
-      body.innerHTML = `
-        <p>RFQ ID: <code>${h(rfqId)}</code></p>
-        <div class="imma-grid">${quotes.map(q => `
-          <article class="imma-card">
-            <h3>${h(q.company_name || q.company_id)}</h3>
-            <p>${h(window.imma.formatCurrency(q.total_price, q.currency || 'KRW'))}</p>
-            <p>리드타임 ${h(q.estimated_lead_days ?? '-')}일 · 납기 ${h(q.proposed_delivery_date || '-')}</p>
-            <p>${statusBadge(q.status)}</p>
-            <button class="imma-btn create-order" data-quote-id="${h(q.quote_id)}">이 견적으로 발주</button>
-          </article>`).join('') || '<p class="imma-empty">아직 제출된 견적이 없습니다.</p>'}</div>`;
-      $$('.create-order', body).forEach(btn => btn.addEventListener('click', async () => {
-        try {
-          const order = await window.imma.apiJson('/api/orders', { method: 'POST', body: { quote_id: btn.dataset.quoteId } });
-          store(window.imma.scopedKey('current_order_id'), order.order_id);
-          window.location.href = `/order-management?order_id=${encodeURIComponent(order.order_id)}`;
-        } catch (err) { window.imma.toast(err.message, 'error'); }
-      }));
-    } catch (err) { body.innerHTML = `<p class="imma-danger">${h(err.message)}</p>`; }
+    if (rfqId && user.role === 'buyer') {
+      try {
+        const data = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}/quotes`);
+        const quotes = data.quotes || [];
+        if (!quotes.length || $('.imma-quote-action')) return;
+        const quote = quotes[0];
+        const box = document.createElement('div');
+        box.className = 'card imma-quote-action';
+        box.style.marginBottom = '16px';
+        box.innerHTML = `
+          <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
+            <div><strong>실제 견적 ${h(data.count)}건 수신</strong><div style="font-size:12px;color:var(--text-muted);margin-top:4px;">최저 견적: ${h(quote.company_name)} · ${h(window.imma.formatCurrency(quote.total_price, 'KRW'))}</div></div>
+            <button type="button" class="btn-primary" style="font-size:13px;">이 견적으로 발주 생성</button>
+          </div>`;
+        const pageWrap = $('.page-wrap') || document.body;
+        pageWrap.insertBefore(box, $('.order-meta') || pageWrap.firstChild);
+        box.querySelector('button').addEventListener('click', async () => {
+          const btn = box.querySelector('button');
+          window.imma.setLoading(btn, true, '발주 생성 중...');
+          try {
+            const order = await window.imma.apiJson('/api/orders', { method: 'POST', body: { quote_id: quote.quote_id } });
+            scopedSet(['current_order_id'], order.order_id);
+            window.location.href = `/order-management?order_id=${encodeURIComponent(order.order_id)}`;
+          } catch (err) {
+            window.imma.toast(err.message, 'error');
+          } finally {
+            window.imma.setLoading(btn, false);
+          }
+        });
+      } catch (err) {
+        window.imma.toast(err.message, 'error');
+      }
+    }
   }
 
   async function initSupplierDashboard() {
-    await window.imma.requireRole('supplier');
+    const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Supplier 대시보드', '수신 매칭과 발주 알림을 실제 API로 요약합니다.', '<p class="imma-loading">불러오는 중...</p>');
+    const greeting = $('.page-wrap p[style*="font-size:14px"]');
+    if (greeting && user.company_name) greeting.textContent = `👋 안녕하세요, ${user.company_name} ${user.name || user.contact_name || ''}님! 오늘도 안전한 하루 되세요.`;
+    text($('.u-name'), user.company_name || user.name || '공급사');
     try {
-      const [matches, notifications] = await Promise.all([
+      const [matchData, notifications] = await Promise.all([
         window.imma.apiJson('/api/company/matches'),
         window.imma.apiJson('/api/notifications?unread_only=false').catch(() => []),
       ]);
+      const matches = matchData.matches || [];
       const orderEvents = (notifications || []).filter(n => n.event_type === 'order_confirmed' && n.reference_type === 'order');
-      body.innerHTML = `
-        <div class="imma-kpis"><div class="imma-kpi"><strong>${matches.count || 0}</strong><span>매칭 요청</span></div><div class="imma-kpi"><strong>${orderEvents.length}</strong><span>발주 알림</span></div></div>
-        <p><a class="imma-btn" href="/supplier-workbench">작업대로 이동</a></p>`;
-    } catch (err) { body.innerHTML = `<p class="imma-danger">${h(err.message)}</p>`; }
-  }
-
-  async function loadSupplierOrdersFromNotifications() {
-    const notifications = await window.imma.apiJson('/api/notifications?unread_only=false');
-    const events = (notifications || []).filter(n => n.event_type === 'order_confirmed' && n.reference_type === 'order' && n.reference_id);
-    const orders = [];
-    for (const event of events.slice(0, 5)) {
-      try {
-        const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(event.reference_id)}`);
-        orders.push({ notification: event, order });
-      } catch (err) { console.warn('order 조회 실패', event.reference_id, err); }
+      const kpiCards = $$('.kpi-card');
+      setCardValue(kpiCards[0], matchData.count || matches.length);
+      setCardValue(kpiCards[1], orderEvents.length);
+      text($('.section-title-row .count-badge'), String(matchData.count || matches.length));
+      if (matches.length) {
+        const enriched = await enrichMatches(matches, 5);
+        const tbody = $('.card .data-table tbody');
+        if (tbody) {
+          tbody.innerHTML = enriched.map(m => {
+            const part = m.rfq_part || {};
+            return `<tr>
+              <td class="td-primary">RFQ-${h(shortId(m.rfq_id))}</td>
+              <td>${h(part.part_name || m.part_name || '-')}</td>
+              <td>${h(processText(part) !== '-' ? processText(part) : (m.processes || '-'))}</td>
+              <td>${h(part.quantity || '-')}</td>
+              <td>${h((m.rfq && m.rfq.requested_delivery_date) || '-')}</td>
+              <td><span class="badge badge-yellow">${h(m.supplier_response || 'pending')}</span></td>
+              <td><a href="/supplier-rfq-detail?rfq_id=${encodeURIComponent(m.rfq_id)}" class="btn-primary" style="padding:6px 14px;font-size:12px;">요청 상세</a></td>
+            </tr>`;
+          }).join('');
+        }
+      }
+    } catch (err) {
+      window.imma.toast(err.message, 'error');
     }
-    return orders;
   }
 
   async function initSupplierWorkbench() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Supplier 작업대', '매칭 수락, 견적 제출, notifications 기반 발주 발견을 처리합니다.', '<p class="imma-loading">불러오는 중...</p>');
+    text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
 
-    async function refresh() {
-      const matches = await window.imma.apiJson('/api/company/matches');
-      const orders = await loadSupplierOrdersFromNotifications().catch(() => []);
-      body.innerHTML = `
-        <h3>수신 매칭</h3>
-        <div class="imma-grid">${(matches.matches || []).map(m => `
-          <article class="imma-card">
-            <h4>${h(m.part_name || m.rfq_id)}</h4>
-            <p>소재 ${h(m.material || '-')} · 공정 ${h(m.processes || '-')} · 점수 ${h(m.total_score ?? '-')} · ${statusBadge(m.supplier_response)}</p>
-            <button class="imma-btn accept-match" data-match-run-id="${h(m.match_run_id)}">수락</button>
-            <button class="imma-btn secondary decline-match" data-match-run-id="${h(m.match_run_id)}">거절</button>
-            <details><summary>견적 제출</summary>
-              <form class="imma-form quote-form" data-rfq-id="${h(m.rfq_id)}" data-part-id="${h(m.rfq_part_id || '')}">
-                <label>총액 <input name="total_price" type="number" value="6250000"></label>
-                <label>리드타임 <input name="estimated_lead_days" type="number" value="7"></label>
-                <label>제안 납기 <input name="proposed_delivery_date" type="date" value="${todayPlus(20)}"></label>
-                <label>유효일 <input name="validity_until" type="date" value="${todayPlus(14)}"></label>
-                <label>가정 <textarea name="assumptions">S45C 소재 기준, 표면처리 제외</textarea></label>
-                <button class="imma-btn" type="submit">견적 제출</button>
-              </form>
-            </details>
-          </article>`).join('') || '<p class="imma-empty">수신 매칭이 없습니다.</p>'}</div>
-        <h3>발주 알림</h3>
-        <div class="imma-grid">${orders.map(({order}) => `
-          <article class="imma-card"><h4>Order ${h(order.order_id)}</h4><p>${h(order.company_name)} · ${statusBadge(order.status)} · ${h(window.imma.formatCurrency(order.total_price, order.currency_code || 'KRW'))}</p><a class="imma-btn" href="/order-management?order_id=${encodeURIComponent(order.order_id)}">상태 관리</a></article>`).join('') || '<p class="imma-empty">아직 확정된 발주가 없습니다.</p>'}</div>`;
-
-      $$('.accept-match', body).forEach(btn => btn.addEventListener('click', () => respond(btn.dataset.matchRunId, 'accepted')));
-      $$('.decline-match', body).forEach(btn => btn.addEventListener('click', () => respond(btn.dataset.matchRunId, 'declined')));
-      $$('.quote-form', body).forEach(form => form.addEventListener('submit', submitQuote));
-    }
-
+    let currentMatches = [];
     async function respond(matchRunId, response) {
       try {
         await window.imma.apiJson(`/api/match-candidates/${encodeURIComponent(matchRunId)}/${encodeURIComponent(user.id)}/respond`, { method: 'PUT', body: { response } });
         window.imma.toast('응답이 저장되었습니다.', 'success');
         await refresh();
-      } catch (err) { window.imma.toast(err.message, 'error'); }
+      } catch (err) {
+        window.imma.toast(err.message, 'error');
+      }
     }
 
-    async function submitQuote(e) {
-      e.preventDefault();
-      const fd = new FormData(e.currentTarget);
-      const total = Number(fd.get('total_price') || 0);
-      const rfqId = e.currentTarget.dataset.rfqId;
-      try {
-        await window.imma.apiJson('/api/quote', { method: 'POST', body: {
-          rfq_id: rfqId,
-          company_id: user.id,
-          total_price: total,
-          estimated_lead_days: Number(fd.get('estimated_lead_days') || 0),
-          proposed_delivery_date: fd.get('proposed_delivery_date'),
-          validity_until: fd.get('validity_until'),
-          assumptions: fd.get('assumptions'),
-          line_items: [{ description: 'Phase 1 견적', quantity: 1, unit_price: total, line_total: total, notes: 'UI quick quote' }],
-        }});
-        window.imma.toast('견적이 제출되었습니다.', 'success');
-        await refresh();
-      } catch (err) { window.imma.toast(err.message, 'error'); }
+    async function refresh() {
+      const data = await window.imma.apiJson('/api/company/matches');
+      currentMatches = await enrichMatches(data.matches || [], 5);
+      const kpis = $$('.mw-kpi-value');
+      if (kpis[0]) kpis[0].textContent = `${data.count || currentMatches.length}건`;
+      const badge = $('#rfq .mw-badge');
+      if (badge) badge.textContent = `신규 ${data.count || currentMatches.length}건`;
+      const tbody = $('#rfq .mw-table tbody');
+      if (tbody && currentMatches.length) {
+        tbody.innerHTML = currentMatches.map(m => {
+          const part = m.rfq_part || {};
+          const due = (m.rfq && m.rfq.requested_delivery_date) || '-';
+          const condition = `${processText(part) !== '-' ? processText(part) : (m.processes || '-')} · ${partMaterial(part) !== '-' ? partMaterial(part) : (m.material || '-')} · ${part.quantity || '-'} EA`;
+          return `<tr>
+            <td><div class="mw-id">RFQ-${h(shortId(m.rfq_id))}</div><div class="mw-list-meta">${h(part.part_name || m.part_name || '-')}</div></td>
+            <td>${h(condition)}</td>
+            <td>${h(m.total_score == null ? '-' : `AI ${candidateScore(m)}`)}</td>
+            <td>${h(due)}</td>
+            <td><div class="mw-row-actions">
+              <button class="btn-primary accept-match" data-match-run-id="${h(m.match_run_id)}" style="padding:7px 10px;font-size:12px;">수락</button>
+              <button class="btn-outline decline-match" data-match-run-id="${h(m.match_run_id)}" style="padding:7px 10px;font-size:12px;">거절</button>
+            </div></td>
+          </tr>`;
+        }).join('');
+        $$('.accept-match', tbody).forEach(btn => btn.addEventListener('click', () => respond(btn.dataset.matchRunId, 'accepted')));
+        $$('.decline-match', tbody).forEach(btn => btn.addEventListener('click', () => respond(btn.dataset.matchRunId, 'declined')));
+      }
     }
 
-    await refresh();
+    try {
+      await refresh();
+      const sendBtn = $('#reply .mw-row-actions .btn-primary');
+      if (sendBtn && sendBtn.dataset.immaHooked !== 'true') {
+        sendBtn.dataset.immaHooked = 'true';
+        sendBtn.addEventListener('click', async e => {
+          e.preventDefault();
+          const match = currentMatches.find(m => m.supplier_response === 'accepted') || currentMatches[0];
+          if (!match) {
+            window.imma.toast('수신 매칭이 없습니다.', 'warning');
+            return;
+          }
+          window.imma.setLoading(sendBtn, true, '발송 중...');
+          try {
+            if (match.supplier_response !== 'accepted') {
+              await window.imma.apiJson(`/api/match-candidates/${encodeURIComponent(match.match_run_id)}/${encodeURIComponent(user.id)}/respond`, { method: 'PUT', body: { response: 'accepted' } });
+            }
+            await window.imma.apiJson('/api/quote', { method: 'POST', body: quotePayloadFromWorkbench(match, user) });
+            window.imma.toast('견적이 제출되었습니다.', 'success');
+            await refresh();
+          } catch (err) {
+            window.imma.toast(err.message, 'error');
+          } finally {
+            window.imma.setLoading(sendBtn, false);
+          }
+        });
+      }
+    } catch (err) {
+      window.imma.toast(err.message, 'error');
+    }
   }
 
   async function initSupplierSettings() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Supplier 설정', 'Phase 1 최소 profile과 capability를 등록합니다.', `
-      <form id="imma-supplier-settings" class="imma-form">
-        <label>회사명 <input name="company_name" value="${h(user.company_name || '')}"></label>
-        <label>대표 이메일 <input name="main_email" type="email"></label>
-        <label>대표 전화 <input name="main_phone"></label>
-        <label>지역 <input name="region" placeholder="경기"></label>
-        <label>재질 코드 <input name="material_code" value="S45C"></label>
-        <label>공정 코드 <input name="process_code" value="cnc_milling"></label>
-        <label>장비명 <input name="equipment_name" value="CNC Mill"></label>
-        <button class="imma-btn" type="submit">저장</button>
-      </form>`);
-    $('#imma-supplier-settings', body).addEventListener('submit', async e => {
-      e.preventDefault();
-      const fd = new FormData(e.currentTarget);
-      try {
-        await window.imma.apiJson('/api/company/profile', { method: 'PUT', body: {
-          company_id: user.id,
-          company_name: fd.get('company_name') || user.company_name,
-          main_email: fd.get('main_email') || null,
-          main_phone: fd.get('main_phone') || null,
-          region: fd.get('region') || null,
-        }});
-        await window.imma.apiJson('/api/material-capability', {
-          method: 'POST',
-          body: { company_id: user.id, materials: [fd.get('material_code')].filter(Boolean), categories: [] }
-        }).catch(console.warn);
-        await window.imma.apiJson('/api/process-capability', {
-          method: 'POST',
-          body: { company_id: user.id, processes: [{ process_code: fd.get('process_code'), service_mode: 'in_house', best_it_grade: 7, best_ra_um: 1.6, typical_lead_days: 7 }] }
-        }).catch(console.warn);
-        await window.imma.apiJson('/api/equipment', {
-          method: 'POST',
-          body: { company_id: user.id, display_name: fd.get('equipment_name'), equipment_category_code: 'machining_center_3axis' }
-        }).catch(console.warn);
-        window.imma.toast('저장되었습니다.', 'success');
-      } catch (err) { window.imma.toast(err.message, 'error'); }
-    });
+    text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
+    const inputs = $$('#capability .mw-input');
+    if (inputs[0] && user.company_name) inputs[0].value = user.company_name;
+    if (inputs[1] && (user.name || user.contact_name)) inputs[1].value = user.name || user.contact_name;
+    if (inputs[2] && user.phone) inputs[2].value = user.phone;
+    if (inputs[3] && user.email) inputs[3].value = user.email;
+    const saveBtn = $('.mw-top .btn-primary');
+    if (saveBtn && saveBtn.dataset.immaHooked !== 'true') {
+      saveBtn.dataset.immaHooked = 'true';
+      saveBtn.addEventListener('click', async () => {
+        window.imma.setLoading(saveBtn, true, '저장 중...');
+        try {
+          await window.imma.apiJson('/api/company/profile', { method: 'PUT', body: {
+            company_id: user.id,
+            company_name: inputs[0] ? inputs[0].value : user.company_name,
+            main_phone: inputs[2] ? inputs[2].value : null,
+            main_email: inputs[3] ? inputs[3].value : null,
+            address: inputs[4] ? inputs[4].value : null,
+          }});
+          window.imma.toast('저장되었습니다.', 'success');
+        } catch (err) {
+          window.imma.toast(err.message, 'error');
+        } finally {
+          window.imma.setLoading(saveBtn, false);
+        }
+      });
+    }
   }
 
   async function initSupplierRfqDetail() {
-    await window.imma.requireRole('supplier');
+    const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
+    text($('.u-name'), user.company_name || user.name || '공급사');
     const rfqId = window.imma.getQueryParam('rfq_id');
-    const body = window.imma.setPanelContent('Supplier RFQ 상세', '매칭된 RFQ 상세를 조회합니다.', '<p class="imma-loading">불러오는 중...</p>');
-    if (!rfqId) { body.innerHTML = '<p class="imma-danger">rfq_id가 없습니다. workbench에서 RFQ를 선택해 주세요.</p>'; return; }
+    if (!rfqId) return;
     try {
       const rfq = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}`);
-      body.innerHTML = `<pre class="imma-pre">${h(JSON.stringify(rfq, null, 2))}</pre><p><a class="imma-btn" href="/supplier-workbench">작업대로 이동</a></p>`;
-    } catch (err) { body.innerHTML = `<p class="imma-danger">${h(err.message)}</p>`; }
+      const metaSpans = $$('.rfq-title-row > span');
+      text(metaSpans[1], rfq.rfq_no || `RFQ-${shortId(rfq.rfq_id)}`);
+      text(metaSpans[3], `요청일 ${rfq.created_at ? rfq.created_at.slice(0, 10) : '-'}`);
+      const part = firstPart(rfq);
+      const vals = $$('.spec-table .spec-val');
+      text(vals[0], part.part_name || '-');
+      text(vals[1], processText(part));
+      text(vals[2], partMaterial(part));
+      // surface_treatment는 실제 /api/rfq 응답에 없으므로 기존 demo 값을 유지한다.
+      text(vals[4], part.quantity ? `${part.quantity} EA` : '-');
+      text(vals[5], partTolerance(part));
+      text(vals[6], rfq.requested_delivery_date || '-');
+    } catch (err) {
+      window.imma.toast(err.message, 'error');
+    }
   }
 
   async function initAdminDashboard() {
     await window.imma.requireAdmin();
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Admin 대시보드', 'Phase 1에서는 업체 승인만 실데이터로 연결합니다.', '<p class="imma-loading">불러오는 중...</p>');
     try {
-      const rows = await window.imma.apiJson('/api/admin/companies/pending');
-      body.innerHTML = `<div class="imma-kpis"><div class="imma-kpi"><strong>${rows.length}</strong><span>검수 대기/승인 대상</span></div></div><p><a class="imma-btn" href="/admin-control-center">업체 검수로 이동</a></p>`;
-    } catch (err) { body.innerHTML = `<p class="imma-danger">${h(err.message)}</p>`; }
+      const pending = await window.imma.apiJson('/api/admin/companies/pending');
+      const btn = $('a[href="/admin-control-center"]');
+      if (btn && !btn.querySelector('.imma-admin-pending-badge') && pending.length) {
+        btn.innerHTML += ` <span class="badge badge-yellow imma-admin-pending-badge" style="margin-left:6px;">${h(pending.length)} pending</span>`;
+      }
+    } catch (err) {
+      window.imma.toast(err.message, 'error');
+    }
   }
 
   async function initAdminControlCenter() {
     await window.imma.requireAdmin();
     window.imma.renderSessionHeader();
-    const body = window.imma.setPanelContent('Admin 업체 검수', 'pending 업체를 verify/reject합니다.', '<p class="imma-loading">불러오는 중...</p>');
-    async function refresh() {
-      const rows = await window.imma.apiJson('/api/admin/companies/pending');
-      body.innerHTML = `<div class="imma-grid">${rows.map(c => `
-        <article class="imma-card"><h3>${h(c.company_name)}</h3><p>${h(c.main_email || '-')} · ${h(c.region || '-')} · ${statusBadge(c.onboarding_status)}</p><button class="imma-btn verify-company" data-id="${h(c.company_id)}">승인</button><button class="imma-btn secondary reject-company" data-id="${h(c.company_id)}">반려</button></article>`).join('') || '<p class="imma-empty">대상 업체가 없습니다.</p>'}</div>`;
-      $$('.verify-company', body).forEach(btn => btn.addEventListener('click', async () => {
-        try { await window.imma.apiJson(`/api/admin/companies/${encodeURIComponent(btn.dataset.id)}/verify`, { method: 'PUT' }); window.imma.toast('승인되었습니다.', 'success'); await refresh(); } catch (err) { window.imma.toast(err.message, 'error'); }
+    try {
+      const pending = await window.imma.apiJson('/api/admin/companies/pending');
+      const databaseCard = $('#database');
+      if (!databaseCard || databaseCard.querySelector('.imma-pending-companies')) return;
+      const area = document.createElement('div');
+      area.className = 'mw-list mt-16 imma-pending-companies';
+      area.innerHTML = pending.length ? pending.map(c => `
+        <div class="mw-list-item soft">
+          <div>
+            <div class="mw-list-title">${h(c.company_name)}</div>
+            <div class="mw-list-meta">${h(c.main_email || c.email || '-')} · ${h(c.region || '-')} · ${h(c.onboarding_status || 'pending')}</div>
+          </div>
+          <div class="mw-row-actions">
+            <button class="btn-primary verify-company" data-id="${h(c.company_id)}" style="padding:7px 10px;font-size:12px;">승인</button>
+            <button class="btn-outline reject-company" data-id="${h(c.company_id)}" style="padding:7px 10px;font-size:12px;">반려</button>
+          </div>
+        </div>`).join('') : '<div class="mw-list-item soft"><div><div class="mw-list-title">검수 대기 업체 없음</div><div class="mw-list-meta">신규 supplier 가입 후 여기에 표시됩니다.</div></div></div>';
+      databaseCard.appendChild(area);
+      $$('.verify-company', area).forEach(btn => btn.addEventListener('click', async () => {
+        window.imma.setLoading(btn, true, '승인 중...');
+        try {
+          await window.imma.apiJson(`/api/admin/companies/${encodeURIComponent(btn.dataset.id)}/verify`, { method: 'PUT' });
+          window.imma.toast('승인되었습니다.', 'success');
+          btn.closest('.mw-list-item').remove();
+        } catch (err) {
+          window.imma.toast(err.message, 'error');
+        } finally {
+          window.imma.setLoading(btn, false);
+        }
       }));
-      $$('.reject-company', body).forEach(btn => btn.addEventListener('click', async () => {
-        const reason = prompt('반려 사유를 입력하세요', '자료 보완 필요') || '';
-        try { await window.imma.apiJson(`/api/admin/companies/${encodeURIComponent(btn.dataset.id)}/reject`, { method: 'PUT', body: { reason } }); window.imma.toast('반려되었습니다.', 'success'); await refresh(); } catch (err) { window.imma.toast(err.message, 'error'); }
+      $$('.reject-company', area).forEach(btn => btn.addEventListener('click', async () => {
+        const reason = window.prompt('반려 사유', '자료 보완 필요') || '';
+        window.imma.setLoading(btn, true, '반려 중...');
+        try {
+          await window.imma.apiJson(`/api/admin/companies/${encodeURIComponent(btn.dataset.id)}/reject`, { method: 'PUT', body: { reason } });
+          window.imma.toast('반려되었습니다.', 'success');
+          btn.closest('.mw-list-item').remove();
+        } catch (err) {
+          window.imma.toast(err.message, 'error');
+        } finally {
+          window.imma.setLoading(btn, false);
+        }
       }));
+    } catch (err) {
+      window.imma.toast(err.message, 'error');
     }
-    await refresh();
   }
 
-  async function initProtected(role) {
-    await window.imma.requireRole(role);
+  async function initClientFulfillment() {
+    await window.imma.requireRole('buyer');
+    window.imma.renderSessionHeader();
+  }
+
+  async function initPaymentSuccess() {
+    await window.imma.requireRole('buyer');
+    window.imma.renderSessionHeader();
+  }
+
+  async function initSupplierMessages() {
+    await window.imma.requireRole('supplier');
+    window.imma.renderSessionHeader();
+  }
+
+  async function initAdminOperations() {
+    await window.imma.requireAdmin();
+    window.imma.renderSessionHeader();
+  }
+
+  function initSearchSuppliers() {
+    window.imma.renderSessionHeader();
+    $$('[data-demo-action="supplier-detail"]').forEach(card => {
+      if (card.dataset.immaHooked === 'true') return;
+      card.dataset.immaHooked = 'true';
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const name = (card.querySelector('.company-name, .sup-title, h3, h4') || {}).textContent || '업체';
+        window.imma.toast(`${name.trim()} 상세는 시연 다음 단계에 제공됩니다.`, 'info');
+      });
+    });
+  }
+
+  function initSupport() {
+    window.imma.renderSessionHeader();
+    $$('[data-demo-action="support-ticket"]').forEach(card => {
+      if (card.dataset.immaHooked === 'true') return;
+      card.dataset.immaHooked = 'true';
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => window.imma.toast('1:1 문의는 시연 다음 단계에 제공됩니다.', 'info'));
+    });
+  }
+
+  function initHowToUse() {
+    window.imma.renderSessionHeader();
+  }
+
+  function initProcessFlow() {
     window.imma.renderSessionHeader();
   }
 
   async function route() {
-    const path = window.location.pathname;
-    try {
-      if (path === '/') return initLanding();
-      if (path === '/client-register') return initClientRegister();
-      if (path === '/supplier-register') return initSupplierRegister();
-      if (path === '/client') return initClientDashboard();
-      if (path === '/quote-request') return initQuoteRequest();
-      if (path === '/matching-ui') return initMatching();
-      if (path === '/order-management') return initOrderManagement();
-      if (path === '/supplier') return initSupplierDashboard();
-      if (path === '/supplier-workbench') return initSupplierWorkbench();
-      if (path === '/supplier-settings') return initSupplierSettings();
-      if (path === '/supplier-rfq-detail') return initSupplierRfqDetail();
-      if (path === '/supplier-messages') return initProtected('supplier');
-      if (path === '/admin-ui') return initAdminDashboard();
-      if (path === '/admin-control-center') return initAdminControlCenter();
-      if (path === '/admin-operations') return initProtected('admin');
-      if (path === '/client-fulfillment' || path === '/payment-success') return initProtected('buyer');
-      window.imma.renderSessionHeader();
-    } catch (err) {
-      console.error(err);
-      if (window.imma.toast) window.imma.toast(err.message || '초기화 실패', 'error');
-    }
+    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    if (path === '/') return initLanding();
+    if (path === '/client-register') return initClientRegister();
+    if (path === '/supplier-register') return initSupplierRegister();
+    if (path === '/client') return initClientDashboard();
+    if (path === '/quote-request') return initQuoteRequest();
+    if (path === '/matching-ui') return initMatching();
+    if (path === '/order-management') return initOrderManagement();
+    if (path === '/supplier') return initSupplierDashboard();
+    if (path === '/supplier-workbench') return initSupplierWorkbench();
+    if (path === '/supplier-settings') return initSupplierSettings();
+    if (path === '/supplier-rfq-detail') return initSupplierRfqDetail();
+    if (path === '/supplier-messages') return initSupplierMessages();
+    if (path === '/admin-ui') return initAdminDashboard();
+    if (path === '/admin-control-center') return initAdminControlCenter();
+    if (path === '/admin-operations') return initAdminOperations();
+    if (path === '/client-fulfillment') return initClientFulfillment();
+    if (path === '/payment-success') return initPaymentSuccess();
+    if (path === '/search-suppliers') return initSearchSuppliers();
+    if (path === '/support') return initSupport();
+    if (path === '/how-to-use') return initHowToUse();
+    if (path === '/process-flow') return initProcessFlow();
+    window.imma.renderSessionHeader();
   }
 
-  document.addEventListener('DOMContentLoaded', route);
+  document.addEventListener('DOMContentLoaded', () => {
+    Promise.resolve(route()).catch(err => {
+      console.error(err);
+      if (window.imma && window.imma.toast) window.imma.toast(err.message || '페이지 초기화 실패', 'error');
+    });
+  });
 })();
