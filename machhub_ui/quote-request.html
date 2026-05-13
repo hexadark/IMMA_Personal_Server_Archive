@@ -118,6 +118,17 @@
       margin-top: 12px;
     }
     .hint-box i { color: var(--primary-dark); flex-shrink: 0; margin-top: 1px; }
+
+    .extra-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      margin-top: 6px;
+    }
+    .extra-input::placeholder { color: #B8BEC9; }
   </style>
 <script>window.__imma_realmode__ = true;</script>
 <script src="/static/imma-ui-utils.js"></script>
@@ -192,67 +203,33 @@
         <div class="form-grid" style="margin-bottom:16px;">
           <div class="form-group">
             <label>수량(개) <span style="color:var(--danger)">*</span></label>
-            <input type="number" placeholder="예) 100">
+            <input type="number" id="q-quantity" placeholder="예) 100">
           </div>
           <div class="form-group">
-            <label>소재</label>
-            <select>
-              <option value="">소재를 선택하세요</option>
-              <option>AL6061</option>
-              <option>SUS304</option>
-              <option>SCM440</option>
-              <option>S45C</option>
-              <option>기타</option>
+            <label>소재 카테고리</label>
+            <select id="q-material">
+              <option value="">소재를 선택하세요 (선택)</option>
+              <option>탄소강</option>
+              <option>합금강</option>
+              <option>스테인리스강</option>
+              <option>회주철</option>
+              <option>구상흑연주철</option>
+              <option>주강</option>
+              <option>스테인리스 주강</option>
+              <option>알루미늄 합금</option>
+              <option>구리합금</option>
+              <option>판금용 강판</option>
+              <option>공구강</option>
+              <option>엔지니어링 플라스틱</option>
+              <option>쾌삭강</option>
+              <option>복합재/절연재</option>
+              <option value="__custom__">직접 입력 (자유 텍스트)</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label>가공 공정</label>
-            <select>
-              <option value="">가공 공정을 선택하세요</option>
-              <option>CNC 가공</option>
-              <option>선반 가공</option>
-              <option>밀링</option>
-              <option>방전 가공</option>
-              <option>판금/절곡</option>
-              <option>기타</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-grid" style="margin-bottom:16px;">
-          <div class="form-group">
-            <label>공차 <i class="ri-question-line" style="color:var(--text-muted)"></i></label>
-            <input type="text" placeholder="예) ±0.01mm">
-          </div>
-          <div class="form-group">
-            <label>표면처리</label>
-            <select>
-              <option value="">선택하세요 (선택)</option>
-              <option>아노다이징</option>
-              <option>도금</option>
-              <option>도장</option>
-              <option>없음</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>열처리</label>
-            <select>
-              <option value="">선택하세요 (선택)</option>
-              <option>담금질</option>
-              <option>풀림</option>
-              <option>없음</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-grid">
-          <div class="form-group">
-            <label>납기 희망일</label>
-            <input type="date" placeholder="날짜를 선택하세요">
+            <input type="text" id="q-material-custom" class="extra-input" placeholder="소재명을 직접 입력하세요 (예: AL6061, SUS304)" style="display:none;">
           </div>
           <div class="form-group">
             <label>예산 범위</label>
-            <select>
+            <select id="q-budget">
               <option value="">예산 범위를 선택하세요</option>
               <option>50만원 미만</option>
               <option>50~100만원</option>
@@ -260,9 +237,40 @@
               <option>500만원 이상</option>
             </select>
           </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>표면처리</label>
+            <select id="q-surface">
+              <option value="">선택하세요 (선택)</option>
+              <option>아노다이징</option>
+              <option>도금</option>
+              <option>도장</option>
+              <option>없음</option>
+            </select>
+            <input type="text" id="q-surface-extra" class="extra-input" placeholder="기타 (자유 입력)">
+          </div>
+          <div class="form-group">
+            <label>열처리</label>
+            <select id="q-heat">
+              <option value="">선택하세요 (선택)</option>
+              <option>담금질</option>
+              <option>풀림</option>
+              <option>없음</option>
+            </select>
+            <input type="text" id="q-heat-extra" class="extra-input" placeholder="기타 (자유 입력)">
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>납기 희망일</label>
+            <input type="date" id="q-due" placeholder="날짜를 선택하세요">
+          </div>
           <div class="form-group">
             <label>납품 지역</label>
-            <select>
+            <select id="q-region">
               <option value="">지역을 선택하세요</option>
               <option>서울/경기</option>
               <option>인천</option>
@@ -280,11 +288,11 @@
         <div class="form-grid form-grid-2">
           <div class="form-group">
             <label>인증 및 검사 요구사항</label>
-            <textarea rows="4" placeholder="예) ISO 9001, 시험성적서, 검사보고서 등" style="resize:none;"></textarea>
+            <textarea id="q-certifications" rows="4" placeholder="예) ISO 9001, 시험성적서, 검사보고서 등" style="resize:none;"></textarea>
           </div>
           <div class="form-group">
             <label>추가 요청사항</label>
-            <textarea rows="4" placeholder="기타 참고사항이나 특별 요청사항을 입력해주세요." style="resize:none;"></textarea>
+            <textarea id="q-notes" rows="4" placeholder="기타 참고사항이나 특별 요청사항을 입력해주세요." style="resize:none;"></textarea>
           </div>
         </div>
       </div>
@@ -374,80 +382,39 @@
 </footer>
 
 <script>
-  // Live summary update
-  document.querySelector('input[type=number]').addEventListener('input', e => {
-    document.getElementById('s-qty').textContent = e.target.value ? e.target.value + '개' : '-';
-  });
-  document.querySelectorAll('select')[0].addEventListener('change', e => {
-    document.getElementById('s-mat').textContent = e.target.value || '-';
-  });
-  document.querySelectorAll('select')[1].addEventListener('change', e => {
-    document.getElementById('s-proc').textContent = e.target.value || '-';
-  });
-  document.querySelector('input[type=date]').addEventListener('change', e => {
-    document.getElementById('s-date').textContent = e.target.value || '-';
-  });
-  document.querySelectorAll('select')[4].addEventListener('change', e => {
-    document.getElementById('s-budget').textContent = e.target.value || '-';
-  });
-  async function uploadDrawingToServer(file) {
-    const displaySpan = document.getElementById('file-name-display');
-    const sFile = document.getElementById('s-file');
-    
-    displaySpan.textContent = "업로드 중: " + file.name + "...";
-    displaySpan.style.color = "#7A5C00";
+  // Live summary update (selector by id, 신규 form 구조 정합)
+  (function () {
+    const qty = document.getElementById('q-quantity');
+    const mat = document.getElementById('q-material');
+    const matCustom = document.getElementById('q-material-custom');
+    const due = document.getElementById('q-due');
+    const budget = document.getElementById('q-budget');
 
-    const formData = new FormData();
-    formData.append("file", file);
+    const sQty = document.getElementById('s-qty');
+    const sMat = document.getElementById('s-mat');
+    const sProc = document.getElementById('s-proc');
+    const sDate = document.getElementById('s-date');
+    const sBudget = document.getElementById('s-budget');
 
-    try {
-      const res = await fetch("/api/drawings/upload", {
-        method: "POST",
-        body: formData
-      });
+    // 가공 공정은 도면 분석 결과로 자동 결정되므로 summary 영역에 안내 표시
+    if (sProc) sProc.textContent = '도면 자동';
 
-      if (!res.ok) {
-        if (res.status === 500) {
-          throw new Error("이미 업로드된 파일이거나 중복 파일일 수 있습니다.");
-        }
-        const text = await res.text();
-        throw new Error(`도면 업로드 실패: ${res.status} ${text}`);
+    if (qty) qty.addEventListener('input', e => { sQty.textContent = e.target.value ? e.target.value + '개' : '-'; });
+    if (mat) mat.addEventListener('change', e => {
+      const isCustom = e.target.value === '__custom__';
+      if (matCustom) matCustom.style.display = isCustom ? 'block' : 'none';
+      if (isCustom) {
+        sMat.textContent = (matCustom && matCustom.value) ? matCustom.value : '직접 입력';
+      } else {
+        sMat.textContent = e.target.value || '-';
       }
-
-      const data = await res.json();
-      
-      // Save to localStorage
-      localStorage.setItem('imma_drawing_id', data.drawing_id);
-      localStorage.setItem('imma_drawing_file_uri', data.file_uri);
-      localStorage.setItem('imma_drawing_original_filename', data.original_filename);
-      localStorage.setItem('imma_drawing_sha256', data.file_sha256);
-
-      // Update UI
-      displaySpan.innerHTML = `도면 업로드 완료: ${data.original_filename} <br><small style="font-size:10px; color:#888; font-weight:400; display:block; margin-top:4px;">ID: ${data.drawing_id}</small>`;
-      displaySpan.style.color = "#059669"; // Success green
-      sFile.textContent = "1개 (업로드됨)";
-      
-      return data;
-    } catch (err) {
-      console.error(err);
-      displaySpan.textContent = "업로드 실패: " + err.message;
-      displaySpan.style.color = "#dc2626"; // Error red
-      alert(err.message);
-      throw err;
-    }
-  }
-
-  document.getElementById('file-input').addEventListener('change', async e => {
-    const files = e.target.files;
-    if (files.length === 0) return;
-    
-    // For this task, we upload the first file
-    try {
-      await uploadDrawingToServer(files[0]);
-    } catch (err) {
-      // Error already handled in uploadDrawingToServer
-    }
-  });
+    });
+    if (matCustom) matCustom.addEventListener('input', e => {
+      if (mat && mat.value === '__custom__') sMat.textContent = e.target.value || '직접 입력';
+    });
+    if (due) due.addEventListener('change', e => { sDate.textContent = e.target.value || '-'; });
+    if (budget) budget.addEventListener('change', e => { sBudget.textContent = e.target.value || '-'; });
+  })();
 </script>
 <script src="/static/imma-phase1-pages.js"></script>
 </body>

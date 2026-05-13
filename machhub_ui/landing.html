@@ -542,6 +542,7 @@
       <div class="imma-modal-btns">
         <a href="javascript:void(0)" class="imma-modal-btn indi" onclick="showLoginForm('individual')"><i class="ri-user-line"></i> 개인회원 로그인</a>
         <a href="javascript:void(0)" class="imma-modal-btn corp" onclick="showLoginForm('corporate')"><i class="ri-building-4-line"></i> 기업회원 로그인</a>
+        <a href="javascript:void(0)" class="imma-modal-btn indi" onclick="showLoginForm('admin')"><i class="ri-shield-user-line"></i> 관리자 로그인</a>
       </div>
     </div>
 
@@ -603,6 +604,8 @@
     
     if (type === 'corporate') {
       document.getElementById('login-title').textContent = "기업회원 (가공업체) 로그인";
+    } else if (type === 'admin') {
+      document.getElementById('login-title').textContent = "관리자 로그인";
     } else {
       document.getElementById('login-title').textContent = "개인회원 (클라이언트) 로그인";
     }

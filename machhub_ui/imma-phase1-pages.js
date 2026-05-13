@@ -154,6 +154,14 @@
     };
   }
 
+  // 예산 select 라벨 → KRW 금액 (대표값)
+  const UI_BUDGET_TO_AMOUNT = {
+    '50만원 미만': 500000,
+    '50~100만원': 1000000,
+    '100~500만원': 5000000,
+    '500만원 이상': 10000000,
+  };
+
   function showFallbackChoice(container, file, retryFn) {
     const fixtureId = findFixtureDrawingId();
     const box = document.createElement('div');
@@ -202,7 +210,14 @@
       const loginId = $('#login-id') ? $('#login-id').value.trim() : '';
       const password = $('#login-pw') ? $('#login-pw').value : '';
       const title = $('#login-title') ? $('#login-title').textContent : '';
-      const role = window.__immaLoginType === 'corporate' || title.includes('기업') ? 'supplier' : 'buyer';
+      let role;
+      if (window.__immaLoginType === 'admin' || title.includes('관리자')) {
+        role = 'admin';
+      } else if (window.__immaLoginType === 'corporate' || title.includes('기업')) {
+        role = 'supplier';
+      } else {
+        role = 'buyer';
+      }
       const btn = form.querySelector('button[type="submit"]');
       window.imma.setLoading(btn, true, '로그인 중...');
       try {
@@ -376,6 +391,15 @@
 
     if (fileInput && !fileInput.dataset.immaHooked) {
       fileInput.dataset.immaHooked = 'true';
+      fileInput.addEventListener('change', async ev => {
+        const files = ev.target.files;
+        if (!files || files.length === 0) return;
+        try {
+          await window.uploadDrawingToServer(files[0]);
+        } catch (_) {
+          // 오류는 uploadDrawingToServer 내부에서 처리
+        }
+      });
     }
 
     const submitLink = $('.submit-area a[href="/matching-ui"], a[href="/matching-ui"]');
@@ -388,20 +412,67 @@
         window.imma.toast('도면을 먼저 업로드하거나 fixture_drawing_id를 지정해 주세요.', 'warning');
         return;
       }
-      const quantityInput = $('input[type="number"]');
-      const dateInput = $('input[type="date"]');
-      const noteInput = $('textarea');
+
+      const quantityInput = $('#q-quantity');
+      const materialSelect = $('#q-material');
+      const materialCustom = $('#q-material-custom');
+      const dateInput = $('#q-due');
+      const budgetSelect = $('#q-budget');
+      const regionSelect = $('#q-region');
+      const surfaceSelect = $('#q-surface');
+      const surfaceExtra = $('#q-surface-extra');
+      const heatSelect = $('#q-heat');
+      const heatExtra = $('#q-heat-extra');
+      const certInput = $('#q-certifications');
+      const noteInput = $('#q-notes');
+
+      const orderQuantity = Number(quantityInput && quantityInput.value) || 1;
+      const dueDate = dateInput && dateInput.value ? dateInput.value : null;
+      const budgetLabel = budgetSelect && budgetSelect.value ? budgetSelect.value : '';
+      const budgetAmount = UI_BUDGET_TO_AMOUNT[budgetLabel] || null;
+
+      // 소재 입력 — 직접 입력이면 자유 텍스트, 카테고리 선택이면 한글 라벨.
+      // pipeline_runner.py 의 client_material fallback 이 VLM 결과 부재 시에만 채운다.
+      const materialLabel = materialSelect && materialSelect.value ? materialSelect.value : '';
+      const isMaterialCustom = materialLabel === '__custom__';
+      const materialCustomText = (materialCustom && materialCustom.value || '').trim();
+      let materialInput = null;
+      if (isMaterialCustom && materialCustomText) {
+        materialInput = materialCustomText;
+      } else if (materialLabel && !isMaterialCustom) {
+        materialInput = materialLabel;
+      }
+
+      // 표면처리·열처리는 client_notes 부수 정보로만 전달. 매칭 영향 부재, 견적 단계 참고용.
+      const postTreatmentParts = [];
+      const sVal = surfaceSelect && surfaceSelect.value ? surfaceSelect.value : '';
+      const sExtra = (surfaceExtra && surfaceExtra.value || '').trim();
+      const hVal = heatSelect && heatSelect.value ? heatSelect.value : '';
+      const hExtra = (heatExtra && heatExtra.value || '').trim();
+      if (sVal && sVal !== '없음') postTreatmentParts.push(sVal);
+      if (sExtra) postTreatmentParts.push(sExtra);
+      if (hVal && hVal !== '없음') postTreatmentParts.push(hVal);
+      if (hExtra) postTreatmentParts.push(hExtra);
+      const postTreatmentRequest = postTreatmentParts.length ? postTreatmentParts.join(', ') : null;
+
+      // pipeline_runner.py 가 우선 lookup 하는 client_notes 키로 통일 전달.
+      // 공정·공차·envelope·GDT 는 도면 분석이 단일 원천이므로 parts 명시 전달은 수행하지 않는다.
       const payload = {
         drawing_id: drawingId,
-        order_quantity: Number(quantityInput && quantityInput.value) || 1,
-        requested_delivery_date: dateInput && dateInput.value ? dateInput.value : null,
-        budget_amount: null,
+        order_quantity: orderQuantity,
+        requested_delivery_date: dueDate,
+        budget_amount: budgetAmount,
         budget_currency: 'KRW',
-        general_notes: {
-          note: noteInput && noteInput.value ? noteInput.value : 'Phase 1 시연 RFQ',
+        client_notes: {
+          material: materialInput,
+          delivery_region: regionSelect && regionSelect.value ? regionSelect.value : null,
+          certifications: certInput && certInput.value ? certInput.value : null,
+          post_treatment_request: postTreatmentRequest,
+          notes: noteInput && noteInput.value ? noteInput.value : null,
           vlm_fallback_used: Boolean(scopedGet([drawingId, 'vlm_fallback_used'], false)),
         },
       };
+
       window.imma.setLoading(submitLink, true, '매칭 실행 중...');
       try {
         const result = await window.imma.apiJson('/api/match-v2', { method: 'POST', body: payload });
@@ -604,9 +675,18 @@
     }
   }
 
+  function bindSupplierLogout() {
+    $$('.logout-btn').forEach(btn => {
+      if (btn.dataset.immaHooked === 'true') return;
+      btn.dataset.immaHooked = 'true';
+      btn.addEventListener('click', () => window.imma.logout('manual'));
+    });
+  }
+
   async function initSupplierDashboard() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
+    bindSupplierLogout();
     const greeting = $('.page-wrap p[style*="font-size:14px"]');
     if (greeting && user.company_name) greeting.textContent = `👋 안녕하세요, ${user.company_name} ${user.name || user.contact_name || ''}님! 오늘도 안전한 하루 되세요.`;
     text($('.u-name'), user.company_name || user.name || '공급사');
@@ -644,9 +724,72 @@
     }
   }
 
+  function bindWorkbenchScrollSpy() {
+    const nav = $('.mw-side-nav');
+    if (!nav || nav.dataset.immaScrollSpy === 'true') return;
+    const scroller = $('.mw-app-main') || document.scrollingElement || document.documentElement;
+    const sectionIds = ['rfq', 'reply', 'orders', 'production', 'capacity', 'delivery', 'reviews'];
+    const sections = sectionIds
+      .map(id => ({ id, el: document.getElementById(id) }))
+      .filter(s => s.el);
+    if (!sections.length) return;
+    nav.dataset.immaScrollSpy = 'true';
+
+    const navLinks = $$('a', nav);
+    function linkForSection(id) {
+      const exact = navLinks.find(a => {
+        const href = a.getAttribute('href') || '';
+        return href === `#${id}` || href === `/supplier-workbench#${id}`;
+      });
+      if (exact) return exact;
+      if (id === 'rfq') {
+        return navLinks.find(a => {
+          const href = a.getAttribute('href') || '';
+          return href === '/supplier-workbench' || href === '#rfq';
+        }) || null;
+      }
+      return null;
+    }
+
+    function activate(id) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const target = linkForSection(id);
+      if (target) target.classList.add('active');
+    }
+
+    activate('rfq');
+
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries
+        .filter(e => e.isIntersecting)
+        .map(e => ({ id: e.target.id, top: e.boundingClientRect.top }));
+      if (!visible.length) return;
+      visible.sort((a, b) => a.top - b.top);
+      activate(visible[0].id);
+    }, {
+      root: scroller === document.scrollingElement || scroller === document.documentElement ? null : scroller,
+      rootMargin: '-80px 0px -60% 0px',
+      threshold: 0,
+    });
+    sections.forEach(s => observer.observe(s.el));
+
+    navLinks.forEach(a => {
+      const href = a.getAttribute('href') || '';
+      const match = href.match(/#([a-zA-Z0-9_-]+)$/);
+      if (!match) return;
+      const id = match[1];
+      if (!sectionIds.includes(id)) return;
+      a.addEventListener('click', () => {
+        setTimeout(() => activate(id), 0);
+      });
+    });
+  }
+
   async function initSupplierWorkbench() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
+    bindSupplierLogout();
+    bindWorkbenchScrollSpy();
     text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
 
     let currentMatches = [];
@@ -724,6 +867,7 @@
   async function initSupplierSettings() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
+    bindSupplierLogout();
     text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
     const inputs = $$('#capability .mw-input');
     if (inputs[0] && user.company_name) inputs[0].value = user.company_name;
@@ -856,6 +1000,7 @@
   async function initSupplierMessages() {
     await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
+    bindSupplierLogout();
   }
 
   async function initAdminOperations() {
