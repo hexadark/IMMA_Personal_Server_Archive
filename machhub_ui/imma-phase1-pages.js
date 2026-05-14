@@ -1471,22 +1471,44 @@
     }).join('');
   }
 
-  function renderMaterialChips(categories, lockedSet) {
-    // 공정 영역과 동일 자세 — 등록된 재질 영역은 *✓ locked* 자세 (disabled + ✓ 마크).
-    // 미등록 영역만 클릭 가능 (toggle selected). 해제 자세 부재 (Phase 2 영역 이관).
+  function renderMaterialChips(categories, lockedSet, pendingSet, autoHintSet) {
+    // 선택 상태를 Set 으로 source of truth 유지 — DOM innerHTML 재구성에도 pending/autoHint 가 다시 반영됨.
+    // locked: DB 저장 완료 (✓ disabled). pending: 저장 전 사용자 선택 또는 자동 추천 (selected 시각).
+    // autoHint: pending 중 *(자동)* 라벨 표시 대상.
     const wrap = $('#material-categories');
     if (!wrap) return;
     const locked = lockedSet instanceof Set ? lockedSet : new Set(lockedSet || []);
+    const pending = pendingSet instanceof Set ? pendingSet : new Set(pendingSet || []);
+    const autoHints = autoHintSet instanceof Set ? autoHintSet : new Set(autoHintSet || []);
+
     wrap.innerHTML = categories.map(c => {
-      const isLocked = locked.has(c.category_code);
+      const code = c.category_code;
+      const isLocked = locked.has(code);
+      const isPending = !isLocked && pending.has(code);
+      const isAutoHint = isPending && autoHints.has(code);
+      const classes = ['ob-chip'];
+      if (isLocked) classes.push('is-locked');
+      if (isPending) classes.push('selected');
       const label = `${c.category_name_ko}${isLocked ? ' ✓' : ''}`;
-      return `<button type="button" class="ob-chip${isLocked ? ' is-locked' : ''}" data-code="${h(c.category_code)}" ${isLocked ? 'disabled' : ''}>${h(label)}</button>`;
+      const ariaPressed = isLocked ? 'true' : (isPending ? 'true' : 'false');
+      const autoAttr = isAutoHint ? ' data-auto-selected="true"' : '';
+      const lockedAttr = isLocked ? ' disabled' : '';
+      return `<button type="button" class="${classes.join(' ')}" data-code="${h(code)}"${autoAttr}${lockedAttr} aria-pressed="${ariaPressed}">${h(label)}</button>`;
     }).join('');
+
     $$('.ob-chip', wrap).forEach(chip => {
       if (chip.classList.contains('is-locked')) return;
       chip.addEventListener('click', () => {
-        chip.classList.toggle('selected');
-        delete chip.dataset.autoSelected;
+        const code = chip.dataset.code;
+        if (!code) return;
+        if (pending.has(code)) {
+          pending.delete(code);
+          autoHints.delete(code);
+        } else {
+          pending.add(code);
+          autoHints.delete(code);
+        }
+        renderMaterialChips(categories, locked, pending, autoHints);
       });
     });
   }
@@ -1544,6 +1566,10 @@
     let companyDetail = null;
     // 자동 매핑된 공정 코드 (장비 등록 시 자동 생성) — 비활성 처리 대상
     const autoLockedProcesses = new Set();
+    // 재질 chip 선택 상태 source of truth — DOM innerHTML 재구성에도 보존
+    let lockedMaterialCodes = new Set();         // DB 저장 완료 (✓ disabled)
+    const pendingMaterialCodes = new Set();      // 저장 전 사용자 선택 또는 장비 자동 추천
+    const autoHintMaterialCodes = new Set();     // pending 중 *(자동)* 라벨 표시 대상
 
     async function refreshCompany() {
       try {
@@ -1553,13 +1579,18 @@
         return;
       }
       renderEquipmentList(companyDetail.equipment || []);
-      // 재질 영역 — 공정 영역과 동일 자세로 등록된 카테고리 영역을 lockedSet 자세 전달.
-      const lockedMaterials = new Set(
+      // 재질 — DB 저장 완료 카테고리는 lockedMaterialCodes 갱신.
+      // pending/autoHint 영역에서 locked 중복 제거 (저장 완료된 영역은 더 이상 pending 부재).
+      lockedMaterialCodes = new Set(
         (companyDetail.materials || [])
           .filter(m => m.scope_type === 'material_category' && m.material_category_code)
           .map(m => m.material_category_code)
       );
-      renderMaterialChips(materialCategories, lockedMaterials);
+      lockedMaterialCodes.forEach(code => {
+        pendingMaterialCodes.delete(code);
+        autoHintMaterialCodes.delete(code);
+      });
+      renderMaterialChips(materialCategories, lockedMaterialCodes, pendingMaterialCodes, autoHintMaterialCodes);
 
       // 현재 등록된 공정 — auto_generated 영역 추정: equipment_process_capabilities 와 일치하는 공정
       (companyDetail.processes || []).forEach(p => autoLockedProcesses.add(p.process_code));
@@ -1674,17 +1705,20 @@
           });
           // 자동 매핑된 공정 코드를 잠금 set 에 추가
           (result.auto_generated_processes || []).forEach(pc => autoLockedProcesses.add(pc));
-          // 추정 재질 자동 체크 발동
+          // 추정 재질 자동 추천 — DOM 직접 조작 폐기. Set 영역에 기록 후 즉시 renderMaterialChips 재호출.
+          // 직후 await refreshCompany() 호출이 와도 pendingMaterialCodes 가 Set 영역에 보존되어 selected 시각 유지.
           const hints = EQUIPMENT_TO_MATERIAL_HINT[categoryCode] || [];
           let hintAdded = 0;
           hints.forEach(code => {
-            const chip = $(`#material-categories .ob-chip[data-code="${code}"]`);
-            if (chip && !chip.classList.contains('selected')) {
-              chip.classList.add('selected');
-              chip.dataset.autoSelected = 'true';
+            if (!lockedMaterialCodes.has(code) && !pendingMaterialCodes.has(code)) {
+              pendingMaterialCodes.add(code);
+              autoHintMaterialCodes.add(code);
               hintAdded += 1;
             }
           });
+          if (hintAdded > 0) {
+            renderMaterialChips(materialCategories, lockedMaterialCodes, pendingMaterialCodes, autoHintMaterialCodes);
+          }
           const procCount = (result.auto_generated_processes || []).length;
           const msgParts = [`장비 등록됨`];
           if (procCount > 0) msgParts.push(`공정 ${procCount}종 자동 매핑`);
@@ -1709,8 +1743,12 @@
     if (materialSaveBtn && materialSaveBtn.dataset.immaHooked !== 'true') {
       materialSaveBtn.dataset.immaHooked = 'true';
       materialSaveBtn.addEventListener('click', async () => {
-        // 공정 영역과 동일 자세 — 새로 선택된 영역만 INSERT 대상 (locked 영역 제외)
-        const selectedCodes = $$('#material-categories .ob-chip.selected:not(.is-locked)').map(c => c.dataset.code);
+        // pendingMaterialCodes Set + DOM .selected 양면 수집 — refresh 도중 누락 영역 방어.
+        const domSelected = $$('#material-categories .ob-chip.selected:not(.is-locked)')
+          .map(c => c.dataset.code)
+          .filter(Boolean);
+        const selectedCodes = Array.from(new Set([...pendingMaterialCodes, ...domSelected]))
+          .filter(code => code && !lockedMaterialCodes.has(code));
         if (selectedCodes.length === 0) {
           window.imma.toast('추가할 재질 카테고리를 1개 이상 선택해주세요.', 'warning');
           return;
@@ -1721,8 +1759,17 @@
             method: 'POST',
             body: { company_id: user.id, categories: selectedCodes },
           });
-          window.imma.toast(`재질 ${selectedCodes.length}종 추가 (status: ${result.onboarding_status})`, 'success');
           await refreshCompany();
+          // POST 후 lockedMaterialCodes 가 갱신된 상태 — 미반영 여부 점검
+          const notPersisted = selectedCodes.filter(code => !lockedMaterialCodes.has(code));
+          if (notPersisted.length > 0) {
+            window.imma.toast(
+              `재질 ${selectedCodes.length - notPersisted.length}/${selectedCodes.length}종만 서버 반영됨 — 미반영 항목은 선택 상태 유지`,
+              'warning'
+            );
+          } else {
+            window.imma.toast(`재질 ${selectedCodes.length}종 추가 (status: ${result.onboarding_status})`, 'success');
+          }
           if (result.onboarding_status === 'verified') {
             window.imma.toast('온보딩 완료 — 매칭 노출이 가능합니다.', 'success');
           }

@@ -679,6 +679,7 @@ def register_material_capability(data: dict, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=403, detail="본인 업체에만 소재 역량을 등록할 수 있습니다")
 
     with engine.begin() as conn:
+        # specific_material — 기존 비활성 row 재활성화 우선, 없으면 INSERT
         for mat_code in materials:
             mat_row = conn.execute(
                 text(f"SELECT material_id FROM {SCHEMA}.materials WHERE material_code = :mc"),
@@ -686,26 +687,49 @@ def register_material_capability(data: dict, current_user: dict = Depends(get_cu
             ).fetchone()
             if not mat_row:
                 continue
-            conn.execute(
+            updated = conn.execute(
                 text(f"""
-                    INSERT INTO {SCHEMA}.company_material_capabilities
-                        (company_id, scope_type, material_id, capability_level)
-                    VALUES (:cid, 'specific_material', :mid, 'regular')
-                    ON CONFLICT DO NOTHING
+                    UPDATE {SCHEMA}.company_material_capabilities
+                    SET is_active = true, capability_level = 'regular'
+                    WHERE company_id = :cid
+                      AND scope_type = 'specific_material'
+                      AND material_id = :mid
                 """),
                 {"cid": company_id, "mid": mat_row[0]},
             )
+            if updated.rowcount == 0:
+                conn.execute(
+                    text(f"""
+                        INSERT INTO {SCHEMA}.company_material_capabilities
+                            (company_id, scope_type, material_id, capability_level, is_active)
+                        VALUES (:cid, 'specific_material', :mid, 'regular', true)
+                        ON CONFLICT DO NOTHING
+                    """),
+                    {"cid": company_id, "mid": mat_row[0]},
+                )
 
+        # material_category — 동일 패턴 (재활성화 우선)
         for cat_code in categories:
-            conn.execute(
+            updated = conn.execute(
                 text(f"""
-                    INSERT INTO {SCHEMA}.company_material_capabilities
-                        (company_id, scope_type, material_category_code, capability_level)
-                    VALUES (:cid, 'material_category', :cc, 'regular')
-                    ON CONFLICT DO NOTHING
+                    UPDATE {SCHEMA}.company_material_capabilities
+                    SET is_active = true, capability_level = 'regular'
+                    WHERE company_id = :cid
+                      AND scope_type = 'material_category'
+                      AND material_category_code = :cc
                 """),
                 {"cid": company_id, "cc": cat_code},
             )
+            if updated.rowcount == 0:
+                conn.execute(
+                    text(f"""
+                        INSERT INTO {SCHEMA}.company_material_capabilities
+                            (company_id, scope_type, material_category_code, capability_level, is_active)
+                        VALUES (:cid, 'material_category', :cc, 'regular', true)
+                        ON CONFLICT DO NOTHING
+                    """),
+                    {"cid": company_id, "cc": cat_code},
+                )
 
         ob_status = _check_onboarding(conn, company_id)
 
