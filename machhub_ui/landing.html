@@ -128,18 +128,23 @@
     }
     .hero-video-label i { font-size: 14px; }
 
-    /* hero 영상 fallback 모달 */
+    /* hero 영상 fallback 모달 — z-index 100000 으로 header (z-index:100) 위 명확 분리 */
     .hero-video-modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.9);
-      z-index: 9999;
+      z-index: 100000;
       display: none;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(8px);
     }
     .hero-video-modal-overlay.open { display: flex; }
+    /* PiP 자세 버튼 시각 영역 차단 (Chromium 영역) */
+    .hero-right video::-webkit-media-controls-picture-in-picture-button,
+    .hero-video-modal video::-webkit-media-controls-picture-in-picture-button {
+      display: none !important;
+    }
     .hero-video-modal {
       position: relative;
       width: 95%;
@@ -405,18 +410,18 @@
       </div>
     </div>
     <div class="hero-right" id="hero-video-card" role="button" tabindex="0" aria-label="제품 소개 영상 재생">
-      <video id="hero-video-player" src="/static/imma_intro_proto_c.mp4#t=0.1" preload="metadata" muted playsinline></video>
+      <video id="hero-video-preview" src="/static/imma_intro_proto_c.mp4#t=0.5" preload="metadata" muted playsinline disablepictureinpicture disableremoteplayback aria-hidden="true"></video>
       <div class="hero-play-btn"><i class="ri-play-fill"></i></div>
       <div class="hero-video-label"><i class="ri-film-line"></i> 2 분 데모</div>
     </div>
   </div>
 </section>
 
-<!-- HERO 영상 fallback 모달 (fullscreen API 미지원·거부 시) -->
-<div class="hero-video-modal-overlay" id="hero-video-modal-overlay">
+<!-- HERO 영상 모달 — viewport 95% 영역 시각 (사실상 전체화면 효과). controls 영역의 fullscreen 버튼이 사용자 명시 진입 영역 -->
+<div class="hero-video-modal-overlay" id="hero-video-modal-overlay" role="dialog" aria-modal="true" aria-label="제품 소개 영상">
   <div class="hero-video-modal">
     <button type="button" class="hero-video-modal-close" id="hero-video-modal-close" aria-label="닫기"><i class="ri-close-line"></i></button>
-    <video id="hero-video-modal-player" src="/static/imma_intro_proto_c.mp4" controls preload="metadata" playsinline></video>
+    <video id="hero-video-modal-player" src="/static/imma_intro_proto_c.mp4" controls controlsList="nodownload" preload="auto" playsinline disablepictureinpicture disableremoteplayback></video>
   </div>
 </div>
 
@@ -755,23 +760,38 @@
     }
   }
 
-  // ── HERO 영상 클릭 → 큰 모달 + 자동 재생 (fullscreen API 호출 자체 폐기 — PiP/축소 영역 회피) ──
+  // ── HERO 영상 클릭 → 모달 + 자동 재생 (PiP 자세 3 중 차단 + fullscreen 진입은 controls 위탁) ──
   (function () {
     const card = document.getElementById('hero-video-card');
     const modalOverlay = document.getElementById('hero-video-modal-overlay');
     const modalPlayer = document.getElementById('hero-video-modal-player');
     const modalClose = document.getElementById('hero-video-modal-close');
+
     console.log('[hero-video] init', { card: !!card, modalOverlay: !!modalOverlay, modalPlayer: !!modalPlayer });
     if (!card || !modalOverlay || !modalPlayer) {
       console.warn('[hero-video] hook 부착 부재 — ref 결손');
       return;
     }
 
-    function openModal() {
-      console.log('[hero-video] card clicked → openModal');
+    // PiP 자세 차단 (속성 + property + MediaSession 3 중 안전망)
+    try {
+      modalPlayer.disablePictureInPicture = true;
+      if ('disableRemotePlayback' in modalPlayer) modalPlayer.disableRemotePlayback = true;
+    } catch (e) { /* 구형 브라우저 silent */ }
+    if ('mediaSession' in navigator) {
+      try { navigator.mediaSession.setActionHandler('enterpictureinpicture', null); } catch (e) {}
+    }
+
+    let isOpen = false;
+
+    function openVideoModal(ev) {
+      if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+      if (isOpen) return;
+      isOpen = true;
+      console.log('[hero-video] card clicked → openVideoModal');
       modalOverlay.classList.add('open');
-      modalPlayer.currentTime = 0;
-      // user gesture 한 cycle 안에서 직접 호출 — unmuted autoplay 시도
+      document.body.style.overflow = 'hidden';
+      try { modalPlayer.currentTime = 0; } catch (e) {}
       modalPlayer.muted = false;
       modalPlayer.volume = 1.0;
       const p = modalPlayer.play();
@@ -779,6 +799,7 @@
         p.catch(function (err) {
           console.warn('[hero-video] unmuted play 거부 → muted fallback', err);
           modalPlayer.muted = true;
+          modalPlayer.volume = 1.0;
           const p2 = modalPlayer.play();
           if (p2 && typeof p2.catch === 'function') {
             p2.catch(function (err2) { console.error('[hero-video] muted play 거부', err2); });
@@ -787,27 +808,37 @@
       }
     }
 
-    function closeModal() {
+    function closeVideoModal() {
+      if (!isOpen) return;
+      isOpen = false;
       modalOverlay.classList.remove('open');
-      modalPlayer.pause();
-      modalPlayer.currentTime = 0;
+      document.body.style.overflow = '';
+      try { modalPlayer.pause(); modalPlayer.currentTime = 0; } catch (e) {}
+      modalPlayer.muted = false;
+      modalPlayer.volume = 1.0;
     }
 
-    card.addEventListener('click', openModal);
+    card.addEventListener('click', openVideoModal);
     card.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        openModal();
+        openVideoModal();
       }
     });
 
-    if (modalClose) modalClose.addEventListener('click', closeModal);
+    if (modalClose) modalClose.addEventListener('click', function (e) { e.stopPropagation(); closeVideoModal(); });
     modalOverlay.addEventListener('click', function (e) {
-      if (e.target === modalOverlay) closeModal();
+      if (e.target === modalOverlay) closeVideoModal();
     });
-    modalPlayer.addEventListener('ended', closeModal);
+    modalPlayer.addEventListener('ended', closeVideoModal);
+    modalPlayer.addEventListener('enterpictureinpicture', function () {
+      console.warn('[hero-video] PiP 자세 진입 감지 → exit 호출');
+      if (document.exitPictureInPicture) {
+        document.exitPictureInPicture().catch(function () {});
+      }
+    });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && modalOverlay.classList.contains('open')) closeModal();
+      if (e.key === 'Escape' && isOpen) closeVideoModal();
     });
   })();
 </script>
