@@ -512,19 +512,29 @@ def _save_match_history(input_data: dict, pipeline_result):
                 technical_score = 0.5
 
             # --- quality_score ---
+            # 신규 가입 직후 업체는 리뷰가 누적되지 않아 avg_rating = NULL.
+            # 데이터 부재를 *중립 0.5* 로 처리하면 신규 업체가 매칭 상위에서 누락되어
+            # 온보딩 직후 첫 매칭 노출 영역이 차단된다. 신규 업체 fail-open 영역으로
+            # 평점 부재 = 1.0 (5/5 기본) 폴백 — 첫 리뷰 누적 전까지의 신규 업체 버닝 정책.
             avg_rating = cand.get("avg_rating") or cand.get("avg_rating_overall")
             if avg_rating is not None and avg_rating > 0:
                 quality_score = round(float(avg_rating) / 5.0, 3)
             else:
-                quality_score = 0.5
+                quality_score = 1.0
 
             # --- availability_score ---
+            # 신규 가입 직후 업체는 equipment_daily_schedule 시드가 부재하여
+            # _compute_availability_score 내부에서 0.5 폴백이 반환된다. 평점과 동일하게
+            # 데이터 부재 = 가용성 풀(가동률 널널 + 스케쥴 비어있음) 1.0 폴백으로 처리.
             if rfq_id:
                 availability_score, availability_info = _compute_availability_score(
                     conn, str(company_id), str(rfq_id),
                 )
+                # 시드 부재 영역의 0.5 폴백 → 1.0 보정 (신규 업체 fail-open)
+                if availability_score == 0.5 and availability_info.get("available_from") is None:
+                    availability_score = 1.0
             else:
-                availability_score = 0.5
+                availability_score = 1.0
                 availability_info = {
                     "available_from": None,
                     "available_days": None,
