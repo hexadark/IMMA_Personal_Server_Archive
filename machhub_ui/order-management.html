@@ -131,11 +131,8 @@
       overflow: hidden;
     }
     .photo-thumb i { font-size: 28px; color: rgba(255,255,255,0.2); }
-    .photo-date {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      background: rgba(0,0,0,0.5);
-      color: white; font-size: 12px;
-      padding: 4px 6px;
+    .pt-date {
+      display: none;
     }
     .photo-add {
       border: 2px dashed var(--border);
@@ -370,7 +367,7 @@
           <span class="info-key">다음 결제 예정일</span>
           <span class="info-val">2026-06-20</span>
         </div>
-        <button class="btn-primary w-full" style="justify-content:center;margin-top:16px;">결제하기</button>
+        <button class="btn-primary w-full" id="pay-btn" type="button" style="justify-content:center;margin-top:16px;">결제하기</button>
       </div>
     </div>
 

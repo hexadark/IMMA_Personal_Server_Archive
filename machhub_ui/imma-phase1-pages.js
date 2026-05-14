@@ -1120,6 +1120,14 @@
         window.imma.toast(err.message, 'error');
       }
     }
+
+    // 결제하기 버튼 hook — 데모 자세: 결제 완료 화면으로 직접 이동.
+    const payBtn = $('#pay-btn');
+    if (payBtn) {
+      payBtn.addEventListener('click', () => {
+        window.location.href = '/payment-success';
+      });
+    }
   }
 
   // ── 신호 토큰 분류 (Cortex §4.8 정합) ──

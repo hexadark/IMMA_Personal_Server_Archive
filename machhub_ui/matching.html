@@ -154,9 +154,9 @@
     .compare-table { margin-top: 16px; }
     .ct-row { display: flex; justify-content: space-between; font-size: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
     .ct-row:last-child { border-bottom: none; }
-    .ct-label { color: var(--text-muted); }
-    .ct-vals { display: flex; gap: 20px; }
-    .ct-val { font-weight: 600; color: #111; min-width: 60px; text-align: right; }
+    .ct-label { color: var(--text-muted); flex-shrink: 0; min-width: 70px; }
+    .ct-vals { display: flex; gap: 8px; flex: 1; min-width: 0; }
+    .ct-val { font-weight: 600; color: #111; flex: 1; min-width: 0; text-align: right; word-break: keep-all; overflow-wrap: break-word; font-size: 12px; }
 
     /* supplier 상세 보기 modal — imma-common.css 에 modal 영역 부재이므로 self-contained 정의.
        landing.html 의 imma-modal 패턴과 시각 정합. */
