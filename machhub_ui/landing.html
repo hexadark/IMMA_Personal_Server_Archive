@@ -7,68 +7,174 @@
   <link rel="stylesheet" href="/static/imma-common.css">
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
   <style>
-    /* ===== HERO ===== */
+    /* ===== HERO (split layout — 좌 40% 텍스트 / 우 60% 영상 카드) ===== */
     .hero {
       position: relative;
       min-height: calc(100vh - 76px);
+      background: #0a0a0a;
       display: flex;
       align-items: center;
       overflow: hidden;
-      background: #111;
+      padding: 60px 0;
     }
-    .hero-video {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      object-fit: cover;
-      z-index: 0;
-      opacity: 0.6;
-    }
-    .hero-overlay {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%);
-      z-index: 1;
-    }
-    .hero-content {
+    .hero-inner {
       position: relative;
-      z-index: 2;
       width: 100%;
       max-width: 1200px;
       margin: 0 auto;
       padding: 0 40px;
+      display: grid;
+      grid-template-columns: 40% 60%;
+      gap: 48px;
+      align-items: center;
+    }
+    .hero-left {
       display: flex;
       flex-direction: column;
       justify-content: center;
     }
     .hero-title {
-      font-size: 56px;
+      font-size: 48px;
       font-weight: 900;
-      line-height: 1.15;
-      letter-spacing:0;
+      line-height: 1.2;
+      letter-spacing: 0;
       color: white;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     .hero-title .highlight { color: var(--primary); }
     .hero-sub {
-      font-size: 19px;
+      font-size: 17px;
       color: rgba(255,255,255,0.7);
       line-height: 1.6;
-      margin-bottom: 48px;
+      margin-bottom: 36px;
     }
-    .hero-btns { display: flex; gap: 16px; margin-bottom: 48px; }
-    .hero-features {
-      display: flex;
-      gap: 24px;
-    }
+    .hero-btns { display: flex; gap: 12px; margin-bottom: 36px; flex-wrap: wrap; }
+    .hero-features { display: flex; gap: 20px; flex-wrap: wrap; }
     .hero-feat {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 14px;
+      font-size: 13px;
       color: rgba(255,255,255,0.9);
       font-weight: 500;
     }
-    .hero-feat i { color: var(--primary); font-size: 18px; }
+    .hero-feat i { color: var(--primary); font-size: 16px; }
+
+    /* 우측 영상 카드 */
+    .hero-right {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #1a1a1a;
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hero-right:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 24px 72px rgba(0,0,0,0.6);
+    }
+    .hero-right video {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .hero-right::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .hero-play-btn {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 88px; height: 88px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.96);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 2;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      transition: transform 0.2s, background 0.2s;
+      pointer-events: none;
+    }
+    .hero-play-btn i { font-size: 36px; color: #111; margin-left: 4px; }
+    .hero-right:hover .hero-play-btn {
+      transform: translate(-50%, -50%) scale(1.08);
+      background: white;
+    }
+    .hero-video-label {
+      position: absolute;
+      bottom: 16px; left: 16px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+    .hero-video-label i { font-size: 14px; }
+
+    /* hero 영상 fallback 모달 */
+    .hero-video-modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+    }
+    .hero-video-modal-overlay.open { display: flex; }
+    .hero-video-modal {
+      position: relative;
+      width: 90%;
+      max-width: 1200px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .hero-video-modal video {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #000;
+    }
+    .hero-video-modal-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      z-index: 10;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .hero-video-modal-close:hover { background: rgba(0,0,0,0.9); }
+
+    /* 좁은 화면 — 단열 stack */
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 32px; }
+      .hero-title { font-size: 36px; }
+      .hero-right { max-width: 640px; margin: 0 auto; }
+    }
 
     /* ===== HOW IT WORKS ===== */
     .how-section {
@@ -282,22 +388,35 @@
 
 <!-- HERO -->
 <section class="hero" id="home">
-  <video class="hero-video" src="/static/imma_intro_proto_c.mp4" autoplay loop muted playsinline></video>
-  <div class="hero-overlay"></div>
-  <div class="hero-content">
-    <h1 class="hero-title">도면 한 장으로,<br>정확한 가공 견적을,<br><span class="highlight">빠르게 매칭</span>하세요</h1>
-    <p class="hero-sub">지능형 분석과 전국 가공 네트워크로<br>정확한 견적과 빠른 납기를 보장합니다.</p>
-    <div class="hero-btns">
-      <a href="#quick-quote" class="btn-primary btn-lg"><i class="ri-file-text-line"></i> 견적 요청하기</a>
-      <a href="/search-suppliers" class="btn-outline btn-lg" style="color:white; border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.1);"><i class="ri-search-line"></i> 업체 찾기 &gt;</a>
+  <div class="hero-inner">
+    <div class="hero-left">
+      <h1 class="hero-title">도면 한 장으로,<br>정확한 가공 견적을,<br><span class="highlight">빠르게 매칭</span>하세요</h1>
+      <p class="hero-sub">지능형 분석과 전국 가공 네트워크로<br>정확한 견적과 빠른 납기를 보장합니다.</p>
+      <div class="hero-btns">
+        <a href="#quick-quote" class="btn-primary btn-lg"><i class="ri-file-text-line"></i> 견적 요청하기</a>
+        <a href="/search-suppliers" class="btn-outline btn-lg" style="color:white; border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.1);"><i class="ri-search-line"></i> 업체 찾기 &gt;</a>
+      </div>
+      <div class="hero-features">
+        <div class="hero-feat"><i class="ri-time-line"></i> 도면 업로드 30초</div>
+        <div class="hero-feat"><i class="ri-price-tag-3-line"></i> 무료 견적 비교</div>
+        <div class="hero-feat"><i class="ri-shield-check-line"></i> 검증된 가공업체</div>
+      </div>
     </div>
-    <div class="hero-features">
-      <div class="hero-feat"><i class="ri-time-line"></i> 도면 업로드 30초</div>
-      <div class="hero-feat"><i class="ri-price-tag-3-line"></i> 무료 견적 비교</div>
-      <div class="hero-feat"><i class="ri-shield-check-line"></i> 검증된 가공업체</div>
+    <div class="hero-right" id="hero-video-card" role="button" tabindex="0" aria-label="제품 소개 영상 재생">
+      <video id="hero-video-player" src="/static/imma_intro_proto_c.mp4#t=0.1" preload="metadata" muted playsinline></video>
+      <div class="hero-play-btn"><i class="ri-play-fill"></i></div>
+      <div class="hero-video-label"><i class="ri-film-line"></i> 2 분 데모</div>
     </div>
   </div>
 </section>
+
+<!-- HERO 영상 fallback 모달 (fullscreen API 미지원·거부 시) -->
+<div class="hero-video-modal-overlay" id="hero-video-modal-overlay">
+  <div class="hero-video-modal">
+    <button type="button" class="hero-video-modal-close" id="hero-video-modal-close" aria-label="닫기"><i class="ri-close-line"></i></button>
+    <video id="hero-video-modal-player" src="/static/imma_intro_proto_c.mp4" controls preload="metadata" playsinline></video>
+  </div>
+</div>
 
 <!-- STATS SECTION (Dark Theme from Proposal) -->
 <section class="stats-section" style="background:#111; padding:60px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
@@ -633,6 +752,99 @@
       event.target.style.display = 'none';
     }
   }
+
+  // ── HERO 영상 클릭 → fullscreen API + fallback 모달 ──
+  (function () {
+    const card = document.getElementById('hero-video-card');
+    const player = document.getElementById('hero-video-player');
+    const modalOverlay = document.getElementById('hero-video-modal-overlay');
+    const modalPlayer = document.getElementById('hero-video-modal-player');
+    const modalClose = document.getElementById('hero-video-modal-close');
+    if (!card || !player) return;
+
+    function openModalFallback() {
+      if (!modalOverlay || !modalPlayer) return;
+      modalOverlay.classList.add('open');
+      modalPlayer.currentTime = 0;
+      modalPlayer.muted = false;
+      modalPlayer.play().catch(function () {});
+    }
+
+    function closeModal() {
+      if (!modalOverlay || !modalPlayer) return;
+      modalOverlay.classList.remove('open');
+      modalPlayer.pause();
+      modalPlayer.currentTime = 0;
+    }
+
+    function activateVideo() {
+      player.muted = false;
+      player.currentTime = 0;
+      const playPromise = player.play();
+      if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(function () {});
+
+      // fullscreen API 우선 시도. 거부/미지원 시 모달 fallback.
+      const requestFs = player.requestFullscreen
+        || player.webkitRequestFullscreen
+        || player.webkitEnterFullscreen
+        || player.mozRequestFullScreen
+        || player.msRequestFullscreen;
+      if (requestFs) {
+        const result = requestFs.call(player);
+        if (result && typeof result.catch === 'function') {
+          result.catch(function () { openModalFallback(); });
+        }
+      } else {
+        openModalFallback();
+      }
+    }
+
+    card.addEventListener('click', activateVideo);
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateVideo();
+      }
+    });
+
+    // fullscreen 종료 시 첫 프레임 + 음소거 복귀
+    document.addEventListener('fullscreenchange', function () {
+      if (!document.fullscreenElement) {
+        player.pause();
+        player.currentTime = 0;
+        player.muted = true;
+      }
+    });
+    document.addEventListener('webkitfullscreenchange', function () {
+      if (!document.webkitFullscreenElement) {
+        player.pause();
+        player.currentTime = 0;
+        player.muted = true;
+      }
+    });
+
+    // 영상 끝 시 첫 프레임 복귀
+    player.addEventListener('ended', function () {
+      player.currentTime = 0;
+      player.muted = true;
+    });
+    if (modalPlayer) {
+      modalPlayer.addEventListener('ended', closeModal);
+    }
+
+    // 모달 닫기 hook (× / 바깥 / ESC)
+    if (modalClose) modalClose.addEventListener('click', closeModal);
+    if (modalOverlay) {
+      modalOverlay.addEventListener('click', function (e) {
+        if (e.target === modalOverlay) closeModal();
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('open')) {
+        closeModal();
+      }
+    });
+  })();
 </script>
 <script src="/static/imma-phase1-pages.js"></script>
 </body>
