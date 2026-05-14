@@ -315,8 +315,8 @@
         } catch (profileErr) {
           console.warn('profile 보강 실패', profileErr);
         }
-        window.imma.toast('가입되었습니다.', 'success');
-        window.location.href = '/supplier';
+        window.imma.toast('가입되었습니다. 온보딩을 이어서 진행해주세요.', 'success');
+        window.location.href = '/supplier-settings#onboarding';
       } catch (err) {
         window.imma.toast(err.message, 'error');
       } finally {
@@ -1108,34 +1108,398 @@
     }
   }
 
+  // 장비 카테고리 → 추정 재질 카테고리 자동 추천 매핑.
+  // 시연용 정적 dict — equipment_category_catalog 의 카테고리 코드를 기준으로 작성한다.
+  const EQUIPMENT_TO_MATERIAL_HINT = {
+    cnc_lathe:                ['carbon_steel', 'alloy_steel', 'stainless_steel', 'aluminum_alloy', 'copper_alloy', 'free_cutting_steel', 'tool_steel'],
+    general_lathe:            ['carbon_steel', 'alloy_steel', 'stainless_steel', 'aluminum_alloy', 'copper_alloy', 'free_cutting_steel'],
+    machining_center_3axis:   ['carbon_steel', 'alloy_steel', 'stainless_steel', 'aluminum_alloy', 'copper_alloy', 'tool_steel'],
+    machining_center_5axis:   ['carbon_steel', 'alloy_steel', 'stainless_steel', 'aluminum_alloy', 'copper_alloy', 'tool_steel'],
+    mill_turn:                ['carbon_steel', 'alloy_steel', 'stainless_steel', 'aluminum_alloy', 'copper_alloy', 'tool_steel'],
+    drilling_machine:         ['carbon_steel', 'alloy_steel', 'stainless_steel', 'aluminum_alloy'],
+    boring_machine:           ['carbon_steel', 'alloy_steel', 'stainless_steel', 'gray_cast_iron', 'ductile_cast_iron'],
+    cnc_router:               ['aluminum_alloy', 'engineering_plastic', 'composite_insulation'],
+    surface_grinder:          ['carbon_steel', 'alloy_steel', 'stainless_steel', 'tool_steel'],
+    cylindrical_grinder:      ['carbon_steel', 'alloy_steel', 'stainless_steel', 'tool_steel'],
+    internal_grinder:         ['carbon_steel', 'alloy_steel', 'stainless_steel', 'tool_steel'],
+    edm_sinker:               ['tool_steel', 'alloy_steel', 'carbon_steel', 'stainless_steel'],
+    edm_wire:                 ['tool_steel', 'alloy_steel', 'carbon_steel', 'stainless_steel'],
+    hobbing_machine:          ['carbon_steel', 'alloy_steel', 'stainless_steel'],
+    heat_treatment_furnace:   ['carbon_steel', 'alloy_steel', 'stainless_steel', 'tool_steel'],
+    welding_equipment:        ['carbon_steel', 'stainless_steel', 'alloy_steel', 'aluminum_alloy'],
+    laser_cutting_machine:    ['carbon_steel', 'stainless_steel', 'aluminum_alloy', 'sheet_steel'],
+    plasma_cutting_machine:   ['carbon_steel', 'stainless_steel', 'aluminum_alloy', 'sheet_steel'],
+    waterjet_cutting_machine: ['carbon_steel', 'stainless_steel', 'aluminum_alloy', 'sheet_steel', 'composite_insulation', 'tool_steel'],
+    press_brake:              ['carbon_steel', 'stainless_steel', 'aluminum_alloy', 'sheet_steel'],
+    press_machine:            ['carbon_steel', 'stainless_steel', 'aluminum_alloy', 'sheet_steel'],
+    casting_foundry:          ['gray_cast_iron', 'ductile_cast_iron', 'cast_steel', 'stainless_cast_steel', 'aluminum_alloy', 'copper_alloy'],
+  };
+
+  function onboardingProgressText(detail) {
+    return `장비 ${detail.equipmentCount} / 재질 ${detail.materialCount} / BRN ${detail.hasBrn ? '입력됨' : '부재'} / region ${detail.hasRegion ? '입력됨' : '부재'}`;
+  }
+
+  function applyOnboardingStatus(detail) {
+    const badge = $('#onboarding-status-badge');
+    const bannerBadge = $('#onboarding-banner-badge');
+    const banner = $('#onboarding-banner');
+    const progress = $('#onboarding-progress');
+    const status = detail.status || 'draft';
+    if (badge) { badge.textContent = status; badge.dataset.status = status; }
+    if (bannerBadge) { bannerBadge.textContent = status; bannerBadge.dataset.status = status; }
+    if (banner) banner.classList.toggle('is-verified', status === 'verified');
+    if (progress) progress.textContent = onboardingProgressText(detail);
+  }
+
+  function renderEquipmentList(equipment) {
+    const list = $('#equipment-list');
+    if (!list) return;
+    if (!equipment || equipment.length === 0) {
+      list.innerHTML = '<div class="equipment-empty">등록된 장비가 없습니다. 아래에서 첫 장비를 추가해주세요.</div>';
+      return;
+    }
+    list.innerHTML = equipment.map(eq => {
+      const meta = [eq.equipment_category_code, eq.manufacturer, eq.model_name]
+        .filter(Boolean).join(' · ');
+      return `<div class="equipment-row">
+        <div>
+          <div class="eq-name">${h(eq.display_name || '(이름 없음)')}</div>
+          <div class="eq-meta">${h(meta || '카탈로그 정보 없음')}</div>
+        </div>
+        <span class="mw-badge ${eq.status === 'running' ? 'green' : 'yellow'}">${h(eq.status || '-')}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderMaterialChips(categories, selectedCodes) {
+    const wrap = $('#material-categories');
+    if (!wrap) return;
+    const selectedSet = new Set(selectedCodes || []);
+    wrap.innerHTML = categories.map(c => {
+      const isSel = selectedSet.has(c.category_code);
+      return `<button type="button" class="ob-chip${isSel ? ' selected' : ''}" data-code="${h(c.category_code)}">${h(c.category_name_ko)}</button>`;
+    }).join('');
+    $$('.ob-chip', wrap).forEach(chip => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('selected');
+        delete chip.dataset.autoSelected;
+      });
+    });
+  }
+
+  function renderProcessChips(processes, lockedSet) {
+    const wrap = $('#process-list');
+    if (!wrap) return;
+    wrap.innerHTML = processes.map(p => {
+      const locked = lockedSet.has(p.process_code);
+      const label = `${p.process_name_ko || p.process_code}${locked ? ' ✓' : ''}`;
+      return `<button type="button" class="ob-chip${locked ? ' is-locked' : ''}" data-code="${h(p.process_code)}" ${locked ? 'disabled' : ''}>${h(label)}</button>`;
+    }).join('');
+    $$('.ob-chip', wrap).forEach(chip => {
+      if (chip.classList.contains('is-locked')) return;
+      chip.addEventListener('click', () => chip.classList.toggle('selected'));
+    });
+  }
+
+  function computeMaterialCount(materialsArr) {
+    // company_material_capabilities 는 specific_material + material_category 양쪽 영역.
+    // _check_onboarding 은 count(*) > 0 검사이므로 어떤 scope_type 이든 1 행 이상이면 충족.
+    return (materialsArr || []).length;
+  }
+
+  function computeOnboardingDetail(companyDetail) {
+    const site = companyDetail.site || {};
+    return {
+      status: companyDetail.onboarding_status || 'draft',
+      equipmentCount: (companyDetail.equipment || []).length,
+      materialCount: computeMaterialCount(companyDetail.materials),
+      hasBrn: Boolean(companyDetail.business_registration_no),
+      hasRegion: Boolean(site.region),
+    };
+  }
+
   async function initSupplierSettings() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
     bindLogout();
     text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
-    const inputs = $$('#capability .mw-input');
-    if (inputs[0] && user.company_name) inputs[0].value = user.company_name;
-    if (inputs[1] && (user.name || user.contact_name)) inputs[1].value = user.name || user.contact_name;
-    if (inputs[2] && user.phone) inputs[2].value = user.phone;
-    if (inputs[3] && user.email) inputs[3].value = user.email;
-    const saveBtn = $('.mw-top .btn-primary');
-    if (saveBtn && saveBtn.dataset.immaHooked !== 'true') {
-      saveBtn.dataset.immaHooked = 'true';
-      saveBtn.addEventListener('click', async () => {
-        window.imma.setLoading(saveBtn, true, '저장 중...');
+
+    // 기본 회사 정보 채움
+    const basicName = $('#basic-company-name');
+    const basicContact = $('#basic-contact-name');
+    const basicPhone = $('#basic-phone');
+    const basicEmail = $('#basic-email');
+    if (basicName) basicName.value = user.company_name || '';
+    if (basicContact) basicContact.value = user.contact_name || user.name || '';
+    if (basicPhone) basicPhone.value = user.phone || '';
+    if (basicEmail) basicEmail.value = user.email || '';
+
+    // 캐시: 카탈로그 + 현재 상태
+    let materialCategories = [];
+    let processCatalog = [];
+    let companyDetail = null;
+    // 자동 매핑된 공정 코드 (장비 등록 시 자동 생성) — 비활성 처리 대상
+    const autoLockedProcesses = new Set();
+
+    async function refreshCompany() {
+      try {
+        companyDetail = await window.imma.apiJson(`/api/company/${encodeURIComponent(user.id)}`);
+      } catch (err) {
+        window.imma.toast(`업체 정보 불러오기 실패: ${err.message}`, 'error');
+        return;
+      }
+      renderEquipmentList(companyDetail.equipment || []);
+      const selectedCats = (companyDetail.materials || [])
+        .filter(m => m.scope_type === 'material_category' && m.material_category_code)
+        .map(m => m.material_category_code);
+      renderMaterialChips(materialCategories, selectedCats);
+
+      // 현재 등록된 공정 — auto_generated 영역 추정: equipment_process_capabilities 와 일치하는 공정
+      (companyDetail.processes || []).forEach(p => autoLockedProcesses.add(p.process_code));
+      renderProcessChips(processCatalog, autoLockedProcesses);
+      const procHint = $('#process-current-hint');
+      if (procHint) {
+        const procCount = (companyDetail.processes || []).length;
+        procHint.textContent = procCount > 0
+          ? `현재 ${procCount}개 공정이 등록되어 있습니다 (장비 자동 매핑 + 추가 등록 합산). ✓ 표시는 이미 등록되어 비활성화된 공정입니다.`
+          : '아직 등록된 공정이 없습니다. 장비를 등록하면 공정이 자동 추가되며, 외주/수작업 공정만 여기서 추가합니다.';
+      }
+
+      // 사업자 정보 채움
+      const brn = $('#brn');
+      const region = $('#region');
+      const city = $('#city');
+      const address = $('#address');
+      const rep = $('#representative-name');
+      const postal = $('#postal-code');
+      const site = companyDetail.site || {};
+      if (brn) brn.value = companyDetail.business_registration_no || '';
+      if (region) region.value = site.region || '';
+      if (city) city.value = site.city || '';
+      if (address) address.value = site.address_line1 || '';
+      if (rep) rep.value = companyDetail.representative_name || '';
+      if (postal) postal.value = site.postal_code || '';
+
+      // 기본 회사 정보 보강 — /api/me 응답에 phone/email 부재이므로 /api/company/{id} 응답으로 채움
+      const primaryContact = (companyDetail.contacts || []).find(c => c.is_primary) || (companyDetail.contacts || [])[0];
+      if (basicPhone && !basicPhone.value) basicPhone.value = companyDetail.main_phone || (primaryContact && primaryContact.phone) || '';
+      if (basicEmail && !basicEmail.value) basicEmail.value = companyDetail.main_email || (primaryContact && primaryContact.email) || '';
+      if (basicContact && !basicContact.value && primaryContact) basicContact.value = primaryContact.contact_name || '';
+
+      applyOnboardingStatus(computeOnboardingDetail(companyDetail));
+    }
+
+    // 카탈로그 6 종 fetch (선택지 API). 인증 불필요이나 토큰 있어도 무방.
+    try {
+      const [equipCats, matCats, procs] = await Promise.all([
+        window.imma.apiJson('/api/equipment-categories'),
+        window.imma.apiJson('/api/material-categories'),
+        window.imma.apiJson('/api/processes'),
+      ]);
+      const equipSelect = $('#equip-category');
+      if (equipSelect) {
+        equipCats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.equipment_category_code;
+          opt.textContent = c.category_name_ko;
+          equipSelect.appendChild(opt);
+        });
+      }
+      // material/process catalog 캐시
+      materialCategories = matCats.filter(c => c.category_code !== 'other');
+      processCatalog = procs;
+    } catch (err) {
+      window.imma.toast(`카탈로그 로드 실패: ${err.message}`, 'error');
+    }
+
+    await refreshCompany();
+
+    // URL hash #onboarding 스크롤
+    if (window.location.hash === '#onboarding') {
+      const target = $('#onboarding');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // 장비 카테고리 변경 → 모델 fetch
+    const equipCategorySel = $('#equip-category');
+    const equipModelSel = $('#equip-model');
+    if (equipCategorySel && equipModelSel) {
+      equipCategorySel.addEventListener('change', async () => {
+        equipModelSel.innerHTML = '<option value="">모델 (선택)</option>';
+        const cat = equipCategorySel.value;
+        if (!cat) return;
         try {
-          await window.imma.apiJson('/api/company/profile', { method: 'PUT', body: {
-            company_id: user.id,
-            company_name: inputs[0] ? inputs[0].value : user.company_name,
-            main_phone: inputs[2] ? inputs[2].value : null,
-            main_email: inputs[3] ? inputs[3].value : null,
-            address: inputs[4] ? inputs[4].value : null,
-          }});
-          window.imma.toast('저장되었습니다.', 'success');
+          const models = await window.imma.apiJson(`/api/equipment-models?category=${encodeURIComponent(cat)}`);
+          models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.model_id;
+            opt.textContent = `${m.manufacturer || ''} ${m.model_name || ''}`.trim() || m.model_id;
+            equipModelSel.appendChild(opt);
+          });
+        } catch (err) {
+          window.imma.toast(`모델 목록 로드 실패: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    // 장비 추가 버튼
+    const equipAddBtn = $('#equip-add-btn');
+    if (equipAddBtn && equipAddBtn.dataset.immaHooked !== 'true') {
+      equipAddBtn.dataset.immaHooked = 'true';
+      equipAddBtn.addEventListener('click', async () => {
+        const categoryCode = equipCategorySel ? equipCategorySel.value : '';
+        const modelId = equipModelSel ? equipModelSel.value : '';
+        const displayName = ($('#equip-display-name') || {}).value || '';
+        if (!categoryCode || !displayName.trim()) {
+          window.imma.toast('장비 카테고리와 명칭은 필수입니다.', 'warning');
+          return;
+        }
+        window.imma.setLoading(equipAddBtn, true, '등록 중...');
+        try {
+          const result = await window.imma.apiJson('/api/equipment', {
+            method: 'POST',
+            body: {
+              company_id: user.id,
+              equipment_category_code: categoryCode,
+              model_id: modelId || null,
+              display_name: displayName.trim(),
+            },
+          });
+          // 자동 매핑된 공정 코드를 잠금 set 에 추가
+          (result.auto_generated_processes || []).forEach(pc => autoLockedProcesses.add(pc));
+          // 추정 재질 자동 체크 발동
+          const hints = EQUIPMENT_TO_MATERIAL_HINT[categoryCode] || [];
+          let hintAdded = 0;
+          hints.forEach(code => {
+            const chip = $(`#material-categories .ob-chip[data-code="${code}"]`);
+            if (chip && !chip.classList.contains('selected')) {
+              chip.classList.add('selected');
+              chip.dataset.autoSelected = 'true';
+              hintAdded += 1;
+            }
+          });
+          const procCount = (result.auto_generated_processes || []).length;
+          const msgParts = [`장비 등록됨`];
+          if (procCount > 0) msgParts.push(`공정 ${procCount}종 자동 매핑`);
+          if (hintAdded > 0) msgParts.push(`추정 재질 ${hintAdded}종 자동 추천`);
+          window.imma.toast(msgParts.join(' · '), 'success');
+          // 입력 초기화
+          if (equipModelSel) equipModelSel.innerHTML = '<option value="">모델 (선택)</option>';
+          if (equipCategorySel) equipCategorySel.value = '';
+          const dnEl = $('#equip-display-name');
+          if (dnEl) dnEl.value = '';
+          await refreshCompany();
         } catch (err) {
           window.imma.toast(err.message, 'error');
         } finally {
-          window.imma.setLoading(saveBtn, false);
+          window.imma.setLoading(equipAddBtn, false);
+        }
+      });
+    }
+
+    // 재질 저장 버튼
+    const materialSaveBtn = $('#material-save-btn');
+    if (materialSaveBtn && materialSaveBtn.dataset.immaHooked !== 'true') {
+      materialSaveBtn.dataset.immaHooked = 'true';
+      materialSaveBtn.addEventListener('click', async () => {
+        const selectedCodes = $$('#material-categories .ob-chip.selected').map(c => c.dataset.code);
+        if (selectedCodes.length === 0) {
+          window.imma.toast('재질 카테고리를 1개 이상 선택해주세요.', 'warning');
+          return;
+        }
+        window.imma.setLoading(materialSaveBtn, true, '저장 중...');
+        try {
+          const result = await window.imma.apiJson('/api/material-capability', {
+            method: 'POST',
+            body: { company_id: user.id, categories: selectedCodes },
+          });
+          window.imma.toast(`재질 ${selectedCodes.length}종 저장 완료 (status: ${result.onboarding_status})`, 'success');
+          await refreshCompany();
+          if (result.onboarding_status === 'verified') {
+            window.imma.toast('온보딩 완료 — 매칭 노출이 가능합니다.', 'success');
+          }
+        } catch (err) {
+          window.imma.toast(err.message, 'error');
+        } finally {
+          window.imma.setLoading(materialSaveBtn, false);
+        }
+      });
+    }
+
+    // 추가 공정 저장 버튼
+    const processSaveBtn = $('#process-save-btn');
+    if (processSaveBtn && processSaveBtn.dataset.immaHooked !== 'true') {
+      processSaveBtn.dataset.immaHooked = 'true';
+      processSaveBtn.addEventListener('click', async () => {
+        const selected = $$('#process-list .ob-chip.selected:not(.is-locked)').map(c => c.dataset.code);
+        if (selected.length === 0) {
+          window.imma.toast('추가할 공정을 1개 이상 선택해주세요.', 'warning');
+          return;
+        }
+        const serviceMode = ($('#process-service-mode') || {}).value || 'in_house';
+        window.imma.setLoading(processSaveBtn, true, '등록 중...');
+        try {
+          const result = await window.imma.apiJson('/api/process-capability', {
+            method: 'POST',
+            body: {
+              company_id: user.id,
+              processes: selected.map(pc => ({ process_code: pc, service_mode: serviceMode })),
+            },
+          });
+          window.imma.toast(`공정 ${selected.length}종 추가 (status: ${result.onboarding_status})`, 'success');
+          await refreshCompany();
+        } catch (err) {
+          window.imma.toast(err.message, 'error');
+        } finally {
+          window.imma.setLoading(processSaveBtn, false);
+        }
+      });
+    }
+
+    // 사업자 정보 저장 버튼
+    const businessSaveBtn = $('#business-save-btn');
+    if (businessSaveBtn && businessSaveBtn.dataset.immaHooked !== 'true') {
+      businessSaveBtn.dataset.immaHooked = 'true';
+      businessSaveBtn.addEventListener('click', async () => {
+        const brnVal = ($('#brn') || {}).value || '';
+        const regionVal = ($('#region') || {}).value || '';
+        const cityVal = ($('#city') || {}).value || '';
+        const addressVal = ($('#address') || {}).value || '';
+        const repVal = ($('#representative-name') || {}).value || '';
+        const postalVal = ($('#postal-code') || {}).value || '';
+        const basicContactVal = ($('#basic-contact-name') || {}).value || '';
+        const basicPhoneVal = ($('#basic-phone') || {}).value || '';
+        const basicEmailVal = ($('#basic-email') || {}).value || '';
+
+        const payload = { company_id: user.id };
+        if (brnVal.trim()) payload.business_registration_no = brnVal.trim();
+        if (regionVal) payload.region = regionVal;
+        if (cityVal.trim()) payload.city = cityVal.trim();
+        if (addressVal.trim()) payload.address = addressVal.trim();
+        if (repVal.trim()) payload.representative_name = repVal.trim();
+        if (postalVal.trim()) payload.postal_code = postalVal.trim();
+        if (basicPhoneVal.trim()) payload.main_phone = basicPhoneVal.trim();
+        // 담당자 contact 영역 (UPSERT) — 가입 시 입력한 담당자 이름을 primary contact 로 사용
+        if (basicContactVal.trim()) {
+          payload.contact_name = basicContactVal.trim();
+          payload.role_title = '대표 담당자';
+          payload.contact_phone = basicPhoneVal.trim() || null;
+          payload.contact_email = basicEmailVal.trim() || null;
+        }
+
+        window.imma.setLoading(businessSaveBtn, true, '저장 중...');
+        try {
+          const result = await window.imma.apiJson('/api/company/profile', { method: 'PUT', body: payload });
+          await refreshCompany();
+          if (result.onboarding_status === 'verified') {
+            window.imma.toast('온보딩 완료 — 매칭 노출이 가능합니다.', 'success');
+          } else {
+            window.imma.toast(`저장됨 (status: ${result.onboarding_status})`, 'success');
+          }
+        } catch (err) {
+          window.imma.toast(err.message, 'error');
+        } finally {
+          window.imma.setLoading(businessSaveBtn, false);
         }
       });
     }

@@ -21,6 +21,95 @@
     .toggle input:checked + span::after { transform: translateX(20px); }
     @media (max-width: 1100px) { .settings-layout { grid-template-columns: 1fr; } }
     @media (max-width: 760px) { .setting-section { grid-template-columns: 1fr; } }
+
+    /* 온보딩 4 카드 영역 */
+    .onboarding-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 14px 18px; border-radius: 10px;
+      background: linear-gradient(135deg, rgba(255,209,0,0.18), rgba(255,209,0,0.05));
+      border: 1px solid rgba(255,209,0,0.45);
+      margin-bottom: 18px;
+    }
+    .onboarding-banner.is-verified {
+      background: linear-gradient(135deg, rgba(16,185,129,0.16), rgba(16,185,129,0.04));
+      border-color: rgba(16,185,129,0.45);
+    }
+    .onboarding-banner .ob-title { font-weight: 800; color: #111; font-size: 15px; }
+    .onboarding-banner .ob-progress { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .onboarding-status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+      background: #e2e8f0; color: #475569;
+    }
+    .onboarding-status-badge[data-status="submitted"] { background: rgba(245,158,11,0.18); color: #b45309; }
+    .onboarding-status-badge[data-status="verified"]  { background: rgba(16,185,129,0.18); color: #047857; }
+    .onboarding-status-badge[data-status="rejected"]  { background: rgba(239,68,68,0.18);  color: #b91c1c; }
+
+    .onboarding-card { margin-bottom: 16px; }
+    .onboarding-card .mw-card-title .ob-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #111; color: var(--primary); font-size: 12px; font-weight: 800;
+      margin-right: 8px;
+    }
+    .onboarding-card .ob-optional {
+      font-size: 11px; color: var(--text-muted); font-weight: 600;
+      margin-left: 6px;
+    }
+    .onboarding-card .ob-hint {
+      font-size: 12px; color: var(--text-muted); margin: 6px 0 14px;
+    }
+
+    /* 장비 카드 */
+    .equipment-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    .equipment-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+      background: #fbfcff; font-size: 13px;
+    }
+    .equipment-row .eq-name { font-weight: 700; color: #111; }
+    .equipment-row .eq-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .equipment-empty {
+      padding: 14px; border: 1px dashed var(--border); border-radius: 8px;
+      text-align: center; font-size: 13px; color: var(--text-muted);
+    }
+    .equipment-add-form {
+      display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px;
+      padding: 12px; background: #f8fafc; border-radius: 8px;
+    }
+    .equipment-add-form select, .equipment-add-form input {
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 13px; background: #fff; font-family: inherit; color: var(--text-main);
+    }
+    @media (max-width: 900px) { .equipment-add-form { grid-template-columns: 1fr; } }
+
+    /* chip 공통 */
+    .ob-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .ob-chip {
+      padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px;
+      font-size: 12px; font-weight: 600; color: var(--text-muted);
+      background: #fff; cursor: pointer; user-select: none; transition: all 0.15s;
+    }
+    .ob-chip:hover { border-color: var(--primary-accent); }
+    .ob-chip.selected {
+      background: var(--primary); border-color: var(--primary-dark); color: #111;
+    }
+    .ob-chip[data-auto-selected="true"]::after {
+      content: " (자동)"; font-size: 10px; font-weight: 500; opacity: 0.7;
+    }
+    .ob-chip.is-locked {
+      background: #e2e8f0; color: #94a3b8; cursor: not-allowed; opacity: 0.7;
+    }
+
+    /* 사업자 정보 카드 */
+    .business-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .business-form .biz-full { grid-column: 1 / -1; }
+    .business-form input, .business-form select {
+      padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; background: #fff; font-family: inherit; color: var(--text-main); width: 100%;
+    }
+    @media (max-width: 760px) { .business-form { grid-template-columns: 1fr; } }
   </style>
 <script>window.__imma_realmode__ = true;</script>
 <script src="/static/imma-ui-utils.js"></script>
@@ -81,68 +170,124 @@
         </div>
 
         <div class="settings-layout">
-          <section class="mw-stack">
+          <section class="mw-stack" id="onboarding">
             <article class="mw-card" id="capability">
               <div class="mw-card-head">
                 <div>
-                  <div class="mw-card-title"><i class="ri-building-2-line"></i> 기본 회사 정보</div>
-                  <div class="mw-card-sub">업체 가입 시 입력한 담당자, 사업장, 사업자등록 정보를 관리합니다.</div>
+                  <div class="mw-card-title"><i class="ri-building-2-line"></i> 업체 기본 정보</div>
+                  <div class="mw-card-sub">가입 시 입력한 회사명·담당자·연락처 정보입니다. 사업자 정보는 아래 ④번 카드에서 입력합니다.</div>
                 </div>
-                <span class="mw-badge green">인증 완료</span>
+                <span class="onboarding-status-badge" id="onboarding-status-badge" data-status="draft">draft</span>
               </div>
               <div class="setting-section">
                 <div class="mw-field">
                   <label>회사명</label>
-                  <input class="mw-input" value="(주)서진정밀">
+                  <input class="mw-input" id="basic-company-name">
                 </div>
                 <div class="mw-field">
                   <label>담당자</label>
-                  <input class="mw-input" value="김한빛">
+                  <input class="mw-input" id="basic-contact-name">
                 </div>
                 <div class="mw-field">
                   <label>연락처</label>
-                  <input class="mw-input" value="010-4321-8765">
+                  <input class="mw-input" id="basic-phone">
                 </div>
                 <div class="mw-field">
                   <label>이메일</label>
-                  <input class="mw-input" value="contact@seojin-mfg.co.kr">
-                </div>
-                <div class="mw-field setting-full">
-                  <label>사무실 주소</label>
-                  <input class="mw-input" value="경기 시흥시 공단2대로 120">
+                  <input class="mw-input" id="basic-email">
                 </div>
               </div>
             </article>
 
-            <article class="mw-card">
+            <div class="onboarding-banner" id="onboarding-banner">
+              <div>
+                <div class="ob-title">업체 온보딩 진행 상황</div>
+                <div class="ob-progress" id="onboarding-progress">장비 0 / 재질 0 / BRN 부재 / region 부재</div>
+              </div>
+              <span class="onboarding-status-badge" data-status="draft" id="onboarding-banner-badge">draft</span>
+            </div>
+
+            <article class="mw-card onboarding-card" id="card-equipment">
               <div class="mw-card-head">
                 <div>
-                  <div class="mw-card-title"><i class="ri-tools-line"></i> 작업 역량 및 매칭 조건</div>
-                  <div class="mw-card-sub">오더리스트 수락 가능 여부를 판단할 때 관리자 매칭 기준으로 사용됩니다.</div>
+                  <div class="mw-card-title"><span class="ob-num">1</span>보유 장비 등록</div>
+                  <div class="mw-card-sub">장비 카테고리와 모델을 등록하면 공정 역량이 자동 생성되어 매칭 후보가 됩니다.</div>
                 </div>
-                <span class="mw-badge blue">매칭 반영</span>
               </div>
-              <div class="setting-section">
-                <div class="mw-field">
-                  <label>주요 재질</label>
-                  <input class="mw-input" value="AL6061, SUS304, S45C, SS400">
+              <div class="equipment-list" id="equipment-list">
+                <div class="equipment-empty">등록된 장비가 없습니다. 아래에서 첫 장비를 추가해주세요.</div>
+              </div>
+              <div class="equipment-add-form">
+                <select id="equip-category">
+                  <option value="">장비 카테고리 선택</option>
+                </select>
+                <select id="equip-model">
+                  <option value="">모델 (선택)</option>
+                </select>
+                <input id="equip-display-name" placeholder="장비 명칭 (예: CNC선반 1호기)">
+                <button type="button" class="btn-primary" id="equip-add-btn" style="padding:10px 18px; white-space:nowrap;">장비 추가</button>
+              </div>
+            </article>
+
+            <article class="mw-card onboarding-card" id="card-material">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><span class="ob-num">2</span>처리 가능 재질</div>
+                  <div class="mw-card-sub">장비 등록 시 추정 재질이 자동 선택되며, 필요한 항목을 추가·해제하여 보강할 수 있습니다.</div>
                 </div>
-                <div class="mw-field">
-                  <label>제공 가공 서비스</label>
-                  <input class="mw-input" value="CNC 밀링, 선반, 후처리, 조립">
+              </div>
+              <div class="ob-chip-grid" id="material-categories"></div>
+              <div style="display:flex; justify-content:flex-end;">
+                <button type="button" class="btn-primary" id="material-save-btn" style="padding:10px 22px;">재질 저장</button>
+              </div>
+            </article>
+
+            <article class="mw-card onboarding-card" id="card-process">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><span class="ob-num">3</span>추가 공정 등록<span class="ob-optional">(선택 — 장비 등록 시 자동 매핑됩니다)</span></div>
+                  <div class="mw-card-sub">장비 자동 매핑으로 잡히지 않는 외주·수작업 공정만 추가로 등록합니다.</div>
                 </div>
-                <div class="mw-field">
-                  <label>최소 작업량</label>
-                  <input class="mw-input" value="단품 1개 또는 50만원 이상">
+              </div>
+              <p class="ob-hint" id="process-current-hint">아직 등록된 공정이 없습니다.</p>
+              <div class="ob-chip-grid" id="process-list"></div>
+              <div style="display:flex; align-items:center; gap:10px; justify-content:flex-end;">
+                <select id="process-service-mode" style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; background:#fff;">
+                  <option value="in_house">사내 공정</option>
+                  <option value="outsourced">외주</option>
+                  <option value="both">사내+외주</option>
+                </select>
+                <button type="button" class="btn-outline" id="process-save-btn" style="padding:10px 22px;">선택한 공정 추가</button>
+              </div>
+            </article>
+
+            <article class="mw-card onboarding-card" id="card-business">
+              <div class="mw-card-head">
+                <div>
+                  <div class="mw-card-title"><span class="ob-num">4</span>사업자 정보</div>
+                  <div class="mw-card-sub">사업자등록번호와 시·도(region)가 입력되어야 온보딩이 verified 로 자동 전환됩니다.</div>
                 </div>
-                <div class="mw-field">
-                  <label>주요 연계 업체</label>
-                  <input class="mw-input" value="대성아노다이징, 한빛용접">
+              </div>
+              <div class="business-form">
+                <div class="biz-full">
+                  <input id="brn" placeholder="사업자등록번호 (예: 123-45-67890)">
                 </div>
-                <div class="mw-field setting-full">
-                  <label>사용 장비</label>
-                  <textarea class="mw-input textarea">머시닝센터 1호기 DNM 750L, 선반 2호기 PUMA 2100, 레이저 절단기 1호기 TruLaser 3030</textarea>
-                </div>
+                <select id="region">
+                  <option value="">시/도 선택</option>
+                  <option>서울</option><option>경기</option><option>인천</option>
+                  <option>부산</option><option>대구</option><option>광주</option>
+                  <option>대전</option><option>울산</option><option>세종</option>
+                  <option>강원</option><option>충북</option><option>충남</option>
+                  <option>전북</option><option>전남</option><option>경북</option>
+                  <option>경남</option><option>제주</option>
+                </select>
+                <input id="city" placeholder="시·군·구 (예: 시흥시)">
+                <input id="address" placeholder="상세 주소" class="biz-full">
+                <input id="representative-name" placeholder="대표자명">
+                <input id="postal-code" placeholder="우편번호">
+              </div>
+              <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <button type="button" class="btn-primary" id="business-save-btn" style="padding:12px 26px;">사업자 정보 저장</button>
               </div>
             </article>
 

@@ -133,103 +133,19 @@
           <label>비밀번호 확인 <span>*</span></label>
           <input type="password" placeholder="비밀번호 재입력" required>
         </div>
-        <div class="form-group">
+        <div class="form-group full">
           <label>회사명 <span>*</span></label>
           <input type="text" placeholder="예) 한빛정밀 주식회사" required>
         </div>
-        <div class="form-group">
-          <label>사업자등록번호 <span>*</span></label>
-          <div style="display:flex; gap:10px;">
-            <input type="text" placeholder="000-00-00000" style="flex:1;" required>
-            <button type="button" class="btn-outline" style="white-space:nowrap; padding:0 20px;">인증</button>
-          </div>
-        </div>
-        <div class="form-group full">
-          <label>사무실 주소 <span>*</span></label>
-          <input type="text" placeholder="사무실 및 공장 주소를 입력해주세요." required>
-        </div>
       </div>
-    </div>
-
-    <!-- 2. 업체 정보 -->
-    <div class="register-card">
-      <div class="section-title">2. 업체 정보</div>
-      
-      <div class="form-group" style="margin-bottom:28px;">
-        <label>회사 규모 <span>*</span></label>
-        <select required>
-          <option value="">선택하세요</option>
-          <option>1인 기업</option>
-          <option>5인 미만</option>
-          <option>5인 ~ 20인</option>
-          <option>20인 ~ 50인</option>
-          <option>50인 이상</option>
-        </select>
-      </div>
-
-      <div class="form-group full" style="margin-bottom:28px;">
-        <label>다루는 재질 <span>*</span></label>
-        <div class="tag-grid">
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">알루미늄</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">스테인리스 (SUS)</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">스틸 (SS, S45C 등)</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">동 / 황동</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">플라스틱 / 아크릴</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">특수합금 / 티타늄</span></label>
-          <label><input type="checkbox" class="tag-checkbox other-toggle" data-other-target="material-other"><span class="tag-label">기타</span></label>
-        </div>
-        <div class="other-input" id="material-other" hidden>
-          <input type="text" name="material_other" placeholder="그 외 다루는 재질을 입력해주세요. (예: 인코넬, 마그네슘, 세라믹)">
-        </div>
-      </div>
-
-      <div class="form-group full" style="margin-bottom:28px;">
-        <label>제공 가공 서비스 <span>*</span></label>
-        <div class="tag-grid">
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">CNC 밀링</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">CNC 선반</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">범용 가공</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">레이저 절단</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">판금 / 절곡</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">용접</span></label>
-          <label><input type="checkbox" class="tag-checkbox"><span class="tag-label">표면처리 / 도장</span></label>
-          <label><input type="checkbox" class="tag-checkbox other-toggle" data-other-target="service-other"><span class="tag-label">기타</span></label>
-        </div>
-        <div class="other-input" id="service-other" hidden>
-          <input type="text" name="service_other" placeholder="그 외 제공 가능한 가공 서비스를 입력해주세요. (예: 열처리, 연마, 조립, 검사 대행)">
-        </div>
-      </div>
-
-      <div class="form-group full">
-        <label>사용 장비 <span>*</span></label>
-        <textarea rows="4" placeholder="보유하고 계신 주요 가공 장비와 수량을 자유롭게 입력해주세요. (예: 5축 CNC 2대, 범용 선반 1대)" required style="resize:vertical;"></textarea>
-      </div>
+      <p style="margin-top:18px; font-size:13px; color:var(--text-muted); line-height:1.55;">
+        가입 후 다음 화면에서 보유 장비, 처리 가능 재질, 사업자등록번호 등 온보딩 정보를 입력합니다. 온보딩이 완료되어야 매칭에 노출됩니다.
+      </p>
     </div>
 
     <button type="submit" class="btn-submit">기업회원 가입 완료</button>
   </form>
 </div>
-  <script>
-    document.querySelectorAll('.other-toggle').forEach((toggle) => {
-      const target = document.getElementById(toggle.dataset.otherTarget);
-      const input = target ? target.querySelector('input') : null;
-      if (!target || !input) return;
-
-      const syncOtherInput = () => {
-        target.hidden = !toggle.checked;
-        target.classList.toggle('is-visible', toggle.checked);
-        input.required = toggle.checked;
-        if (toggle.checked) {
-          window.setTimeout(() => input.focus(), 0);
-        } else {
-          input.value = '';
-        }
-      };
-
-      toggle.addEventListener('change', syncOtherInput);
-      syncOtherInput();
-    });
-  </script>
 <script src="/static/imma-phase1-pages.js"></script>
 </body>
 </html>

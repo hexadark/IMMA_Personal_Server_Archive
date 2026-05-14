@@ -96,7 +96,7 @@ def signup(data: dict):
                             (login_id, company_name, main_email, password_hash,
                              main_phone, status, onboarding_status)
                         VALUES (:login_id, :company_name, :email, :pw_hash,
-                                :phone, 'active', 'submitted')
+                                :phone, 'active', 'draft')
                         RETURNING company_id, company_name, main_email,
                                   onboarding_status, created_at
                     """),
