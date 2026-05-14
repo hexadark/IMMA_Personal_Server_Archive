@@ -634,8 +634,9 @@
         }
         if (sFile) sFile.textContent = '1개 (준비됨)';
         // VLM 완료 → AI 분석 결과 카드 hydrate (사용자 확인 + 인라인 수정 가능)
-        if (isImage && data.vlm_result_jsonb) {
-          hydrateAiResultCard(data.vlm_result_jsonb, data.drawing_id);
+        // routers/vlm.py:199 영역 — 응답 필드명 `vlm_output` (vlm_result_jsonb 부재)
+        if (isImage && (data.vlm_output || data.vlm_result_jsonb)) {
+          hydrateAiResultCard(data.vlm_output || data.vlm_result_jsonb, data.drawing_id);
         }
         return data;
       } catch (err) {
