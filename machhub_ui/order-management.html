@@ -353,19 +353,19 @@
         </div>
         <div class="info-row">
           <span class="info-key">총 금액</span>
-          <span class="info-val">128,450,000원</span>
+          <span class="info-val" id="pay-total">-</span>
         </div>
         <div class="info-row">
-          <span class="info-key">결제 완료 (80%)</span>
-          <span class="info-val" style="color:var(--success);">102,760,000원</span>
+          <span class="info-key" id="pay-paid-key">결제 완료 (80%)</span>
+          <span class="info-val" id="pay-paid" style="color:var(--success);">-</span>
         </div>
         <div class="info-row">
           <span class="info-key">잔금</span>
-          <span class="info-val">25,690,000원 (20%)</span>
+          <span class="info-val" id="pay-remaining">-</span>
         </div>
         <div class="info-row">
           <span class="info-key">다음 결제 예정일</span>
-          <span class="info-val">2026-06-20</span>
+          <span class="info-val" id="pay-next-date">-</span>
         </div>
         <button class="btn-primary w-full" id="pay-btn" type="button" style="justify-content:center;margin-top:16px;">결제하기</button>
       </div>

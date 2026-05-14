@@ -1220,6 +1220,17 @@
     window.imma.renderSessionHeader();
     const rfqId = window.imma.getQueryParam('rfq_id');
     const orderId = window.imma.getQueryParam('order_id') || scopedGet(['current_order_id']);
+    let currentOrderIdForPayment = orderId || null;
+
+    // 결제하기 버튼 hook — orderId / rfqId 양면 경로에서 적용. orderId 경로의 return 직전에 등록되지 않으면 click 부재.
+    const payBtn = $('#pay-btn');
+    if (payBtn) {
+      payBtn.addEventListener('click', () => {
+        const oid = orderId || currentOrderIdForPayment || scopedGet(['current_order_id']);
+        const url = oid ? `/payment-success?order_id=${encodeURIComponent(oid)}` : '/payment-success';
+        window.location.href = url;
+      });
+    }
 
     if (orderId) {
       try {
@@ -1249,6 +1260,17 @@
           } catch (e) { /* silent — 정보 부재 시 fallback - 표시 */ }
         }
 
+        // 결제 정보 hydrate — order.total_price 기반 80% / 20% 분할 표시
+        if (order.total_price) {
+          const total = order.total_price;
+          const paid = Math.round(total * 0.8);
+          const remaining = total - paid;
+          const currency = order.currency_code || 'KRW';
+          text($('#pay-total'), window.imma.formatCurrency(total, currency));
+          text($('#pay-paid'), window.imma.formatCurrency(paid, currency));
+          text($('#pay-remaining'), `${window.imma.formatCurrency(remaining, currency)} (20%)`);
+        }
+
         const badge = $('.payment-status .badge');
         if (badge) badge.textContent = order.status === 'contracting' ? '계약 진행 중' : order.status;
         updateTimeline(order.status);
@@ -1258,8 +1280,6 @@
       }
       return;
     }
-
-    let currentOrderIdForPayment = null;
 
     if (rfqId && user.role === 'buyer') {
       let pollingId = null;
@@ -1366,16 +1386,6 @@
       await refreshRfqState();
       // 폴링 — 5 초 주기 (견적 도착 시 자동 중단)
       pollingId = setInterval(refreshRfqState, 5000);
-    }
-
-    // 결제하기 버튼 hook — order_id query 영역 전달 (payment-success 동적 hydrate 영역)
-    const payBtn = $('#pay-btn');
-    if (payBtn) {
-      payBtn.addEventListener('click', () => {
-        const oid = orderId || currentOrderIdForPayment || scopedGet(['current_order_id']);
-        const url = oid ? `/payment-success?order_id=${encodeURIComponent(oid)}` : '/payment-success';
-        window.location.href = url;
-      });
     }
   }
 

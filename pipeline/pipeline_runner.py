@@ -251,9 +251,9 @@ def _run_pipeline_core(raw: dict, file_uri: str) -> dict:
                 vp.material_type = "client_input"
                 vp.material_source = "client_input"
 
-    # ── client_quantity fallback: form 입력 order_quantity 를 VLM quantity 부재 시 사용 ──
-    # 단부품 RFQ 의 경우에 한해 사용자 입력 우선. 다부품은 VLM quantity 보존.
-    # parse.py 의 'quantity or 1' 폴백으로 quantity == 1 인 단부품 영역만 덮어쓴다.
+    # ── client_quantity: form 입력 order_quantity 를 단부품 RFQ 의 VLM quantity 에 무조건 적용 ──
+    # 단부품 RFQ 의 경우 사용자 입력이 진실 — VLM 추출 quantity 가 부재(1) 또는 도면 정보(예: 100) 양면
+    # 사용자 입력 우선 덮어쓴다. 다부품 RFQ 는 BOM 별 quantity 영역으로 VLM 값 보존.
     client_quantity = raw.get("order_quantity")
     if client_quantity:
         try:
@@ -263,8 +263,7 @@ def _run_pipeline_core(raw: dict, file_uri: str) -> dict:
         if client_quantity_int and client_quantity_int >= 1:
             if len(vlm_parts) == 1:
                 vp = vlm_parts[0]
-                if vp.quantity == 1:
-                    vp.quantity = client_quantity_int
+                vp.quantity = client_quantity_int
 
     # [1~4] DB 저장: 하나의 트랜잭션으로 묶기
     # 실패 시 자동 rollback
