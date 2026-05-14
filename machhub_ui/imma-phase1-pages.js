@@ -129,9 +129,12 @@
   }
 
   function quotePayloadFromWorkbench(match, user) {
+    // amount 입력은 #reply-amount 단일 selector 로 통일.
+    // fallback 부재 — 사용자 입력 부재 시 null 반환하여 호출측에서 warning 발화.
     const dueDate = $('#reply input[type="date"]') && $('#reply input[type="date"]').value;
-    const amountInput = $('#reply input:not([type]), #reply input[type="text"], #reply .mw-input:not([type])');
-    const amount = numberOnly(amountInput && amountInput.value) || 6250000;
+    const amountInput = $('#reply-amount');
+    const amount = numberOnly(amountInput && amountInput.value);
+    if (!amount) return null;
     const note = $('#reply textarea') ? $('#reply textarea').value : 'Phase 1 견적';
     const rfqPartId = match.rfq_part && match.rfq_part.rfq_part_id;
     const quantity = match.rfq_part && match.rfq_part.quantity ? Number(match.rfq_part.quantity) : 1;
@@ -232,8 +235,42 @@
     });
   }
 
+  // 중복 확인 버튼 hook — client-register / supplier-register 공용.
+  // R6 endpoint /api/check-login-id 활용. 빈 값/4 자 미만은 클라이언트단 사전 차단.
+  function bindLoginIdCheck(buttonSelector, inputSelector) {
+    const btn = $(buttonSelector);
+    const input = $(inputSelector);
+    if (!btn || !input || btn.dataset.immaHooked === 'true') return;
+    btn.dataset.immaHooked = 'true';
+    btn.addEventListener('click', async () => {
+      const loginId = (input.value || '').trim();
+      if (!loginId) {
+        window.imma.toast('아이디를 입력해주세요.', 'warning');
+        return;
+      }
+      if (loginId.length < 4) {
+        window.imma.toast('ID 는 4 자 이상이어야 합니다.', 'warning');
+        return;
+      }
+      window.imma.setLoading(btn, true, '확인 중...');
+      try {
+        const result = await window.imma.apiJson(`/api/check-login-id?login_id=${encodeURIComponent(loginId)}`);
+        if (result && result.available) {
+          window.imma.toast('사용 가능한 아이디입니다', 'success');
+        } else {
+          window.imma.toast((result && result.reason) || '이미 사용 중인 ID 입니다', 'warning');
+        }
+      } catch (err) {
+        window.imma.toast(err.message, 'error');
+      } finally {
+        window.imma.setLoading(btn, false);
+      }
+    });
+  }
+
   async function initClientRegister() {
     window.imma.renderSessionHeader();
+    bindLoginIdCheck('#client-check-login-id', '#client-login-id');
     const form = $('.register-card form');
     if (!form || form.dataset.immaHooked === 'true') return;
     form.dataset.immaHooked = 'true';
@@ -274,6 +311,7 @@
 
   async function initSupplierRegister() {
     window.imma.renderSessionHeader();
+    bindLoginIdCheck('#supplier-check-login-id', '#supplier-login-id');
     const form = $('.register-wrap form');
     if (!form || form.dataset.immaHooked === 'true') return;
     form.dataset.immaHooked = 'true';
@@ -325,6 +363,51 @@
     });
   }
 
+  // 알림 event_type → 표시 라벨 + 색상.
+  // buyer 가 받는 핵심 이벤트: 견적 도착, supplier 매칭 수락/거절.
+  const BUYER_NOTIFICATION_TYPES = {
+    quote_received:     { label: '견적 도착',     color: '#dcfce7', textColor: '#166534' },
+    supplier_accepted:  { label: '매칭 수락',     color: '#dcfce7', textColor: '#166534' },
+    supplier_declined:  { label: '매칭 거절',     color: '#fef3f2', textColor: '#b42318' },
+  };
+
+  function notificationLink(n) {
+    // reference_type 기반 link 결정. rfq → order-management?rfq_id=, 그 외 폴백.
+    if (n.reference_type === 'rfq' && n.reference_id) {
+      return `/order-management?rfq_id=${encodeURIComponent(n.reference_id)}`;
+    }
+    if (n.reference_type === 'order' && n.reference_id) {
+      return `/order-management?order_id=${encodeURIComponent(n.reference_id)}`;
+    }
+    return '';
+  }
+
+  function renderClientNotifications(notifications) {
+    const list = $('#notification-list');
+    if (!list) return;
+    const filtered = (notifications || []).filter(n => BUYER_NOTIFICATION_TYPES[n.event_type]);
+    if (!filtered.length) {
+      list.innerHTML = '<div style="font-size:13px; color:var(--text-muted); padding:8px 0;">아직 도착한 알림이 없습니다.</div>';
+      return;
+    }
+    list.innerHTML = filtered.slice(0, 6).map(n => {
+      const meta = BUYER_NOTIFICATION_TYPES[n.event_type];
+      const link = notificationLink(n);
+      const time = (n.created_at || '').slice(0, 16).replace('T', ' ');
+      const titleHtml = link
+        ? `<a href="${h(link)}" style="color:#111; text-decoration:none;">${h(n.title || meta.label)}</a>`
+        : h(n.title || meta.label);
+      return `<div class="order-row" style="grid-template-columns: 100px 1fr 160px; padding:14px 16px;">
+        <span class="badge" style="background:${meta.color}; color:${meta.textColor}; padding:4px 8px; font-size:12px; border-radius:6px; font-weight:700; text-align:center;">${h(meta.label)}</span>
+        <div>
+          <div class="o-name">${titleHtml}</div>
+          <div class="o-supplier">${h(n.message || '')}</div>
+        </div>
+        <div class="o-date" style="text-align:right;">${h(time || '-')}</div>
+      </div>`;
+    }).join('');
+  }
+
   async function initClientDashboard() {
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
@@ -345,6 +428,16 @@
       setCardValue(cards[2], delivered);
     } catch (err) {
       window.imma.toast(err.message, 'error');
+    }
+
+    // 최근 알림 hydrate — 견적 도착·supplier 응답 이벤트만 필터.
+    // 실패 시 toast 부재 (사용자 흐름 차단 회피, 빈 메시지로 폴백).
+    try {
+      const notifications = await window.imma.apiJson('/api/notifications?unread_only=false');
+      renderClientNotifications(notifications);
+    } catch (err) {
+      const list = $('#notification-list');
+      if (list) list.innerHTML = '<div style="font-size:13px; color:var(--text-muted); padding:8px 0;">알림을 불러올 수 없습니다.</div>';
     }
   }
 
@@ -400,6 +493,20 @@
           // 오류는 uploadDrawingToServer 내부에서 처리
         }
       });
+    }
+
+    // q-material 토글 hook — '__custom__' 선택 시 직접 입력 input 노출.
+    // inline script 와 중복 안전 — dataset 가드로 1회만 binding.
+    const materialSel = $('#q-material');
+    const materialCustom = $('#q-material-custom');
+    if (materialSel && materialCustom && materialSel.dataset.immaCustomHooked !== 'true') {
+      materialSel.dataset.immaCustomHooked = 'true';
+      const syncCustom = () => {
+        const isCustom = materialSel.value === '__custom__';
+        materialCustom.style.display = isCustom ? 'block' : 'none';
+      };
+      syncCustom();
+      materialSel.addEventListener('change', syncCustom);
     }
 
     const submitLink = $('.submit-area a[href="/matching-ui"], a[href="/matching-ui"]');
@@ -644,7 +751,7 @@
       console.warn('AI summary hydrate 실패', err);
     }
 
-    const candidates = getMatchCandidates(result).slice(0, 3);
+    const candidates = getMatchCandidates(result).slice(0, 5);
     const rows = $$('.supplier-row');
     let selectedIndex = 0;
     let hydrateOk = false;
@@ -843,7 +950,30 @@
       try {
         const data = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}/quotes`);
         const quotes = data.quotes || [];
-        if (!quotes.length || $('.imma-quote-action')) return;
+        if (!quotes.length) {
+          // 견적 0 건 시 정적 demo 영역 숨김 + 안내 카드 노출.
+          // 이미 카드가 삽입된 경우 중복 회피.
+          if ($('.imma-quote-empty')) return;
+          ['.order-meta', '.process-timeline', '.order-grid'].forEach(sel => {
+            const el = $(sel);
+            if (el) el.style.display = 'none';
+          });
+          const emptyBox = document.createElement('div');
+          emptyBox.className = 'card imma-quote-empty';
+          emptyBox.style.margin = '24px 0';
+          emptyBox.style.padding = '32px';
+          emptyBox.style.textAlign = 'center';
+          emptyBox.innerHTML = `
+            <div style="font-size:40px; color:var(--text-muted); margin-bottom:12px;"><i class="ri-time-line"></i></div>
+            <div style="font-size:16px; font-weight:800; color:#111; margin-bottom:8px;">견적 대기 중</div>
+            <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">매칭된 업체가 견적을 보내면 발주 단계로 진행됩니다.<br>견적 도착 시 알림이 옵니다.</div>`;
+          const pageWrap = $('.page-wrap') || document.body;
+          const titleRow = $('.page-title-row');
+          if (titleRow) titleRow.insertAdjacentElement('afterend', emptyBox);
+          else pageWrap.insertBefore(emptyBox, pageWrap.firstChild);
+          return;
+        }
+        if ($('.imma-quote-action')) return;
         const quote = quotes[0];
         const box = document.createElement('div');
         box.className = 'card imma-quote-action';
@@ -1088,12 +1218,17 @@
             window.imma.toast('수신 매칭이 없습니다.', 'warning');
             return;
           }
+          const payload = quotePayloadFromWorkbench(match, user);
+          if (!payload) {
+            window.imma.toast('견적 금액을 입력해주세요.', 'warning');
+            return;
+          }
           window.imma.setLoading(sendBtn, true, '발송 중...');
           try {
             if (match.supplier_response !== 'accepted') {
               await window.imma.apiJson(`/api/match-candidates/${encodeURIComponent(match.match_run_id)}/${encodeURIComponent(user.id)}/respond`, { method: 'PUT', body: { response: 'accepted' } });
             }
-            await window.imma.apiJson('/api/quote', { method: 'POST', body: quotePayloadFromWorkbench(match, user) });
+            await window.imma.apiJson('/api/quote', { method: 'POST', body: payload });
             window.imma.toast('견적이 제출되었습니다.', 'success');
             await refresh();
           } catch (err) {

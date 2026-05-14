@@ -97,8 +97,11 @@ def admin_login(data: dict):
 @router.get("/api/admin/companies/pending")
 def get_pending_companies(admin: dict = Depends(get_current_admin)):
     """
-    companies WHERE onboarding_status IN ('submitted', 'verified')
+    companies WHERE onboarding_status = 'submitted'
     + company_sites JOIN (primary site의 region 포함).
+
+    검수 대기 정의: submitted 단일 단계.
+    verified 는 이미 승인 완료이므로 pending 목록에서 제외.
     """
     if engine is None:
         raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
@@ -112,7 +115,7 @@ def get_pending_companies(admin: dict = Depends(get_current_admin)):
                 FROM {SCHEMA}.companies c
                 LEFT JOIN {SCHEMA}.company_sites cs
                     ON c.company_id = cs.company_id AND cs.is_primary = true
-                WHERE c.onboarding_status IN ('submitted', 'verified')
+                WHERE c.onboarding_status = 'submitted'
                 ORDER BY c.created_at DESC
             """),
         ).fetchall()
@@ -137,12 +140,16 @@ def get_pending_companies(admin: dict = Depends(get_current_admin)):
 
 @router.put("/api/admin/companies/{company_id}/verify")
 def verify_company(company_id: str, admin: dict = Depends(get_current_admin)):
-    """companies.onboarding_status = 'verified' UPDATE + _refresh_mv."""
+    """companies.onboarding_status = 'verified' UPDATE + _refresh_mv.
+
+    이미 verified/draft/rejected 영역인 업체에 대한 재승인을 차단.
+    submitted 단계의 업체만 승인 가능.
+    """
     if engine is None:
         raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
 
     with engine.begin() as conn:
-        # 업체 존재 확인
+        # 업체 존재 + 현재 status 확인 — submitted 만 verify 진입 허용
         row = conn.execute(
             text(f"""
                 SELECT onboarding_status
@@ -154,6 +161,19 @@ def verify_company(company_id: str, admin: dict = Depends(get_current_admin)):
 
         if row is None:
             raise HTTPException(status_code=404, detail="업체를 찾을 수 없습니다")
+
+        current_status = row[0]
+        if current_status != "submitted":
+            # 상태별 메시지 분기 — supplier 운용 영역 안내 정합
+            if current_status == "verified":
+                detail_msg = "이미 승인된 업체입니다"
+            elif current_status == "draft":
+                detail_msg = "온보딩 미완료 — supplier 가 정보 입력 영역 진행 중"
+            elif current_status == "rejected":
+                detail_msg = "이미 반려된 업체. 반려 사유 확인 후 재신청 영역"
+            else:
+                detail_msg = f"승인 불가 상태: {current_status}"
+            raise HTTPException(status_code=400, detail=detail_msg)
 
         # onboarding_status → verified
         conn.execute(
