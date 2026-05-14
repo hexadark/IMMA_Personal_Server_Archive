@@ -128,27 +128,29 @@
     }
     .hero-video-label i { font-size: 14px; }
 
-    /* hero 영상 fallback 모달 — z-index 100000 으로 header (z-index:100) 위 명확 분리 */
+    /* hero 영상 모달 — z-index 100000 으로 header (z-index:100) 위 명확 분리 */
     .hero-video-modal-overlay {
       position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9);
+      inset: 0;
+      background: rgba(0,0,0,0.92);
       z-index: 100000;
       display: none;
       align-items: center;
       justify-content: center;
+      padding: 2.5vh 2.5vw;
       backdrop-filter: blur(8px);
     }
+    .hero-video-modal-overlay[hidden] { display: none !important; }
     .hero-video-modal-overlay.open { display: flex; }
-    /* PiP 자세 버튼 시각 영역 차단 (Chromium 영역) */
+    html.hero-video-lock, body.hero-video-lock { overflow: hidden; }
+    /* PiP 컨트롤 버튼 시각 차단 (Chromium) */
     .hero-right video::-webkit-media-controls-picture-in-picture-button,
     .hero-video-modal video::-webkit-media-controls-picture-in-picture-button {
       display: none !important;
     }
     .hero-video-modal {
       position: relative;
-      width: 95%;
-      max-width: 1600px;
+      width: min(95vw, calc(95vh * 16 / 9), 1600px);
       aspect-ratio: 16 / 9;
       background: #000;
       border-radius: 12px;
@@ -418,10 +420,10 @@
 </section>
 
 <!-- HERO 영상 모달 — viewport 95% 영역 시각 (사실상 전체화면 효과). controls 영역의 fullscreen 버튼이 사용자 명시 진입 영역 -->
-<div class="hero-video-modal-overlay" id="hero-video-modal-overlay" role="dialog" aria-modal="true" aria-label="제품 소개 영상">
+<div class="hero-video-modal-overlay" id="hero-video-modal-overlay" role="dialog" aria-modal="true" aria-label="제품 소개 영상" hidden>
   <div class="hero-video-modal">
     <button type="button" class="hero-video-modal-close" id="hero-video-modal-close" aria-label="닫기"><i class="ri-close-line"></i></button>
-    <video id="hero-video-modal-player" src="/static/imma_intro_proto_c.mp4" controls controlsList="nodownload" preload="auto" playsinline disablepictureinpicture disableremoteplayback></video>
+    <video id="hero-video-modal-player" src="/static/imma_intro_proto_c.mp4" controls controlsList="nodownload noremoteplayback" preload="auto" playsinline disablepictureinpicture disableremoteplayback></video>
   </div>
 </div>
 
@@ -753,17 +755,21 @@
       window.location.href = '/client';
     }
   }
-  // Close modal when clicking outside
-  window.onclick = function(event) {
-    if (event.target.classList.contains('imma-modal-overlay')) {
-      event.target.style.display = 'none';
+  // Close login/signup modal when clicking outside.
+  // window.onclick 대입 + 바로 뒤 IIFE 조합은 ASI 결함 (TypeError) 을 만들 수 있으므로 addEventListener 로 고정한다.
+  window.addEventListener('click', function (event) {
+    const target = event.target;
+    if (target instanceof Element && target.classList.contains('imma-modal-overlay')) {
+      target.style.display = 'none';
     }
-  }
+  });
 
-  // ── HERO 영상 클릭 → 모달 + 자동 재생 (PiP 자세 3 중 차단 + fullscreen 진입은 controls 위탁) ──
-  (function () {
+  // ── HERO 영상 클릭 → 큰 모달 + 자동 재생 + 선택적 Fullscreen ──
+  ;(function () {
     const card = document.getElementById('hero-video-card');
+    const previewVideo = document.getElementById('hero-video-preview');
     const modalOverlay = document.getElementById('hero-video-modal-overlay');
+    const modalBox = modalOverlay ? modalOverlay.querySelector('.hero-video-modal') : null;
     const modalPlayer = document.getElementById('hero-video-modal-player');
     const modalClose = document.getElementById('hero-video-modal-close');
 
@@ -773,70 +779,119 @@
       return;
     }
 
-    // PiP 자세 차단 (속성 + property + MediaSession 3 중 안전망)
-    try {
-      modalPlayer.disablePictureInPicture = true;
-      if ('disableRemotePlayback' in modalPlayer) modalPlayer.disableRemotePlayback = true;
-    } catch (e) { /* 구형 브라우저 silent */ }
+    [previewVideo, modalPlayer].forEach(function (video) {
+      if (!video) return;
+      try {
+        video.disablePictureInPicture = true;
+        if ('disableRemotePlayback' in video) video.disableRemotePlayback = true;
+      } catch (e) {}
+    });
+
     if ('mediaSession' in navigator) {
       try { navigator.mediaSession.setActionHandler('enterpictureinpicture', null); } catch (e) {}
     }
 
     let isOpen = false;
 
-    function openVideoModal(ev) {
-      if (ev) { ev.preventDefault(); ev.stopPropagation(); }
-      if (isOpen) return;
-      isOpen = true;
-      console.log('[hero-video] card clicked → openVideoModal');
-      modalOverlay.classList.add('open');
-      document.body.style.overflow = 'hidden';
-      try { modalPlayer.currentTime = 0; } catch (e) {}
-      modalPlayer.muted = false;
-      modalPlayer.volume = 1.0;
-      const p = modalPlayer.play();
-      if (p && typeof p.catch === 'function') {
-        p.catch(function (err) {
-          console.warn('[hero-video] unmuted play 거부 → muted fallback', err);
-          modalPlayer.muted = true;
-          modalPlayer.volume = 1.0;
-          const p2 = modalPlayer.play();
-          if (p2 && typeof p2.catch === 'function') {
-            p2.catch(function (err2) { console.error('[hero-video] muted play 거부', err2); });
-          }
-        });
+    function lockScroll(locked) {
+      document.documentElement.classList.toggle('hero-video-lock', locked);
+      document.body.classList.toggle('hero-video-lock', locked);
+    }
+
+    async function exitAnyPiP() {
+      try {
+        if (document.pictureInPictureElement && document.exitPictureInPicture) {
+          await document.exitPictureInPicture();
+        }
+      } catch (e) {}
+    }
+
+    async function tryFullscreen() {
+      const target = modalBox || modalOverlay;
+      if (!target || !target.requestFullscreen || document.fullscreenElement) return;
+      try {
+        await target.requestFullscreen({ navigationUI: 'hide' });
+      } catch (e) {
+        console.warn('[hero-video] fullscreen 거부/미지원 → viewport modal 유지', e);
       }
     }
 
-    function closeVideoModal() {
-      if (!isOpen) return;
-      isOpen = false;
-      modalOverlay.classList.remove('open');
-      document.body.style.overflow = '';
-      try { modalPlayer.pause(); modalPlayer.currentTime = 0; } catch (e) {}
+    async function openVideoModal(ev) {
+      if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+      if (isOpen) return;
+      isOpen = true;
+
+      console.log('[hero-video] card clicked → openVideoModal');
+      modalOverlay.hidden = false;
+      modalOverlay.classList.add('open');
+      lockScroll(true);
+
+      await exitAnyPiP();
+      try { modalPlayer.pause(); } catch (e) {}
+      try { modalPlayer.currentTime = 0; } catch (e) {}
+
+      modalPlayer.defaultMuted = false;
       modalPlayer.muted = false;
       modalPlayer.volume = 1.0;
+
+      // 사용자 click gesture 안에서 fullscreen 과 play 양면 요청.
+      // fullscreen 실패해도 95vw/95vh 모달 유지.
+      tryFullscreen();
+
+      try {
+        await modalPlayer.play();
+      } catch (err) {
+        // muted fallback 폐기 — 사용자 의향 (음량 정상) 정합.
+        // 브라우저가 차단한 경우 native controls 의 재생 버튼으로 즉시 수동 재생 가능.
+        console.warn('[hero-video] unmuted play 거부 — controls 수동 재생 유지', err);
+      }
+    }
+
+    async function closeVideoModal() {
+      if (!isOpen) return;
+      isOpen = false;
+
+      try { modalPlayer.pause(); modalPlayer.currentTime = 0; } catch (e) {}
+
+      modalPlayer.defaultMuted = false;
+      modalPlayer.muted = false;
+      modalPlayer.volume = 1.0;
+
+      modalOverlay.classList.remove('open');
+      modalOverlay.hidden = true;
+      lockScroll(false);
+
+      try {
+        if (document.fullscreenElement && modalOverlay.contains(document.fullscreenElement)) {
+          await document.exitFullscreen();
+        }
+      } catch (e) {}
     }
 
     card.addEventListener('click', openVideoModal);
     card.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        openVideoModal();
-      }
+      if (e.key === 'Enter' || e.key === ' ') openVideoModal(e);
     });
 
-    if (modalClose) modalClose.addEventListener('click', function (e) { e.stopPropagation(); closeVideoModal(); });
+    if (modalClose) {
+      modalClose.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeVideoModal();
+      });
+    }
+
     modalOverlay.addEventListener('click', function (e) {
       if (e.target === modalOverlay) closeVideoModal();
     });
+
     modalPlayer.addEventListener('ended', closeVideoModal);
+
     modalPlayer.addEventListener('enterpictureinpicture', function () {
-      console.warn('[hero-video] PiP 자세 진입 감지 → exit 호출');
-      if (document.exitPictureInPicture) {
-        document.exitPictureInPicture().catch(function () {});
-      }
+      console.warn('[hero-video] PiP 진입 감지 → exit 호출');
+      exitAnyPiP();
     });
+
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && isOpen) closeVideoModal();
     });
