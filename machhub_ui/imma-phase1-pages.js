@@ -1518,6 +1518,79 @@
     bindWorkbenchScrollSpy();
     text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
 
+    // #orders 영역 — order_confirmed 알림 영역 폴링 + 발주 확인 수락 row hydrate
+    let currentOrderForAccept = null;
+    let ordersPollingId = null;
+    async function refreshOrdersSection() {
+      const row = $('#order-accept-row');
+      const metaEl = $('#order-accept-meta');
+      const checkbox = $('#order-accept-check');
+      if (!row || !metaEl || !checkbox) return;
+      try {
+        const notifications = await window.imma.apiJson('/api/notifications?unread_only=false').catch(() => []);
+        const orderEvents = (notifications || []).filter(n =>
+          n.event_type === 'order_confirmed' && n.reference_type === 'order'
+        );
+        if (!orderEvents.length) return;  // 대기 영역 유지
+        // 가장 최근 발주 영역 조회
+        const latestOrderId = orderEvents[0].reference_id;
+        if (currentOrderForAccept && currentOrderForAccept.order_id === latestOrderId) return;
+        const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(latestOrderId)}`);
+        currentOrderForAccept = order;
+        const shortPo = (order.order_id || '').slice(0, 8).toUpperCase();
+        const totalDisplay = window.imma.formatCurrency(order.total_price, order.currency_code || 'KRW');
+        metaEl.innerHTML = `PO-${h(shortPo)} · ${h(order.company_name || '클라이언트')} · ${h(totalDisplay)}`;
+        // 이미 ordered 이상 상태면 체크 + disabled
+        if (order.status && order.status !== 'contracting') {
+          checkbox.checked = true;
+          checkbox.disabled = true;
+        } else {
+          checkbox.disabled = false;
+        }
+      } catch (err) { /* silent — 폴링 영역 */ }
+    }
+
+    // 발주 확인 수락 체크 hook — 한 번만 부착
+    const acceptCheckbox = $('#order-accept-check');
+    if (acceptCheckbox && acceptCheckbox.dataset.immaHooked !== 'true') {
+      acceptCheckbox.dataset.immaHooked = 'true';
+      acceptCheckbox.addEventListener('change', async () => {
+        if (!acceptCheckbox.checked) return;
+        if (!currentOrderForAccept) {
+          window.imma.toast('수락할 발주 영역 부재 — 폴링 대기 중', 'warning');
+          acceptCheckbox.checked = false;
+          return;
+        }
+        acceptCheckbox.disabled = true;
+        try {
+          // 1. order status 영역 contracting → ordered 전이
+          await window.imma.apiJson(`/api/orders/${encodeURIComponent(currentOrderForAccept.order_id)}/status`, {
+            method: 'PUT',
+            body: { status: 'ordered' },
+          });
+          // 2. 작업 (job) 생성
+          await window.imma.apiJson('/api/jobs', {
+            method: 'POST',
+            body: {
+              order_id: currentOrderForAccept.order_id,
+              part_name: currentOrderForAccept.part_name || '가공 작업',
+              quantity: currentOrderForAccept.quantity || 1,
+            },
+          });
+          window.imma.toast('발주 수락 완료 — 작업 생성됨', 'success');
+          // #production 영역 자동 스크롤
+          const productionSection = document.getElementById('production');
+          if (productionSection) {
+            setTimeout(() => productionSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+          }
+        } catch (err) {
+          window.imma.toast(err.message, 'error');
+          acceptCheckbox.checked = false;
+          acceptCheckbox.disabled = false;
+        }
+      });
+    }
+
     let currentMatches = [];
     async function respond(matchRunId, response) {
       try {
@@ -1600,6 +1673,10 @@
     } catch (err) {
       window.imma.toast(err.message, 'error');
     }
+
+    // #orders 영역 초기 hydrate + 폴링 5 초 주기
+    await refreshOrdersSection();
+    ordersPollingId = setInterval(refreshOrdersSection, 5000);
   }
 
   // 장비 카테고리 → 추정 재질 카테고리 자동 추천 매핑.
