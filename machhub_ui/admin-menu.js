@@ -58,6 +58,10 @@
         <strong>관리자</strong>
         <span>운영팀 · 플랫폼 상태 정상</span>
       </div>
+      <a class="admin-menu-link logout-btn" href="javascript:void(0);" style="margin:8px 12px;color:#fc8181;">
+        <i class="ri-logout-box-r-line"></i>
+        <span>로그아웃</span>
+      </a>
       <div class="admin-demo-notice">
         <i class="ri-flask-line"></i>
         <span>Demo UI · 일부 데이터는 시연용 샘플입니다</span>

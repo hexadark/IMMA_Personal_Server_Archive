@@ -354,11 +354,58 @@ def _rows_to_candidates(rows: list[dict], match_type: str) -> list[MatchCandidat
     return candidates
 
 
+def _populate_equipment_summary(candidates: list[MatchCandidate]) -> None:
+    """후보별 카테고리별 보유 장비 수 + 대표 모델명을 채운다.
+
+    공개 자연 — 비밀 영역 부재 (사용자 결재 완료). 단부품/다부품 무관 동일 적용.
+    """
+    if not candidates:
+        return
+    company_ids = [c.company_id for c in candidates]
+    rows = db.execute_query(
+        """
+        SELECT
+            e.company_id::text AS company_id,
+            e.equipment_category_code,
+            ecc.category_name_ko,
+            COUNT(*) AS cnt,
+            (ARRAY_AGG(
+                COALESCE(emc.model_name, e.model_name, e.display_name)
+                ORDER BY COALESCE(e.year_made, 0) DESC NULLS LAST
+            ))[1] AS representative_model
+        FROM imma.equipment e
+        JOIN imma.equipment_category_catalog ecc
+            ON ecc.equipment_category_code = e.equipment_category_code
+        LEFT JOIN imma.equipment_model_catalog emc
+            ON emc.model_id = e.model_id
+        WHERE e.company_id = ANY(%s::uuid[])
+          AND e.status IN ('running', 'idle')
+        GROUP BY e.company_id, e.equipment_category_code, ecc.category_name_ko
+        ORDER BY e.company_id, cnt DESC
+        """,
+        (company_ids,),
+    )
+    grouped: dict[str, list[dict]] = {}
+    for r in rows:
+        cid = r["company_id"]
+        grouped.setdefault(cid, []).append({
+            "category_code": r["equipment_category_code"],
+            "category_name_ko": r["category_name_ko"],
+            "count": int(r["cnt"]),
+            "representative_model": r["representative_model"],
+        })
+    for cand in candidates:
+        cand.equipment_summary = grouped.get(cand.company_id, [])
+
+
 def run_hard_filter(part: ResolvedPart) -> list[MatchCandidate]:
     """Step 1(코드 매칭) 실행 → 0건이면 Step 2(카테고리 확장) 실행.
 
     카테고리 확장이 정의된 재질(예: free_cutting_steel → carbon_steel 업체 포함)은
     Step 1 결과가 있어도 Step 2를 추가 실행하여 recall을 보존한다.
+
+    단일 출구 정책: 모든 분기에서 result 리스트를 구성한 뒤 마지막에
+    _populate_equipment_summary 를 한 차례 호출하고 반환한다.
     """
 
     # Step 1: 코드 매칭
@@ -372,11 +419,12 @@ def run_hard_filter(part: ResolvedPart) -> list[MatchCandidate]:
     # 카테고리 확장이 필요한 재질이면 Step 1 결과가 있어도 Step 2 merge
     needs_category_expansion = part.category_code in _CATEGORY_EXPANSION
 
-    if code_candidates and not needs_category_expansion:
-        return code_candidates
+    result: list[MatchCandidate]
 
-    # Step 2: 카테고리 매칭
-    if part.category_code:
+    if code_candidates and not needs_category_expansion:
+        result = code_candidates
+    elif part.category_code:
+        # Step 2: 카테고리 매칭
         sql, params = build_hard_filter_sql(part, use_category=True)
         rows = db.execute_query(sql, tuple(params))
         cat_candidates = _rows_to_candidates(rows, "category")
@@ -396,10 +444,14 @@ def run_hard_filter(part: ResolvedPart) -> list[MatchCandidate]:
                 if cc.company_id not in seen_ids:
                     code_candidates.append(cc)
                     seen_ids.add(cc.company_id)
-            return code_candidates
-        return cat_candidates
+            result = code_candidates
+        else:
+            result = cat_candidates
+    else:
+        result = code_candidates
 
-    return code_candidates
+    _populate_equipment_summary(result)
+    return result
 
 
 def _check_process_achievability(

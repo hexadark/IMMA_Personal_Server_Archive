@@ -675,7 +675,7 @@
     }
   }
 
-  function bindSupplierLogout() {
+  function bindLogout() {
     $$('.logout-btn').forEach(btn => {
       if (btn.dataset.immaHooked === 'true') return;
       btn.dataset.immaHooked = 'true';
@@ -686,7 +686,7 @@
   async function initSupplierDashboard() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
-    bindSupplierLogout();
+    bindLogout();
     const greeting = $('.page-wrap p[style*="font-size:14px"]');
     if (greeting && user.company_name) greeting.textContent = `👋 안녕하세요, ${user.company_name} ${user.name || user.contact_name || ''}님! 오늘도 안전한 하루 되세요.`;
     text($('.u-name'), user.company_name || user.name || '공급사');
@@ -788,7 +788,7 @@
   async function initSupplierWorkbench() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
-    bindSupplierLogout();
+    bindLogout();
     bindWorkbenchScrollSpy();
     text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
 
@@ -867,7 +867,7 @@
   async function initSupplierSettings() {
     const user = await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
-    bindSupplierLogout();
+    bindLogout();
     text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
     const inputs = $$('#capability .mw-input');
     if (inputs[0] && user.company_name) inputs[0].value = user.company_name;
@@ -925,6 +925,7 @@
   async function initAdminDashboard() {
     await window.imma.requireAdmin();
     window.imma.renderSessionHeader();
+    bindLogout();
     try {
       const pending = await window.imma.apiJson('/api/admin/companies/pending');
       const btn = $('a[href="/admin-control-center"]');
@@ -939,6 +940,7 @@
   async function initAdminControlCenter() {
     await window.imma.requireAdmin();
     window.imma.renderSessionHeader();
+    bindLogout();
     try {
       const pending = await window.imma.apiJson('/api/admin/companies/pending');
       const databaseCard = $('#database');
@@ -1000,12 +1002,13 @@
   async function initSupplierMessages() {
     await window.imma.requireRole('supplier');
     window.imma.renderSessionHeader();
-    bindSupplierLogout();
+    bindLogout();
   }
 
   async function initAdminOperations() {
     await window.imma.requireAdmin();
     window.imma.renderSessionHeader();
+    bindLogout();
   }
 
   function initSearchSuppliers() {

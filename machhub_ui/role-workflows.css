@@ -663,6 +663,7 @@ body {
   padding: 24px;
   color: #a0aec0;
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .mw-side.light .mw-side-user {

@@ -183,6 +183,7 @@ def assemble_response(
                     "next_available_date": cand.next_available_date,
                     "equipment_verified": cand.equipment_verified,
                     "equipment_verified_warning": cand.equipment_verified_warning,
+                    "equipment_summary": cand.equipment_summary,
                 })
 
         # 후보를 recommended / conditional로 분리 (기존 candidates 키 유지)

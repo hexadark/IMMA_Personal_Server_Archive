@@ -50,11 +50,15 @@ def _replicate_headers():
 
 
 @router.post("/analyze-upload")
-async def analyze_upload(
+def analyze_upload(
     image: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
-    """도면 이미지 → Replicate VLM 분석 → drawings 테이블 저장 → drawing_id 반환."""
+    """도면 이미지 → Replicate VLM 분석 → drawings 테이블 저장 → drawing_id 반환.
+
+    동기 def 로 정의 — Replicate API 의 sync requests + time.sleep 영역이
+    async event loop 를 freeze 하지 않도록 FastAPI thread pool 에서 실행.
+    """
     if engine is None:
         raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
     if user["role"] != "buyer":
@@ -65,7 +69,8 @@ async def analyze_upload(
         raise HTTPException(status_code=400, detail="이미지 파일만 허용됩니다")
 
     # ── ① 이미지 읽기 + 파일 저장 ──
-    image_bytes = await image.read()
+    # sync 함수 영역에서는 UploadFile.file 영역의 동기 read 사용
+    image_bytes = image.file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="빈 파일입니다")
 

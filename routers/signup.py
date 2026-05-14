@@ -1,15 +1,49 @@
 """
 회원가입 엔드포인트
+- GET  /api/check-login-id  — 가입 전 ID 중복 확인
 - POST /signup
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from routers.deps import engine, SCHEMA, _hash_password
 
 router = APIRouter()
+
+
+@router.get("/api/check-login-id")
+def check_login_id(login_id: str = Query(..., min_length=1, max_length=64)):
+    """login_id 중복 검사. buyers + companies 양쪽을 한 번에 조회한다.
+
+    응답 schema:
+        - {"available": True} — 사용 가능
+        - {"available": False, "reason": "..."} — 사용 불가 (사유 동봉)
+    """
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    login_id_clean = login_id.strip()
+    if not login_id_clean:
+        raise HTTPException(status_code=400, detail="login_id가 필요합니다")
+    if len(login_id_clean) < 4:
+        return {"available": False, "reason": "ID 는 4 자 이상이어야 합니다"}
+
+    with engine.connect() as conn:
+        existing = conn.execute(
+            text(f"""
+                SELECT 'buyer' AS src FROM {SCHEMA}.buyers WHERE login_id = :lid
+                UNION ALL
+                SELECT 'company' AS src FROM {SCHEMA}.companies WHERE login_id = :lid
+                LIMIT 1
+            """),
+            {"lid": login_id_clean},
+        ).fetchone()
+
+    if existing is not None:
+        return {"available": False, "reason": "이미 사용 중인 ID 입니다"}
+    return {"available": True}
 
 
 @router.post("/signup")

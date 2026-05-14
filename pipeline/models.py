@@ -82,6 +82,10 @@ class MatchCandidate:
     match_reasons: list[str] = field(default_factory=list)
     equipment_verified: bool = True
     equipment_verified_warning: bool = False
+    # ── 장비 영역: 후보별 카테고리별 보유 장비 요약 ──
+    # 형식: [{"category_code": str, "category_name_ko": str, "count": int,
+    #         "representative_model": str | None}]
+    equipment_summary: list[dict] = field(default_factory=list)
 
 
 @dataclass

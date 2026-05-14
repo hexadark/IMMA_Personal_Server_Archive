@@ -255,6 +255,18 @@ turning_rough, waterjet_cutting, welding
 14. 엔지니어링 플라스틱과 복합재/절연재에는 edm_sinker, edm_wire를 required_processes에 넣지 않는다. 비전도성 소재는 EDM 가공이 불가하다.
 15. 플라스틱의 응력제거/어닐링은 금속 heat_treatment로 매핑하지 않는다. post_treatment에 한글로 기재만 한다.
 16. 쾌삭강(SUM24L, SUM22 등)은 "쾌삭강"으로 분류한다. "탄소강"으로 분류하지 않는다.
+17. part_name 추출 우선순위:
+  (a) title_block 영역의 Part_Name / Part_Title / Description 영역을 최우선으로 채택한다.
+  (b) title_block 부재 시에만 도면 본문 최상위 부품명 라벨을 채택한다.
+  (c) view.name (예: "C部詳細", "A断面詳細", "正面図", "Front View", "Section A-A") 영역은
+      부분 상세의 도면 뷰 명칭이므로 part_name 으로 채택 금지.
+  (d) 어느 영역에서도 part_name 식별 부재 시 part_name 을 빈 문자열로 둔다.
+      "(추정)" 부착 금지.
+18. 원문 보존 정책:
+  (a) part_name 은 도면 원문 그대로 유지한다. 일본어/영문/중문 자의적 한국어 번역 금지.
+  (b) material.raw_text 도 도면 원문 그대로 유지한다 (출력 스키마 raw_text 항목 정합).
+  (c) referenced_standards 의 표준 코드도 원문 그대로 유지한다.
+  (d) post_treatment 만 규칙 9·9-1 영역에 따라 한국어로 작성한다 (사용자 인지용).
 
 [재질 분류 힌트]
 - POM, MC Nylon, PA6, PA66, PTFE, PEEK, PC, PMMA, ABS → 엔지니어링 플라스틱
