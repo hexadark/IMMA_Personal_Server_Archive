@@ -142,12 +142,13 @@
     .hero-video-modal-overlay.open { display: flex; }
     .hero-video-modal {
       position: relative;
-      width: 90%;
-      max-width: 1200px;
+      width: 95%;
+      max-width: 1600px;
       aspect-ratio: 16 / 9;
       background: #000;
       border-radius: 12px;
       overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6);
     }
     .hero-video-modal video {
       width: 100%; height: 100%;
@@ -754,39 +755,35 @@
     }
   }
 
-  // ── HERO 영상 클릭 → 모달 직진 + 모달 영상 자동 재생 + fullscreen 시도 ──
+  // ── HERO 영상 클릭 → 큰 모달 + 자동 재생 (fullscreen API 호출 자체 폐기 — PiP/축소 영역 회피) ──
   (function () {
     const card = document.getElementById('hero-video-card');
     const modalOverlay = document.getElementById('hero-video-modal-overlay');
     const modalPlayer = document.getElementById('hero-video-modal-player');
     const modalClose = document.getElementById('hero-video-modal-close');
-    if (!card || !modalOverlay || !modalPlayer) return;
+    console.log('[hero-video] init', { card: !!card, modalOverlay: !!modalOverlay, modalPlayer: !!modalPlayer });
+    if (!card || !modalOverlay || !modalPlayer) {
+      console.warn('[hero-video] hook 부착 부재 — ref 결손');
+      return;
+    }
 
     function openModal() {
+      console.log('[hero-video] card clicked → openModal');
       modalOverlay.classList.add('open');
       modalPlayer.currentTime = 0;
+      // user gesture 한 cycle 안에서 직접 호출 — unmuted autoplay 시도
       modalPlayer.muted = false;
-      // user gesture cycle 안에서 모든 호출 — autoplay 정책 + fullscreen 정합
+      modalPlayer.volume = 1.0;
       const p = modalPlayer.play();
       if (p && typeof p.catch === 'function') {
-        p.catch(function () {
-          // 음소거 해제 자동재생 거부 시 음소거 자세로 재시도
+        p.catch(function (err) {
+          console.warn('[hero-video] unmuted play 거부 → muted fallback', err);
           modalPlayer.muted = true;
           const p2 = modalPlayer.play();
-          if (p2 && typeof p2.catch === 'function') p2.catch(function () {});
+          if (p2 && typeof p2.catch === 'function') {
+            p2.catch(function (err2) { console.error('[hero-video] muted play 거부', err2); });
+          }
         });
-      }
-      // fullscreen API 시도 — 거부·미지원 시 모달 영역으로 시각 유지
-      const requestFs = modalPlayer.requestFullscreen
-        || modalPlayer.webkitRequestFullscreen
-        || modalPlayer.webkitEnterFullscreen
-        || modalPlayer.mozRequestFullScreen
-        || modalPlayer.msRequestFullscreen;
-      if (requestFs) {
-        try {
-          const fsResult = requestFs.call(modalPlayer);
-          if (fsResult && typeof fsResult.catch === 'function') fsResult.catch(function () {});
-        } catch (e) { /* 모달만 유지 */ }
       }
     }
 
@@ -812,8 +809,6 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && modalOverlay.classList.contains('open')) closeModal();
     });
-
-    // fullscreen 종료 시 모달은 그대로 유지 (사용자 의향 시 × / ESC 로 닫기)
   })();
 </script>
 <script src="/static/imma-phase1-pages.js"></script>
