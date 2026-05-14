@@ -489,70 +489,269 @@
     });
   }
 
+  // ── AI 요약 카드 hydrate (match_input 필드 활용) ──
+  function renderAiSummaryCard(rfq, part, result) {
+    const matchInput = (result && result.match_input) || {};
+    const materialCol = document.getElementById('ai-col-material');
+    const featuresCol = document.getElementById('ai-col-features');
+    const extraCol = document.getElementById('ai-col-extra');
+
+    function aiItem(text) {
+      return `<div class="ai-item">${h(text)}</div>`;
+    }
+    function aiWarn(text) {
+      return `<div class="ai-warn"><i class="ri-alert-line"></i> ${h(text)}</div>`;
+    }
+
+    const materialText = matchInput.material || partMaterial(part);
+    const processes = matchInput.processes
+      || (Array.isArray(part.processes) ? part.processes.join(', ') : (part.processes || part.process || ''));
+    const materialItems = [];
+    if (materialText && materialText !== '-') materialItems.push(`소재: ${materialText}`);
+    if (processes) materialItems.push(`공정: ${processes}`);
+    if (materialCol) materialCol.innerHTML = materialItems.length ? materialItems.map(aiItem).join('') : aiItem('—');
+
+    const featureItems = [];
+    const tolerance = partTolerance(part);
+    if (tolerance && tolerance !== '-') featureItems.push(`공차 요구: ${tolerance}`);
+    if (matchInput.surface_roughness_ra) featureItems.push(`표면거칠기: Ra ${matchInput.surface_roughness_ra}`);
+    if (part.tightest_it_grade) featureItems.push(`IT 등급: IT${part.tightest_it_grade}`);
+    if (matchInput.envelope_mm) featureItems.push(`외형: ${matchInput.envelope_mm}`);
+    if (featuresCol) featuresCol.innerHTML = featureItems.length ? featureItems.map(aiItem).join('') : aiItem('—');
+
+    const extras = [];
+    const warnings = Array.isArray(matchInput.warnings) ? matchInput.warnings : [];
+    warnings.slice(0, 3).forEach(w => extras.push(aiWarn(w)));
+    const postTreatment = matchInput.post_treatment_request
+      || (rfq && rfq.client_notes && rfq.client_notes.post_treatment_request);
+    if (postTreatment) extras.push(aiItem(`표면·열처리: ${postTreatment}`));
+    if (matchInput.vlm_fallback_used) extras.push(aiWarn('사전 분석 결과 사용 (VLM 폴백)'));
+    if (extraCol) extraCol.innerHTML = extras.length ? extras.join('') : aiItem('—');
+  }
+
+  // ── AI 점수 가중 분해 tooltip ──
+  function buildScoreTooltip(cand) {
+    const breakdown = cand.score_breakdown || cand.breakdown || {};
+    const technical = breakdown.technical ?? breakdown.tech ?? null;
+    const availability = breakdown.availability ?? breakdown.avail ?? null;
+    const quality = breakdown.quality ?? breakdown.qual ?? null;
+    const parts = [];
+    if (technical != null) parts.push(`기술 적합: ${Math.round(Number(technical) * 100)}%`);
+    if (availability != null) parts.push(`가용성: ${Math.round(Number(availability) * 100)}%`);
+    if (quality != null) parts.push(`품질: ${Math.round(Number(quality) * 100)}%`);
+    return parts.join(' · ');
+  }
+
+  function renderEquipmentSummary(cand) {
+    const list = Array.isArray(cand.equipment_summary) ? cand.equipment_summary : [];
+    if (!list.length) return '<strong>주요 보유 설비</strong>—';
+    const items = list.slice(0, 3).map(eq => {
+      const name = eq.category_name_ko || eq.category_code || '-';
+      const rep = eq.representative_model ? ` (${eq.representative_model})` : '';
+      const count = eq.count ? ` ×${eq.count}` : '';
+      return `${h(name)}${h(rep)}${h(count)}`;
+    });
+    return `<strong>주요 보유 설비</strong>${items.join('<br>')}`;
+  }
+
+  function renderStrengths(cand) {
+    const reasons = Array.isArray(cand.reasons) ? cand.reasons : [];
+    if (!reasons.length) return '<div class="strength"><i class="ri-check-line"></i> —</div>';
+    const sorted = reasons.slice().sort((a, b) => {
+      const pa = classifyReason(a).priority;
+      const pb = classifyReason(b).priority;
+      return pb - pa;
+    });
+    return sorted.slice(0, 4).map(r => renderReason(r)).join('');
+  }
+
+  function renderCompareSidebar(candidates, selectedIndex) {
+    const itemsBox = document.getElementById('compare-items');
+    const tableBox = document.getElementById('compare-table');
+    const selectedName = document.getElementById('compare-selected-name');
+    if (!itemsBox || !tableBox) return;
+
+    const top = candidates.slice(0, 3);
+    const selected = top[selectedIndex] || top[0] || null;
+    if (selectedName) selectedName.textContent = (selected && selected.cand.company_name) || '—';
+
+    itemsBox.innerHTML = top.map((item, i) => {
+      const c = item.cand;
+      return `
+        <div class="compare-item">
+          <div class="compare-num">${i + 1}</div>
+          <div class="compare-name">${h(c.company_name || '—')}</div>
+          <div><div class="compare-price">견적 도착 후</div></div>
+        </div>`;
+    }).join('') || '<div class="compare-item"><div class="compare-num">—</div><div class="compare-name">—</div><div><div class="compare-price">—</div></div></div>';
+
+    function row(label, vals) {
+      const cells = vals.map(v => `<span class="ct-val">${h(v)}</span>`).join('');
+      return `<div class="ct-row"><span class="ct-label">${h(label)}</span><div class="ct-vals">${cells}</div></div>`;
+    }
+    const prices = top.map(() => '견적 도착 후');
+    const leads = top.map(() => '—');
+    const scores = top.map(item => candidateScore(item.cand));
+    const ratings = top.map(item => {
+      const r = item.cand.avg_rating || item.cand.rating;
+      return r ? `★ ${Number(r).toFixed(1)}` : '—';
+    });
+    const processes = top.map(item => {
+      const p = item.cand.processes || (Array.isArray(item.cand.process_codes) ? item.cand.process_codes.join('·') : '');
+      return p || '—';
+    });
+    const certs = top.map(item => item.cand.certifications_summary || '—');
+    const response = top.map(item => item.cand.avg_response_minutes ? `${item.cand.avg_response_minutes}분 이내` : '—');
+
+    tableBox.innerHTML = [
+      row('예상 금액', prices),
+      row('예상 납기', leads),
+      row('AI 매칭 점수', scores),
+      row('평균 평점', ratings),
+      row('주요 공정', processes),
+      row('품질 인증', certs),
+      row('응답 속도', response),
+    ].join('');
+  }
+
   async function initMatching() {
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
     const rfqId = window.imma.getQueryParam('rfq_id') || scopedGet(['current_rfq_id']);
     if (!rfqId) return;
 
+    let rfq = null;
+    let part = {};
+    const result = scopedGet([rfqId, 'match_result']);
+
     try {
-      const rfq = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}`);
-      const part = firstPart(rfq);
+      rfq = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}`);
+      part = firstPart(rfq);
       const values = $$('.rfq-summary-card .rfq-value');
+      // part_name 은 Phase A GraphRAG 시정 결과 그대로 표시 (원문 보존 정책)
       text(values[0], rfq.rfq_no || shortId(rfq.rfq_id));
-      text(values[1], part.part_name || '도면 기반 부품');
+      text(values[1], part.part_name || '—');
       text(values[2], processText(part));
-      text(values[3], part.quantity || rfq.order_quantity || '-');
-      text(values[4], rfq.created_at ? rfq.created_at.slice(0, 10) : '-');
+      text(values[3], part.quantity || rfq.order_quantity || '—');
+      text(values[4], rfq.created_at ? rfq.created_at.slice(0, 10) : '—');
     } catch (err) {
       console.warn('RFQ summary 조회 실패', err);
     }
 
-    const result = scopedGet([rfqId, 'match_result']);
+    try {
+      renderAiSummaryCard(rfq || {}, part || {}, result || {});
+    } catch (err) {
+      console.warn('AI summary hydrate 실패', err);
+    }
+
     const candidates = getMatchCandidates(result).slice(0, 3);
     const rows = $$('.supplier-row');
-    rows.forEach((row, index) => {
-      const item = candidates[index];
-      if (!item) return;
-      const cand = item.cand;
-      const h4 = row.querySelector('.s-info h4');
-      const badge = h4 && h4.querySelector('.ai-badge');
-      if (h4) {
-        h4.textContent = `${cand.company_name || '업체명 없음'} `;
-        if (badge) {
-          badge.textContent = `AI ${candidateScore(cand)}`;
-          h4.appendChild(badge);
-        }
-      }
-      const payload = {
-        rfq_id: rfqId,
-        rfq_part_id: cand.rfq_part_id || item.part.rfq_part_id,
-        company_id: cand.company_id || cand.company_code,
-        company_name: cand.company_name,
-        match_run_id: cand.match_run_id,
-        rank_no: cand.rank_no,
-      };
-      row.dataset.candidate = safeJson(payload);
-      const actionButton = row.querySelector('.s-actions .btn-primary, .s-actions .btn-outline:last-child');
-      if (actionButton) {
-        actionButton.type = 'button';
-        actionButton.dataset.candidate = safeJson(payload);
-        actionButton.addEventListener('click', () => {
-          scopedSet([rfqId, 'selected_candidate'], payload);
-          rows.forEach(r => r.classList.remove('selected'));
-          row.classList.add('selected');
-          window.imma.toast(`${payload.company_name || '후보'}를 표시했습니다.`, 'success');
-        });
-      }
-      const checkbox = row.querySelector('.s-checkbox input');
-      if (checkbox) {
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) scopedSet([rfqId, 'selected_candidate'], payload);
-        });
-      }
-    });
+    let selectedIndex = 0;
+    let hydrateOk = false;
 
-    const proceedBtn = $('.compare-box a[href="/order-management"]');
+    try {
+      rows.forEach((row, index) => {
+        const item = candidates[index];
+        if (!item) return;
+        const cand = item.cand;
+
+        // 업체명 + AI 배지
+        const h4 = row.querySelector('.s-info h4');
+        const badge = h4 && h4.querySelector('.ai-badge');
+        if (h4) {
+          h4.textContent = `${cand.company_name || '업체명 없음'} `;
+          if (badge) {
+            badge.textContent = `AI ${candidateScore(cand)}`;
+            const tip = buildScoreTooltip(cand);
+            if (tip) badge.setAttribute('title', tip);
+            h4.appendChild(badge);
+          }
+        }
+
+        // 지역
+        const locEl = row.querySelector('.s-info .loc');
+        if (locEl) {
+          const region = cand.region || cand.address || cand.location || '';
+          const respMin = cand.avg_response_minutes ? ` · 평균 견적 ${cand.avg_response_minutes}분` : '';
+          locEl.innerHTML = `<i class="ri-map-pin-line"></i> ${h(region || '—')}${h(respMin)}`;
+        }
+
+        // 평점 + 납기
+        const ratingEl = row.querySelector('.s-info .s-rating');
+        if (ratingEl) {
+          const rating = cand.avg_rating || cand.rating;
+          const reviewCount = cand.review_count || cand.rating_count;
+          const leadAvg = cand.avg_lead_days;
+          const ratingTxt = rating ? `<strong>${Number(rating).toFixed(1)}</strong>` : `<strong>—</strong>`;
+          const reviewTxt = reviewCount ? `(${reviewCount})` : '';
+          const leadTxt = leadAvg ? ` · 평균 납기 ${leadAvg}일` : '';
+          ratingEl.innerHTML = `<i class="ri-star-fill star"></i>${ratingTxt}${h(reviewTxt)}${h(leadTxt)}`;
+        }
+
+        // 강점 (reasons → 신호 토큰)
+        const strengthsEl = row.querySelector('.s-strengths');
+        if (strengthsEl) strengthsEl.innerHTML = renderStrengths(cand);
+
+        // 가격 / 일수 — matching 시점 견적 부재
+        // (HTML 의 정적 — 유지)
+
+        // 보유 설비
+        const equipEl = row.querySelector('.s-equip');
+        if (equipEl) equipEl.innerHTML = renderEquipmentSummary(cand);
+
+        // 후보 데이터 + 이벤트
+        const payload = {
+          rfq_id: rfqId,
+          rfq_part_id: cand.rfq_part_id || item.part.rfq_part_id,
+          company_id: cand.company_id || cand.company_code,
+          company_name: cand.company_name,
+          match_run_id: cand.match_run_id,
+          rank_no: cand.rank_no,
+        };
+        row.dataset.candidate = safeJson(payload);
+        const actionButton = row.querySelector('.s-actions .btn-primary, .s-actions .btn-outline:last-child');
+        if (actionButton) {
+          actionButton.type = 'button';
+          actionButton.dataset.candidate = safeJson(payload);
+          actionButton.addEventListener('click', () => {
+            scopedSet([rfqId, 'selected_candidate'], payload);
+            rows.forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
+            selectedIndex = index;
+            renderCompareSidebar(candidates, selectedIndex);
+            window.imma.toast(`${payload.company_name || '후보'}를 표시했습니다.`, 'success');
+          });
+        }
+        const checkbox = row.querySelector('.s-checkbox input');
+        if (checkbox) {
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+              scopedSet([rfqId, 'selected_candidate'], payload);
+              selectedIndex = index;
+              renderCompareSidebar(candidates, selectedIndex);
+            }
+          });
+        }
+      });
+
+      // 비교 사이드바 hydrate
+      renderCompareSidebar(candidates, selectedIndex);
+      hydrateOk = candidates.length > 0;
+    } catch (err) {
+      console.warn('후보 hydrate 실패', err);
+    }
+
+    // hydrate 실패 시 row1 의 정적 selected/checked 영역 제거
+    if (!hydrateOk) {
+      const row1 = document.getElementById('row1');
+      if (row1) {
+        row1.classList.remove('selected');
+        const cb = row1.querySelector('.s-checkbox input');
+        if (cb) cb.checked = false;
+      }
+    }
+
+    const proceedBtn = $('#compare-proceed-btn') || $('.compare-box a[href="/order-management"]');
     if (proceedBtn) proceedBtn.href = `/order-management?rfq_id=${encodeURIComponent(rfqId)}`;
   }
 
@@ -673,6 +872,51 @@
         window.imma.toast(err.message, 'error');
       }
     }
+  }
+
+  // ── 신호 토큰 분류 (Cortex §4.8 정합) ──
+  function classifyReason(reason) {
+    if (typeof reason !== 'string') return { kind: 'neutral', priority: 0, label: null };
+    const s = reason.trim();
+    if (s.startsWith('[INFO_CATEGORY_FALLBACK]')) return { kind: 'info', priority: 2, label: '카테고리 폴백' };
+    if (s.startsWith('[INFO_PARENT_FALLBACK]')) return { kind: 'info', priority: 2, label: '부모 공정 폴백' };
+    if (s.startsWith('[WARN_EQUIPMENT_CAPABILITY_MISSING]')) return { kind: 'warn', priority: 4, label: '장비 검증 필요' };
+    if (s.startsWith('[공정 달성범위 의심·재질override]')) return { kind: 'warn', priority: 4, label: '재질 override' };
+    if (s.startsWith('[공정 달성범위 의심]')) return { kind: 'warn', priority: 4, label: '달성범위 의심' };
+    if (s.startsWith('[공정순서 위반]')) return { kind: 'danger', priority: 5, label: '공정순서 위반' };
+    if (s.startsWith('[공정순서 권장위반]')) return { kind: 'warn', priority: 3, label: '공정순서 권장위반' };
+    if (s.startsWith('[unsupported]')) return { kind: 'danger', priority: 5, label: '미지원' };
+    if (/매칭|충족|범위 내|보유/.test(s)) return { kind: 'positive', priority: 1, label: null };
+    return { kind: 'neutral', priority: 0, label: null };
+  }
+
+  function cleanReason(reason) {
+    if (typeof reason !== 'string') return '';
+    return reason
+      .replace(/^\[INFO_CATEGORY_FALLBACK\]\s*/, '')
+      .replace(/^\[INFO_PARENT_FALLBACK\]\s*/, '')
+      .replace(/^\[WARN_EQUIPMENT_CAPABILITY_MISSING\]\s*/, '')
+      .replace(/^\[공정 달성범위 의심·재질override\]\s*/, '')
+      .replace(/^\[공정 달성범위 의심\]\s*/, '')
+      .replace(/^\[공정순서 위반\]\s*/, '')
+      .replace(/^\[공정순서 권장위반\]\s*/, '')
+      .replace(/^\[unsupported\]\s*/, '')
+      .trim();
+  }
+
+  function renderReason(reason) {
+    const cls = classifyReason(reason);
+    const text = cleanReason(reason);
+    const colorMap = {
+      'positive': 'background:#ecfdf3;color:#027a48;',
+      'info':     'background:#eff6ff;color:#1d4ed8;',
+      'warn':     'background:#fffaeb;color:#b54708;',
+      'danger':   'background:#fef3f2;color:#b42318;',
+      'neutral':  'background:#f2f4f7;color:#344054;',
+    };
+    const style = colorMap[cls.kind] || colorMap['neutral'];
+    const label = cls.label ? `<strong>${window.imma.escapeHtml(cls.label)}:</strong> ` : '';
+    return `<span class="imma-match-chip" style="${style}padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;margin:2px;display:inline-block;">${label}${window.imma.escapeHtml(text)}</span>`;
   }
 
   function bindLogout() {
