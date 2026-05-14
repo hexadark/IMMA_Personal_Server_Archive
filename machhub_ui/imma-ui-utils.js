@@ -48,6 +48,13 @@
     return d.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
   }
 
+  function formatDateTime(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value).slice(0, 16).replace('T', ' ') || '-';
+    return d.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
   function setLoading(el, isLoading, label) {
     if (!el) return;
     if (isLoading) {
@@ -139,6 +146,7 @@
     toast,
     formatCurrency,
     formatDate,
+    formatDateTime,
     setLoading,
     renderSessionHeader,
     getQueryParam,

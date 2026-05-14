@@ -436,7 +436,7 @@
     list.innerHTML = filtered.slice(0, 6).map(n => {
       const meta = BUYER_NOTIFICATION_TYPES[n.event_type];
       const link = notificationLink(n);
-      const time = (n.created_at || '').slice(0, 16).replace('T', ' ');
+      const time = window.imma.formatDateTime(n.created_at);
       const titleHtml = link
         ? `<a href="${h(link)}" style="color:#111; text-decoration:none;">${h(n.title || meta.label)}</a>`
         : h(n.title || meta.label);
@@ -925,7 +925,7 @@
       text(values[1], part.part_name || '—');
       text(values[2], processText(part));
       text(values[3], part.quantity || rfq.order_quantity || '—');
-      text(values[4], rfq.created_at ? rfq.created_at.slice(0, 10) : '—');
+      text(values[4], window.imma.formatDate(rfq.created_at) === '-' ? '—' : window.imma.formatDate(rfq.created_at));
     } catch (err) {
       console.warn('RFQ summary 조회 실패', err);
     }
@@ -1228,7 +1228,7 @@
         if (meta[0]) {
           const v = meta[0].querySelector('.meta-value');
           if (v) v.innerHTML = `${h(shortId(order.order_id))} <button class="copy-btn">복사</button>`;
-          text(meta[0].querySelector('.meta-sub'), `발주일: ${order.created_at ? order.created_at.slice(0, 10) : '-'}`);
+          text(meta[0].querySelector('.meta-sub'), `발주일: ${window.imma.formatDate(order.created_at)}`);
         }
         if (meta[1]) text(meta[1].querySelector('.meta-value'), order.company_name || '-');
         if (meta[2]) text(meta[2].querySelector('.meta-value'), window.imma.formatCurrency(order.total_price, order.currency_code || 'KRW'));
@@ -1624,10 +1624,12 @@
       const badge = $('#rfq .mw-badge');
       if (badge) badge.textContent = `신규 ${data.count || currentMatches.length}건`;
       const tbody = $('#rfq .mw-table tbody');
-      if (tbody && currentMatches.length) {
+      if (tbody && currentMatches.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--text-muted); font-size:13px;">수신 매칭 대기 중 — 클라이언트가 매칭 실행하면 자동으로 표시됩니다.</td></tr>';
+      } else if (tbody && currentMatches.length) {
         tbody.innerHTML = currentMatches.map(m => {
           const part = m.rfq_part || {};
-          const due = (m.rfq && m.rfq.requested_delivery_date) || '-';
+          const due = window.imma.formatDate((m.rfq && m.rfq.requested_delivery_date)) === '-' ? '-' : window.imma.formatDate(m.rfq && m.rfq.requested_delivery_date);
           const condition = `${processText(part) !== '-' ? processText(part) : (m.processes || '-')} · ${partMaterial(part) !== '-' ? partMaterial(part) : (m.material || '-')} · ${part.quantity || '-'} EA`;
           return `<tr>
             <td><div class="mw-id">RFQ-${h(shortId(m.rfq_id))}</div><div class="mw-list-meta">${h(part.part_name || m.part_name || '-')}</div></td>
@@ -2148,7 +2150,7 @@
       const rfq = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}`);
       const metaSpans = $$('.rfq-title-row > span');
       text(metaSpans[1], rfq.rfq_no || `RFQ-${shortId(rfq.rfq_id)}`);
-      text(metaSpans[3], `요청일 ${rfq.created_at ? rfq.created_at.slice(0, 10) : '-'}`);
+      text(metaSpans[3], `요청일 ${window.imma.formatDate(rfq.created_at)}`);
       const part = firstPart(rfq);
       const vals = $$('.spec-table .spec-val');
       text(vals[0], part.part_name || '-');
