@@ -77,6 +77,20 @@ def create_quote(data: dict, current_user: dict = Depends(get_current_user)):
         quote_id = q_row[0]
 
         for item in data.get("line_items", []):
+            # process_code 방어층: CSV/array → 첫 단일 코드 정규화 + FK 검증
+            raw_pc = item.get("process_code")
+            if isinstance(raw_pc, str) and "," in raw_pc:
+                raw_pc = raw_pc.split(",")[0].strip()
+            elif isinstance(raw_pc, list):
+                raw_pc = raw_pc[0] if raw_pc else None
+            # process_catalog 존재 검증 (없으면 NULL — FK 컬럼 nullable)
+            if raw_pc:
+                exists = conn.execute(
+                    text(f"SELECT 1 FROM {SCHEMA}.process_catalog WHERE process_code = :pc"),
+                    {"pc": raw_pc},
+                ).fetchone()
+                if not exists:
+                    raw_pc = None
             conn.execute(
                 text(f"""
                     INSERT INTO {SCHEMA}.quote_line_items
@@ -87,7 +101,7 @@ def create_quote(data: dict, current_user: dict = Depends(get_current_user)):
                 {
                     "qid": quote_id,
                     "rpid": item.get("rfq_part_id"),
-                    "pc": item.get("process_code"),
+                    "pc": raw_pc,
                     "desc": item.get("description"),
                     "qty": item.get("quantity"),
                     "up": item.get("unit_price"),

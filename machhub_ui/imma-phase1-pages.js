@@ -170,7 +170,11 @@
       assumptions: structuredAssumptions,
       line_items: [{
         rfq_part_id: rfqPartId || null,
-        process_code: match.processes || null,
+        // match.processes 는 CSV string (matching.py:671 의 string_agg 결과).
+        // quote_line_items.process_code 는 단일 코드 FK (schema.sql:445) — 첫 코드만 추출.
+        process_code: (typeof match.processes === 'string'
+          ? match.processes.split(',')[0].trim()
+          : (Array.isArray(match.processes) ? match.processes[0] : match.processes)) || null,
         description: match.part_name || 'Phase 1 견적',
         quantity,
         unit_price: quantity > 0 ? Math.round(amount / quantity) : amount,
