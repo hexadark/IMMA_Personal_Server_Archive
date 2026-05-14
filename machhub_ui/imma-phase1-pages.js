@@ -480,6 +480,93 @@
     }
   }
 
+  // ── AI 분석 결과 카드 hydrate + 인라인 수정 hook ──
+  // VLM 완료 시 vlm_result_jsonb 의 title_block / view / notes 영역 추출 → 카드 표시.
+  // 사용자가 수정 버튼 클릭 시 인라인 input 으로 전환, 저장 시 dataset.userEdited='true' 표시.
+  // submit 영역에서 dataset.userEdited 영역 모아 client_notes 영역에 반영.
+  function hydrateAiResultCard(vlmResult, drawingId) {
+    const card = document.getElementById('ai-result-card');
+    if (!card || !vlmResult) return;
+
+    const tb = vlmResult.title_block_1 || {};
+    const view = vlmResult.view_1 || {};
+    const notes = vlmResult.notes_1 || {};
+
+    const partName = tb.Part_Name || tb.Title || '';
+    const material = tb.Material || '';
+    const drawingNo = tb.Drawing_No || tb.Project_ID || '';
+    const measuresArr = (view.measures || []);
+    const measuresCount = measuresArr.length;
+    const notesArr = (notes.lines || []);
+    // 후처리 영역 — notes 첫 line 또는 measures 안의 GDT/Ra 영역 (단순 요약)
+    const ptSummary = notesArr[0] || measuresArr.slice(0, 3).join(' · ') || '';
+
+    setAiField('ai-part-name', partName);
+    setAiField('ai-material', material);
+    setAiField('ai-measures', measuresCount > 0 ? `${measuresCount} 항목 추출 (view 1)` : '추출 부재');
+    setAiField('ai-post-treatment', ptSummary);
+    setAiField('ai-drawing-no', drawingNo);
+
+    bindAiEditHooks();
+    card.style.display = 'block';
+    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+  }
+
+  function setAiField(elementId, value) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.textContent = value || '-';
+    el.dataset.original = value || '';
+    delete el.dataset.userEdited;
+  }
+
+  function bindAiEditHooks() {
+    $$('#ai-result-card .ai-edit-btn').forEach(btn => {
+      if (btn.dataset.immaHooked === 'true') return;
+      btn.dataset.immaHooked = 'true';
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        const isEditing = btn.classList.contains('editing');
+        if (isEditing) {
+          // 저장
+          const input = target.querySelector('input');
+          const newValue = input ? input.value.trim() : '';
+          target.textContent = newValue || '-';
+          if (newValue && newValue !== target.dataset.original) {
+            target.dataset.userEdited = 'true';
+          } else {
+            delete target.dataset.userEdited;
+          }
+          btn.classList.remove('editing');
+          btn.innerHTML = '<i class="ri-pencil-line"></i> 수정';
+        } else {
+          // 편집 시작
+          const currentValue = target.textContent === '-' ? '' : target.textContent;
+          target.innerHTML = `<input type="text" value="${h(currentValue)}" />`;
+          const input = target.querySelector('input');
+          if (input) { input.focus(); input.select(); }
+          btn.classList.add('editing');
+          btn.innerHTML = '<i class="ri-check-line"></i> 저장';
+        }
+      });
+    });
+  }
+
+  // submit 영역에서 사용자 수정 영역 client_notes 영역에 반영
+  function collectAiUserEdits() {
+    const edits = {};
+    ['ai-part-name', 'ai-material', 'ai-post-treatment', 'ai-drawing-no'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.dataset.userEdited === 'true') {
+        const field = el.dataset.field;
+        edits[field] = el.textContent.trim();
+      }
+    });
+    return edits;
+  }
+
   async function initQuoteRequest() {
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
@@ -507,6 +594,10 @@
           displaySpan.style.color = '#059669';
         }
         if (sFile) sFile.textContent = '1개 (준비됨)';
+        // VLM 완료 → AI 분석 결과 카드 hydrate (사용자 확인 + 인라인 수정 가능)
+        if (isImage && data.vlm_result_jsonb) {
+          hydrateAiResultCard(data.vlm_result_jsonb, data.drawing_id);
+        }
         return data;
       } catch (err) {
         if (displaySpan) {
@@ -601,6 +692,14 @@
       if (hExtra) postTreatmentParts.push(hExtra);
       const postTreatmentRequest = postTreatmentParts.length ? postTreatmentParts.join(', ') : null;
 
+      // AI 분석 결과 카드 사용자 수정 영역 — VLM 추출 값을 사용자가 정정한 경우 client_notes 영역에 반영.
+      // pipeline_runner.py 의 client_material fallback 영역이 VLM 결과 부재 또는 사용자 우선 영역에서 사용.
+      const aiEdits = collectAiUserEdits();
+      const materialOverride = aiEdits.material || materialInput;
+      const postTreatmentOverride = aiEdits.post_treatment
+        ? (postTreatmentRequest ? `${postTreatmentRequest}, ${aiEdits.post_treatment}` : aiEdits.post_treatment)
+        : postTreatmentRequest;
+
       // pipeline_runner.py 가 우선 lookup 하는 client_notes 키로 통일 전달.
       // 공정·공차·envelope·GDT 는 도면 분석이 단일 원천이므로 parts 명시 전달은 수행하지 않는다.
       const payload = {
@@ -610,12 +709,13 @@
         budget_amount: budgetAmount,
         budget_currency: 'KRW',
         client_notes: {
-          material: materialInput,
+          material: materialOverride,
           delivery_region: regionSelect && regionSelect.value ? regionSelect.value : null,
           certifications: certInput && certInput.value ? certInput.value : null,
-          post_treatment_request: postTreatmentRequest,
+          post_treatment_request: postTreatmentOverride,
           notes: noteInput && noteInput.value ? noteInput.value : null,
           vlm_fallback_used: Boolean(scopedGet([drawingId, 'vlm_fallback_used'], false)),
+          ai_user_edits: Object.keys(aiEdits).length ? aiEdits : null,
         },
       };
 
@@ -1335,8 +1435,15 @@
     async function respond(matchRunId, response) {
       try {
         await window.imma.apiJson(`/api/match-candidates/${encodeURIComponent(matchRunId)}/${encodeURIComponent(user.id)}/respond`, { method: 'PUT', body: { response } });
-        window.imma.toast('응답이 저장되었습니다.', 'success');
+        window.imma.toast(response === 'accepted' ? '수락 완료 — 견적 작성 영역으로 이동합니다.' : '응답이 저장되었습니다.', 'success');
         await refresh();
+        // 수락 시 #reply 영역으로 자동 스크롤 (견적 작성 UX 연결)
+        if (response === 'accepted') {
+          const replySection = document.getElementById('reply');
+          if (replySection) {
+            setTimeout(() => replySection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+          }
+        }
       } catch (err) {
         window.imma.toast(err.message, 'error');
       }
