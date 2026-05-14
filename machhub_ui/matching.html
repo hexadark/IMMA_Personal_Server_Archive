@@ -157,6 +157,33 @@
     .ct-label { color: var(--text-muted); }
     .ct-vals { display: flex; gap: 20px; }
     .ct-val { font-weight: 600; color: #111; min-width: 60px; text-align: right; }
+
+    /* supplier 상세 보기 modal — imma-common.css 에 modal 영역 부재이므로 self-contained 정의.
+       landing.html 의 imma-modal 패턴과 시각 정합. */
+    .imma-modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); z-index: 9999;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .imma-modal-overlay.open { display: flex; }
+    .imma-modal {
+      background: white; border-radius: 16px;
+      padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      position: relative; max-height: 85vh; overflow-y: auto;
+    }
+    .imma-modal-close {
+      position: absolute; top: 16px; right: 16px; font-size: 24px;
+      cursor: pointer; color: var(--text-muted); transition: color 0.2s;
+    }
+    .imma-modal-close:hover { color: #111; }
+    .imma-modal h2 { font-size: 20px; font-weight: 800; color: #111; margin-bottom: 16px; }
+    .sd-section { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .sd-section:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+    .sd-section h3 { font-size: 13px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .sd-score-breakdown { font-size: 14px; color: #111; }
+    .sd-score-breakdown strong { font-size: 18px; color: var(--primary-dark); }
+    .sd-recommend-chip { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; }
   </style>
 <script>window.__imma_realmode__ = true;</script>
 <script src="/static/imma-ui-utils.js"></script>
@@ -380,7 +407,7 @@
         </div>
 
         <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px;">
-          <a href="/order-management" id="compare-proceed-btn" class="btn-primary w-full" style="justify-content:center;font-size:13px;">발주 진행</a>
+          <a href="/order-management" id="compare-proceed-btn" class="btn-primary w-full" style="justify-content:center;font-size:13px;">이 후보로 견적 받기</a>
           <a href="/quote-request" class="btn-outline w-full" style="justify-content:center;font-size:13px;">견적 요청 다시하기</a>
         </div>
       </div>
@@ -394,6 +421,35 @@
     <ul class="footer-links"><li><a href="/how-to-use">회사 소개</a></li><li><a href="/support">고객지원</a></li><li><a href="/support">개인정보처리방침</a></li></ul>
   </div>
 </footer>
+
+<!-- supplier 상세 보기 modal — initMatching 의 bindSupplierDetailModal hook 으로 hydrate -->
+<div class="imma-modal-overlay" id="supplier-detail-modal">
+  <div class="imma-modal" style="max-width:560px; width:560px;">
+    <i class="ri-close-line imma-modal-close" id="supplier-detail-close"></i>
+    <h2 id="sd-company-name" style="text-align:left; margin-bottom:8px;">업체 상세</h2>
+    <div id="sd-recommend-badge" style="margin-bottom:20px;"></div>
+
+    <div class="sd-section">
+      <h3>매칭 정보</h3>
+      <div class="sd-score-breakdown" id="sd-score-breakdown"></div>
+    </div>
+
+    <div class="sd-section">
+      <h3>매칭 사유</h3>
+      <div id="sd-match-reasons"></div>
+    </div>
+
+    <div class="sd-section">
+      <h3>보유 장비</h3>
+      <div id="sd-equipment-list"></div>
+    </div>
+
+    <div class="sd-section">
+      <h3>평점 + 납기</h3>
+      <div id="sd-rating-lead"></div>
+    </div>
+  </div>
+</div>
 
 <script>
   function toggleSelect(id, cb) {

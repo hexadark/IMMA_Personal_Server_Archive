@@ -860,6 +860,118 @@
 
     const proceedBtn = $('#compare-proceed-btn') || $('.compare-box a[href="/order-management"]');
     if (proceedBtn) proceedBtn.href = `/order-management?rfq_id=${encodeURIComponent(rfqId)}`;
+
+    // 상세 보기 modal hook — row 첫 번째 .btn-outline 클릭 시 후보 정보 modal 노출.
+    bindSupplierDetailModal(candidates);
+  }
+
+  // D-2 시정: supplier-row 의 *상세 보기* 버튼은 R8 까지 동작 부재.
+  // matching.html 의 #supplier-detail-modal 영역에 후보 정보 hydrate 후 노출한다.
+  function bindSupplierDetailModal(candidates) {
+    const rows = $$('.supplier-row');
+    rows.forEach((row, index) => {
+      const item = candidates[index];
+      if (!item) return;
+      const cand = item.cand;
+      // .s-actions 의 첫 번째 .btn-outline = "상세 보기" (action 버튼은 :last-child 로 분리 hook 되어 있음).
+      const detailBtn = row.querySelector('.s-actions .btn-outline');
+      if (!detailBtn || detailBtn.dataset.immaDetailHooked === 'true') return;
+      detailBtn.dataset.immaDetailHooked = 'true';
+      detailBtn.type = 'button';
+      detailBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        openSupplierDetailModal(cand);
+      });
+    });
+
+    // 닫기 hook 은 modal 영역에 한 번만 부착.
+    const modal = $('#supplier-detail-modal');
+    const closeBtn = $('#supplier-detail-close');
+    if (modal && closeBtn && closeBtn.dataset.immaHooked !== 'true') {
+      closeBtn.dataset.immaHooked = 'true';
+      closeBtn.addEventListener('click', () => modal.classList.remove('open'));
+      // overlay 바깥 클릭 시 닫기 — modal 내부 클릭은 무시.
+      modal.addEventListener('click', (ev) => {
+        if (ev.target === modal) modal.classList.remove('open');
+      });
+    }
+  }
+
+  function openSupplierDetailModal(cand) {
+    const modal = $('#supplier-detail-modal');
+    if (!modal) return;
+
+    text($('#sd-company-name'), cand.company_name || '-');
+
+    // 추천 / 조건부 배지 — equipment_verified 기반 (matching summary 의 기존 분류 정합).
+    const isRec = !!cand.equipment_verified && !cand.equipment_verified_warning;
+    const badgeEl = $('#sd-recommend-badge');
+    if (badgeEl) {
+      const bgColor = isRec ? '#ecfdf3' : '#fffaeb';
+      const fgColor = isRec ? '#027a48' : '#b54708';
+      const label = isRec ? '추천' : '조건부';
+      badgeEl.innerHTML = `<span class="sd-recommend-chip" style="background:${bgColor};color:${fgColor};">${label}</span>`;
+    }
+
+    // 점수 분해 — buildScoreTooltip 과 동일 source (cand.score_breakdown 우선, fallback breakdown).
+    const breakdown = cand.score_breakdown || cand.breakdown || {};
+    const technical = breakdown.technical ?? breakdown.tech ?? null;
+    const availability = breakdown.availability ?? breakdown.avail ?? null;
+    const quality = breakdown.quality ?? breakdown.qual ?? null;
+    const tech = technical != null ? Math.round(Number(technical) * 100) : '-';
+    const avail = availability != null ? Math.round(Number(availability) * 100) : '-';
+    const qual = quality != null ? Math.round(Number(quality) * 100) : '-';
+    const total = candidateScore(cand);
+    const breakdownEl = $('#sd-score-breakdown');
+    if (breakdownEl) {
+      breakdownEl.innerHTML = `
+        <div>총점 <strong>${h(total)}</strong></div>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:13px;color:var(--text-muted);">
+          <span>기술 ${h(tech)}</span><span>가용 ${h(avail)}</span><span>품질 ${h(qual)}</span>
+        </div>`;
+    }
+
+    // 매칭 사유 — renderReason 재활용으로 색상 분류 정합 유지.
+    const reasons = Array.isArray(cand.reasons) ? cand.reasons : [];
+    const reasonEl = $('#sd-match-reasons');
+    if (reasonEl) {
+      reasonEl.innerHTML = reasons.length
+        ? reasons.map(r => renderReason(r)).join('')
+        : '<span style="color:var(--text-muted);font-size:13px;">매칭 사유 정보 부재</span>';
+    }
+
+    // 보유 장비 — equipment_summary 의 전체 목록 노출 (renderEquipmentSummary 는 3 건 제한).
+    const summary = Array.isArray(cand.equipment_summary) ? cand.equipment_summary : [];
+    const equipEl = $('#sd-equipment-list');
+    if (equipEl) {
+      equipEl.innerHTML = summary.length
+        ? summary.map(eq => {
+            const name = eq.category_name_ko || eq.category_code || '-';
+            const rep = eq.representative_model || '-';
+            const count = eq.count != null ? `${eq.count}대` : '-';
+            return `
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+                <span><strong>${h(name)}</strong> ${h(count)}</span>
+                <span style="color:var(--text-muted);">${h(rep)}</span>
+              </div>`;
+          }).join('')
+        : '<span style="color:var(--text-muted);font-size:13px;">장비 정보 부재</span>';
+    }
+
+    // 평점 + 납기 — matching summary 와 동일 field (avg_rating / review_count / avg_lead_days).
+    const rating = cand.avg_rating != null ? Number(cand.avg_rating).toFixed(1) : '-';
+    const reviewCount = cand.review_count || cand.rating_count || 0;
+    const leadDays = cand.avg_lead_days != null
+      ? cand.avg_lead_days
+      : (cand.availability_info && cand.availability_info.estimated_lead_days);
+    const ratingEl = $('#sd-rating-lead');
+    if (ratingEl) {
+      ratingEl.innerHTML = `
+        <div>평점 <strong>★ ${h(rating)}</strong> <span style="color:var(--text-muted);">(${h(reviewCount)} 리뷰)</span></div>
+        <div style="margin-top:6px;">예상 납기 <strong>${leadDays != null ? h(leadDays) + '일' : '-'}</strong></div>`;
+    }
+
+    modal.classList.add('open');
   }
 
   function updateTimeline(status) {
@@ -951,26 +1063,32 @@
         const data = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}/quotes`);
         const quotes = data.quotes || [];
         if (!quotes.length) {
-          // 견적 0 건 시 정적 demo 영역 숨김 + 안내 카드 노출.
-          // 이미 카드가 삽입된 경우 중복 회피.
-          if ($('.imma-quote-empty')) return;
-          ['.order-meta', '.process-timeline', '.order-grid'].forEach(sel => {
-            const el = $(sel);
-            if (el) el.style.display = 'none';
-          });
-          const emptyBox = document.createElement('div');
-          emptyBox.className = 'card imma-quote-empty';
-          emptyBox.style.margin = '24px 0';
-          emptyBox.style.padding = '32px';
-          emptyBox.style.textAlign = 'center';
-          emptyBox.innerHTML = `
-            <div style="font-size:40px; color:var(--text-muted); margin-bottom:12px;"><i class="ri-time-line"></i></div>
-            <div style="font-size:16px; font-weight:800; color:#111; margin-bottom:8px;">견적 대기 중</div>
-            <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">매칭된 업체가 견적을 보내면 발주 단계로 진행됩니다.<br>견적 도착 시 알림이 옵니다.</div>`;
+          // 5/18 시연 자세: demo 영역 시각 숨김 폐기. 정적 demo 그대로 노출.
+          // Demo 배지 + R8 안내 카드 양면 prepend — *demo 자체임을 명시* + *대기 상태 안내* 두 정보 분리 표시.
+          // 중복 삽입 회피.
           const pageWrap = $('.page-wrap') || document.body;
-          const titleRow = $('.page-title-row');
-          if (titleRow) titleRow.insertAdjacentElement('afterend', emptyBox);
-          else pageWrap.insertBefore(emptyBox, pageWrap.firstChild);
+          if (!$('.imma-order-demo-notice')) {
+            const notice = document.createElement('div');
+            notice.className = 'imma-order-demo-notice';
+            notice.style.cssText = 'margin:0 0 16px;padding:10px 14px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#92400e;line-height:1.4;';
+            notice.innerHTML = '<i class="ri-flask-line" style="font-size:15px;color:#b45309;flex-shrink:0;"></i><span>데모 화면 — 매칭된 업체가 견적을 보내면 실 데이터로 갱신됩니다</span>';
+            pageWrap.insertBefore(notice, pageWrap.firstChild);
+          }
+          if (!$('.imma-quote-empty')) {
+            const emptyBox = document.createElement('div');
+            emptyBox.className = 'card imma-quote-empty';
+            emptyBox.style.margin = '0 0 24px';
+            emptyBox.style.padding = '24px';
+            emptyBox.style.textAlign = 'center';
+            emptyBox.innerHTML = `
+              <div style="font-size:36px; color:var(--text-muted); margin-bottom:10px;"><i class="ri-time-line"></i></div>
+              <div style="font-size:15px; font-weight:800; color:#111; margin-bottom:6px;">견적 대기 중</div>
+              <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">매칭된 업체가 견적을 보내면 발주 단계로 진행됩니다.<br>견적 도착 시 알림이 옵니다.</div>`;
+            // demo notice 와 demo 본문 사이에 안내 카드 배치.
+            const notice = $('.imma-order-demo-notice');
+            if (notice) notice.insertAdjacentElement('afterend', emptyBox);
+            else pageWrap.insertBefore(emptyBox, pageWrap.firstChild);
+          }
           return;
         }
         if ($('.imma-quote-action')) return;
