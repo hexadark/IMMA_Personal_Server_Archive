@@ -426,8 +426,47 @@
       setCardValue(cards[0], inProgress);
       setCardValue(cards[1], awaiting);
       setCardValue(cards[2], delivered);
+      // 누적 결제 금액 — 합산 endpoint 부재이므로 0 자세 강제 (Phase 2 영역에서 구축)
+      if (cards[3]) {
+        const valEl = cards[3].querySelector('.stat-value');
+        if (valEl) valEl.innerHTML = '0<span style="font-size:14px;font-weight:600;color:var(--text-muted);">원</span>';
+      }
+
+      // 최근 진행 현황 hydrate — ordered 이상 status 영역 + 최근 정렬 상위 5 건
+      const recentList = $('#recent-orders');
+      if (recentList) {
+        const recentStatuses = new Set(['ordered', 'in_production', 'inspection', 'shipped', 'delivered', 'completed']);
+        const recent = rfqs.filter(r => recentStatuses.has(r.status)).slice(0, 5);
+        if (recent.length === 0) {
+          recentList.innerHTML = '<div style="font-size:13px; color:var(--text-muted); padding:24px; text-align:center;">아직 진행 중인 발주가 없습니다. 새 견적을 요청해보세요.</div>';
+        } else {
+          const STATUS_LABEL = {
+            ordered: { label: '발주 확정', bg: '#fef3c7', fg: '#92400e' },
+            in_production: { label: '생산 중', bg: '#dcfce7', fg: '#166534' },
+            inspection: { label: '검수 중', bg: '#dbeafe', fg: '#1e40af' },
+            shipped: { label: '배송 중', bg: '#e0e7ff', fg: '#3730a3' },
+            delivered: { label: '납품 완료', bg: '#e2e8f0', fg: '#475569' },
+            completed: { label: '완료', bg: '#e2e8f0', fg: '#475569' },
+          };
+          recentList.innerHTML = recent.map(r => {
+            const s = STATUS_LABEL[r.status] || { label: r.status, bg: '#e2e8f0', fg: '#475569' };
+            return `<div class="order-row">
+              <div class="o-id">${h(r.rfq_no || ('RFQ-' + (r.id || '').slice(0,8)))}</div>
+              <div>
+                <div class="o-name">${h(r.material || '-')} / ${h(r.process || '-')}</div>
+                <div class="o-supplier">수량 ${h(r.order_quantity || r.quantity || '-')}</div>
+              </div>
+              <div class="o-date">${r.due_date ? '납기 ' + h(r.due_date) : '-'}</div>
+              <div><span class="badge" style="background:${s.bg};color:${s.fg};padding:4px 8px;font-size:12px;border-radius:4px;font-weight:700;">${h(s.label)}</span></div>
+              <a href="/order-management?rfq_id=${encodeURIComponent(r.id)}" class="btn-outline" style="text-align:center; padding:6px 0; font-size:12px; text-decoration:none;">상세 보기</a>
+            </div>`;
+          }).join('');
+        }
+      }
     } catch (err) {
       window.imma.toast(err.message, 'error');
+      const recentList = $('#recent-orders');
+      if (recentList) recentList.innerHTML = '<div style="font-size:13px; color:var(--text-muted); padding:24px; text-align:center;">진행 현황을 불러올 수 없습니다.</div>';
     }
 
     // 최근 알림 hydrate — 견적 도착·supplier 응답 이벤트만 필터.
@@ -1432,15 +1471,19 @@
     }).join('');
   }
 
-  function renderMaterialChips(categories, selectedCodes) {
+  function renderMaterialChips(categories, lockedSet) {
+    // 공정 영역과 동일 자세 — 등록된 재질 영역은 *✓ locked* 자세 (disabled + ✓ 마크).
+    // 미등록 영역만 클릭 가능 (toggle selected). 해제 자세 부재 (Phase 2 영역 이관).
     const wrap = $('#material-categories');
     if (!wrap) return;
-    const selectedSet = new Set(selectedCodes || []);
+    const locked = lockedSet instanceof Set ? lockedSet : new Set(lockedSet || []);
     wrap.innerHTML = categories.map(c => {
-      const isSel = selectedSet.has(c.category_code);
-      return `<button type="button" class="ob-chip${isSel ? ' selected' : ''}" data-code="${h(c.category_code)}">${h(c.category_name_ko)}</button>`;
+      const isLocked = locked.has(c.category_code);
+      const label = `${c.category_name_ko}${isLocked ? ' ✓' : ''}`;
+      return `<button type="button" class="ob-chip${isLocked ? ' is-locked' : ''}" data-code="${h(c.category_code)}" ${isLocked ? 'disabled' : ''}>${h(label)}</button>`;
     }).join('');
     $$('.ob-chip', wrap).forEach(chip => {
+      if (chip.classList.contains('is-locked')) return;
       chip.addEventListener('click', () => {
         chip.classList.toggle('selected');
         delete chip.dataset.autoSelected;
@@ -1510,10 +1553,13 @@
         return;
       }
       renderEquipmentList(companyDetail.equipment || []);
-      const selectedCats = (companyDetail.materials || [])
-        .filter(m => m.scope_type === 'material_category' && m.material_category_code)
-        .map(m => m.material_category_code);
-      renderMaterialChips(materialCategories, selectedCats);
+      // 재질 영역 — 공정 영역과 동일 자세로 등록된 카테고리 영역을 lockedSet 자세 전달.
+      const lockedMaterials = new Set(
+        (companyDetail.materials || [])
+          .filter(m => m.scope_type === 'material_category' && m.material_category_code)
+          .map(m => m.material_category_code)
+      );
+      renderMaterialChips(materialCategories, lockedMaterials);
 
       // 현재 등록된 공정 — auto_generated 영역 추정: equipment_process_capabilities 와 일치하는 공정
       (companyDetail.processes || []).forEach(p => autoLockedProcesses.add(p.process_code));
@@ -1663,9 +1709,10 @@
     if (materialSaveBtn && materialSaveBtn.dataset.immaHooked !== 'true') {
       materialSaveBtn.dataset.immaHooked = 'true';
       materialSaveBtn.addEventListener('click', async () => {
-        const selectedCodes = $$('#material-categories .ob-chip.selected').map(c => c.dataset.code);
+        // 공정 영역과 동일 자세 — 새로 선택된 영역만 INSERT 대상 (locked 영역 제외)
+        const selectedCodes = $$('#material-categories .ob-chip.selected:not(.is-locked)').map(c => c.dataset.code);
         if (selectedCodes.length === 0) {
-          window.imma.toast('재질 카테고리를 1개 이상 선택해주세요.', 'warning');
+          window.imma.toast('추가할 재질 카테고리를 1개 이상 선택해주세요.', 'warning');
           return;
         }
         window.imma.setLoading(materialSaveBtn, true, '저장 중...');
@@ -1674,7 +1721,7 @@
             method: 'POST',
             body: { company_id: user.id, categories: selectedCodes },
           });
-          window.imma.toast(`재질 ${selectedCodes.length}종 저장 완료 (status: ${result.onboarding_status})`, 'success');
+          window.imma.toast(`재질 ${selectedCodes.length}종 추가 (status: ${result.onboarding_status})`, 'success');
           await refreshCompany();
           if (result.onboarding_status === 'verified') {
             window.imma.toast('온보딩 완료 — 매칭 노출이 가능합니다.', 'success');

@@ -80,7 +80,7 @@
     </div>
     <div class="stat-card">
       <div class="stat-title">누적 결제 금액</div>
-      <div class="stat-value" style="font-size:20px;">45,800,000<span style="font-size:14px;font-weight:600;color:var(--text-muted);">원</span></div>
+      <div class="stat-value" style="font-size:20px;">0<span style="font-size:14px;font-weight:600;color:var(--text-muted);">원</span></div>
     </div>
   </div>
 
@@ -94,32 +94,8 @@
 
   <div class="card">
     <div class="card-title">최근 진행 현황</div>
-    <div class="order-list">
-      
-      <!-- Current Order -->
-      <div class="order-row" style="background: rgba(255,209,0,0.03); border-color:var(--primary);">
-        <div class="o-id">ORD-250520-001</div>
-        <div>
-          <div class="o-name">CNC 가공 부품 (브라켓 하우징)</div>
-          <div class="o-supplier">업체: 스마트정밀</div>
-        </div>
-        <div class="o-date">납기 예정: 2026-06-27</div>
-        <div><span class="badge badge-green" style="background:#dcfce7; color:#166534;">생산 중 (65%)</span></div>
-        <a href="/order-management" class="btn-outline" style="text-align:center; padding:6px 0; font-size:12px; text-decoration:none;">상세 보기</a>
-      </div>
-
-      <!-- Past Order -->
-      <div class="order-row">
-        <div class="o-id">ORD-250410-015</div>
-        <div>
-          <div class="o-name">알루미늄 방열판 가공</div>
-          <div class="o-supplier">업체: 한빛정밀 주식회사</div>
-        </div>
-        <div class="o-date">납품 완료: 2026-04-28</div>
-        <div><span class="badge" style="background:#E2E8F0; color:#475569; padding:4px 8px; font-size:12px; border-radius:4px; font-weight:700;">납품 완료</span></div>
-        <button class="btn-outline" style="padding:6px 0; font-size:12px; color:var(--text-muted);">상세 보기</button>
-      </div>
-
+    <div class="order-list" id="recent-orders">
+      <div style="font-size:13px; color:var(--text-muted); padding:16px; text-align:center;">불러오는 중...</div>
     </div>
   </div>
 </div>

@@ -121,10 +121,14 @@
 
   async function login(loginId, password, role) {
     const endpoint = role === 'admin' ? '/api/admin/login' : '/api/login';
+    // role 명시 분리 — admin 영역 외에는 expected_role 영역 body 영역 전달
+    const body = role === 'admin'
+      ? { login_id: loginId, password }
+      : { login_id: loginId, password, expected_role: role };
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login_id: loginId, password }),
+      body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {

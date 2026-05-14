@@ -128,7 +128,7 @@
         <a href="/supplier-workbench#production"><i class="ri-settings-3-line"></i> 생산 진행</a>
         <a href="/supplier-workbench#capacity"><i class="ri-calendar-check-line"></i> 스케줄·영업상태</a>
         <a href="/supplier-workbench#delivery"><i class="ri-truck-line"></i> 납품 관리</a>
-        <a href="/supplier-messages"><i class="ri-message-3-line"></i> 메시지 <span class="mw-badge red">3</span></a>
+        <a href="/supplier-messages"><i class="ri-message-3-line"></i> 메시지</a>
         <div class="mw-nav-divider"></div>
         <a href="/support"><i class="ri-customer-service-2-line"></i> 고객지원</a>
         <a href="/supplier-settings" class="active"><i class="ri-settings-4-line"></i> 설정</a>
@@ -163,10 +163,7 @@
             <h1>업체 설정</h1>
             <p>가입 정보, 회사 역량, 작업 가능 조건, 알림 및 기밀 유지 설정을 관리합니다.</p>
           </div>
-          <div class="mw-actions">
-            <button class="btn-outline"><i class="ri-notification-3-line"></i> 알림 테스트</button>
-            <button class="btn-primary"><i class="ri-save-3-line"></i> 변경 저장</button>
-          </div>
+          <!-- 각 카드 내부 저장 버튼이 책임 영역 명확 — 상단 *변경 저장* / *알림 테스트* 영역 제거 -->
         </div>
 
         <div class="settings-layout">
@@ -319,57 +316,60 @@
                   </div>
                 </div>
               </div>
-              <div class="mw-row-actions" style="justify-content:flex-end; margin-top:16px;">
-                <button class="btn-outline"><i class="ri-calendar-event-line"></i> 휴무 등록</button>
-                <button class="btn-primary"><i class="ri-save-3-line"></i> 변경 저장</button>
-              </div>
+              <!-- 영업 상태 카드는 정적 데모 영역 — 책임 영역 부재 *변경 저장* 영역 제거. 휴무 등록 영역도 Phase 2 영역으로 이관 -->
             </article>
           </section>
 
           <aside class="mw-stack">
             <article class="mw-card tight">
-              <div class="mw-card-title"><i class="ri-notification-badge-line"></i> 알림 설정</div>
+              <div class="mw-card-title">
+                <i class="ri-notification-badge-line"></i> 알림 설정
+                <span class="mw-badge" style="background:#e2e8f0;color:#475569;font-size:11px;margin-left:6px;">준비 중</span>
+              </div>
               <div class="divider"></div>
               <div class="switch-row">
                 <div>
                   <div class="mw-list-title">신규 오더리스트</div>
                   <div class="mw-list-meta">관리자 선별 오더 수신</div>
                 </div>
-                <label class="toggle"><input type="checkbox" checked><span></span></label>
+                <label class="toggle"><input type="checkbox" checked disabled><span></span></label>
               </div>
               <div class="switch-row">
                 <div>
                   <div class="mw-list-title">추가 정보 요청</div>
                   <div class="mw-list-meta">도면 치수, 수령 조건 보완</div>
                 </div>
-                <label class="toggle"><input type="checkbox" checked><span></span></label>
+                <label class="toggle"><input type="checkbox" checked disabled><span></span></label>
               </div>
               <div class="switch-row">
                 <div>
                   <div class="mw-list-title">납기 지연 경고</div>
                   <div class="mw-list-meta">예상 납기 변동 알림</div>
                 </div>
-                <label class="toggle"><input type="checkbox" checked><span></span></label>
+                <label class="toggle"><input type="checkbox" checked disabled><span></span></label>
               </div>
             </article>
 
             <article class="mw-card tight">
-              <div class="mw-card-title"><i class="ri-shield-keyhole-line"></i> 보안·기밀 유지</div>
+              <div class="mw-card-title">
+                <i class="ri-shield-keyhole-line"></i> 보안·기밀 유지
+                <span class="mw-badge" style="background:#e2e8f0;color:#475569;font-size:11px;margin-left:6px;">준비 중</span>
+              </div>
               <div class="divider"></div>
               <div class="mw-list">
                 <div class="mw-list-item soft">
                   <div>
                     <div class="mw-list-title">도면 열람 기록</div>
-                    <div class="mw-list-meta">최근 30일 18건</div>
+                    <div class="mw-list-meta">서비스 활성화 시 자동 집계</div>
                   </div>
-                  <span class="mw-badge green">정상</span>
+                  <span class="mw-badge" style="background:#e2e8f0;color:#475569;">대기</span>
                 </div>
                 <div class="mw-list-item soft">
                   <div>
                     <div class="mw-list-title">기술 기밀 유지 서약</div>
-                    <div class="mw-list-meta">2026-06-20 갱신 완료</div>
+                    <div class="mw-list-meta">계약 단계 진입 시 안내</div>
                   </div>
-                  <span class="mw-badge green">완료</span>
+                  <span class="mw-badge" style="background:#e2e8f0;color:#475569;">대기</span>
                 </div>
                 <div class="mw-list-item soft">
                   <div>
