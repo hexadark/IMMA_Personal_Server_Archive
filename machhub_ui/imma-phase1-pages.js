@@ -1241,6 +1241,7 @@
           if (v) v.innerHTML = `${h(shortId(order.order_id))} <button class="copy-btn">복사</button>`;
           text(meta[0].querySelector('.meta-sub'), `발주일: ${window.imma.formatDate(order.created_at)}`);
         }
+        text($('#om-breadcrumb-order'), `PO-${shortId(order.order_id)}`);
         if (meta[1]) text(meta[1].querySelector('.meta-value'), order.company_name || '-');
         if (meta[2]) text(meta[2].querySelector('.meta-value'), window.imma.formatCurrency(order.total_price, order.currency_code || 'KRW'));
         if (meta[3]) text(meta[3].querySelector('.meta-value'), window.imma.formatDate(order.promised_delivery_date));
@@ -2261,6 +2262,15 @@
   async function initClientFulfillment() {
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
+
+    // ORD 정적 더미 시정 — order_id 확보 후 PO-XXXXXXXX 형식 hydrate
+    const orderId = window.imma.getQueryParam('order_id') || scopedGet(['current_order_id']);
+    if (orderId) {
+      try {
+        const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(orderId)}`);
+        text($('#cf-order-no'), `PO-${shortId(order.order_id)}`);
+      } catch (e) { /* silent — 정보 부재 시 - 표시 */ }
+    }
   }
 
   async function initPaymentSuccess() {
