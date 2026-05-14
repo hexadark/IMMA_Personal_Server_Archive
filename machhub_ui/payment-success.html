@@ -108,7 +108,7 @@
     <div class="receipt-box">
       <div class="receipt-row">
         <span class="receipt-label">발주 번호</span>
-        <span class="receipt-value">PO-20260508-001</span>
+        <span class="receipt-value" id="ps-order-no">-</span>
       </div>
       <div class="receipt-row">
         <span class="receipt-label">결제 일시</span>
@@ -120,7 +120,7 @@
       </div>
       <div class="receipt-row" style="margin-top:10px; padding-top:16px; border-top:1px solid #ccc; border-bottom:none;">
         <span class="receipt-label" style="font-size:16px; font-weight:700; color:#111;">선입금 금액</span>
-        <span class="receipt-value total">6,250,000원</span>
+        <span class="receipt-value total" id="ps-amount">-</span>
       </div>
     </div>
 
@@ -132,13 +132,44 @@
 </div>
 
 <script>
+  // 결제 일시 — 현재 시각
   const now = new Date();
-  const dateStr = now.getFullYear() + '-' + 
-                 String(now.getMonth()+1).padStart(2, '0') + '-' + 
-                 String(now.getDate()).padStart(2, '0') + ' ' + 
-                 String(now.getHours()).padStart(2, '0') + ':' + 
+  const dateStr = now.getFullYear() + '-' +
+                 String(now.getMonth()+1).padStart(2, '0') + '-' +
+                 String(now.getDate()).padStart(2, '0') + ' ' +
+                 String(now.getHours()).padStart(2, '0') + ':' +
                  String(now.getMinutes()).padStart(2, '0');
   document.getElementById('current-time').textContent = dateStr;
+
+  // order_id query 영역 → /api/orders/{id} hydrate (발주 번호 + 금액)
+  (async function hydratePaymentReceipt() {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id');
+    const formatCurrency = window.imma && window.imma.formatCurrency
+      ? window.imma.formatCurrency
+      : (n) => (n != null ? Number(n).toLocaleString('ko-KR') + '원' : '-');
+    if (!orderId) {
+      // fallback — 정적 데모 영역 부재. 빈 안내 자세
+      document.getElementById('ps-order-no').textContent = '발주 정보 부재';
+      document.getElementById('ps-amount').textContent = '-';
+      return;
+    }
+    try {
+      const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(orderId)}`);
+      const shortOid = (order.order_id || '').slice(0, 8).toUpperCase();
+      document.getElementById('ps-order-no').textContent = `PO-${shortOid}`;
+      document.getElementById('ps-amount').textContent = formatCurrency(order.total_price, order.currency_code || 'KRW');
+      // 결제 완료 메시지 영역 — 업체명 hydrate
+      const desc = document.querySelector('.success-desc');
+      if (desc && order.company_name) {
+        desc.innerHTML = `${order.company_name} 발주 건의 결제대행 입금이 완료되었습니다.<br>발주 진행 화면으로 돌아가 생산 진행도 공유를 기다립니다.`;
+      }
+    } catch (err) {
+      document.getElementById('ps-order-no').textContent = '발주 조회 실패';
+      document.getElementById('ps-amount').textContent = '-';
+      console.warn('[payment-success] order hydrate 실패', err);
+    }
+  })();
 </script>
 <script src="/static/imma-phase1-pages.js"></script>
 </body>

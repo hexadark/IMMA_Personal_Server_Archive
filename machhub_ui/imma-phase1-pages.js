@@ -129,22 +129,45 @@
   }
 
   function quotePayloadFromWorkbench(match, user) {
-    // amount 입력은 #reply-amount 단일 selector 로 통일.
-    // fallback 부재 — 사용자 입력 부재 시 null 반환하여 호출측에서 warning 발화.
-    const dueDate = $('#reply input[type="date"]') && $('#reply input[type="date"]').value;
+    // supplier #reply 영역의 5 항목 수집 (납기 / 금액 / 인증 / 후처리 / 메모)
+    // assumptions 영역에 5 항목 구조화 통합 (buyer order-management 영역에서 parse 표시)
+    const dueInput = $('#reply-due-date');
+    const dueDate = dueInput && dueInput.value;
     const amountInput = $('#reply-amount');
     const amount = numberOnly(amountInput && amountInput.value);
     if (!amount) return null;
-    const note = $('#reply textarea') ? $('#reply textarea').value : 'Phase 1 견적';
+    const certInput = $('#reply-certification');
+    const certification = certInput && certInput.value ? certInput.value : '';
+    const postTreatmentInput = $('#reply-post-treatment');
+    const postTreatment = postTreatmentInput && postTreatmentInput.value ? postTreatmentInput.value : '';
+    const memoInput = $('#reply-memo');
+    const memo = memoInput && memoInput.value ? memoInput.value : '';
+
+    // 납기 일수 계산 (today → dueDate)
+    let leadDays = 7;
+    if (dueDate) {
+      const today = new Date();
+      const due = new Date(dueDate);
+      const diff = Math.round((due - today) / (1000 * 60 * 60 * 24));
+      if (diff > 0) leadDays = diff;
+    }
+
+    // 5 항목 구조화 — buyer 영역에서 parse 후 표시
+    const structuredAssumptions = JSON.stringify({
+      certification,
+      post_treatment: postTreatment,
+      memo,
+    });
+
     const rfqPartId = match.rfq_part && match.rfq_part.rfq_part_id;
     const quantity = match.rfq_part && match.rfq_part.quantity ? Number(match.rfq_part.quantity) : 1;
     return {
       rfq_id: match.rfq_id,
       company_id: user.id,
       total_price: amount,
-      estimated_lead_days: 7,
+      estimated_lead_days: leadDays,
       proposed_delivery_date: dueDate || null,
-      assumptions: note || 'Phase 1 견적',
+      assumptions: structuredAssumptions,
       line_items: [{
         rfq_part_id: rfqPartId || null,
         process_code: match.processes || null,
@@ -152,9 +175,25 @@
         quantity,
         unit_price: quantity > 0 ? Math.round(amount / quantity) : amount,
         line_total: amount,
-        notes: note || null,
+        notes: memo || null,
       }],
     };
+  }
+
+  // assumptions JSON 영역 안전 parse — 구버전 (자유 텍스트) 호환
+  function parseQuoteAssumptions(assumptions) {
+    if (!assumptions) return { certification: '', post_treatment: '', memo: '' };
+    try {
+      const parsed = JSON.parse(assumptions);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          certification: parsed.certification || '',
+          post_treatment: parsed.post_treatment || '',
+          memo: parsed.memo || '',
+        };
+      }
+    } catch (e) { /* 구버전 자유 텍스트 */ }
+    return { certification: '', post_treatment: '', memo: assumptions };
   }
 
   // 예산 select 라벨 → KRW 금액 (대표값)
@@ -1197,57 +1236,101 @@
       return;
     }
 
+    let currentOrderIdForPayment = null;
+
     if (rfqId && user.role === 'buyer') {
-      try {
-        const data = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}/quotes`);
-        const quotes = data.quotes || [];
-        if (!quotes.length) {
-          // 5/18 시연 자세: demo 영역 시각 숨김 폐기. 정적 demo 그대로 노출.
-          // Demo 배지 + R8 안내 카드 양면 prepend — *demo 자체임을 명시* + *대기 상태 안내* 두 정보 분리 표시.
-          // 중복 삽입 회피.
-          const pageWrap = $('.page-wrap') || document.body;
-          if (!$('.imma-order-demo-notice')) {
-            const notice = document.createElement('div');
-            notice.className = 'imma-order-demo-notice';
-            notice.style.cssText = 'margin:0 0 16px;padding:10px 14px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#92400e;line-height:1.4;';
-            notice.innerHTML = '<i class="ri-flask-line" style="font-size:15px;color:#b45309;flex-shrink:0;"></i><span>데모 화면 — 매칭된 업체가 견적을 보내면 실 데이터로 갱신됩니다</span>';
-            pageWrap.insertBefore(notice, pageWrap.firstChild);
+      let pollingId = null;
+
+      async function refreshRfqState() {
+        try {
+          const [quotesData, notifications] = await Promise.all([
+            window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}/quotes`),
+            window.imma.apiJson('/api/notifications?unread_only=false').catch(() => []),
+          ]);
+          const quotes = quotesData.quotes || [];
+
+          // 수락 받음 배지 — supplier_accepted 알림 영역 (본 RFQ 한정)
+          const acceptedEvents = (notifications || []).filter(n =>
+            n.event_type === 'supplier_accepted' && n.reference_id === rfqId
+          );
+          renderAcceptanceBadge(acceptedEvents.length > 0, acceptedEvents[0]);
+
+          if (quotes.length) {
+            renderQuoteCard(quotes[0]);
+            if (pollingId) { clearInterval(pollingId); pollingId = null; }
+          } else {
+            renderWaitingCard();
           }
-          if (!$('.imma-quote-empty')) {
-            const emptyBox = document.createElement('div');
-            emptyBox.className = 'card imma-quote-empty';
-            emptyBox.style.margin = '0 0 24px';
-            emptyBox.style.padding = '24px';
-            emptyBox.style.textAlign = 'center';
-            emptyBox.innerHTML = `
-              <div style="font-size:36px; color:var(--text-muted); margin-bottom:10px;"><i class="ri-time-line"></i></div>
-              <div style="font-size:15px; font-weight:800; color:#111; margin-bottom:6px;">견적 대기 중</div>
-              <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">매칭된 업체가 견적을 보내면 발주 단계로 진행됩니다.<br>견적 도착 시 알림이 옵니다.</div>`;
-            // demo notice 와 demo 본문 사이에 안내 카드 배치.
-            const notice = $('.imma-order-demo-notice');
-            if (notice) notice.insertAdjacentElement('afterend', emptyBox);
-            else pageWrap.insertBefore(emptyBox, pageWrap.firstChild);
-          }
-          return;
-        }
-        if ($('.imma-quote-action')) return;
-        const quote = quotes[0];
-        const box = document.createElement('div');
-        box.className = 'card imma-quote-action';
-        box.style.marginBottom = '16px';
-        box.innerHTML = `
-          <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
-            <div><strong>실제 견적 ${h(data.count)}건 수신</strong><div style="font-size:12px;color:var(--text-muted);margin-top:4px;">최저 견적: ${h(quote.company_name)} · ${h(window.imma.formatCurrency(quote.total_price, 'KRW'))}</div></div>
-            <button type="button" class="btn-primary" style="font-size:13px;">이 견적으로 발주 생성</button>
+        } catch (err) { /* silent — 폴링 영역 */ }
+      }
+
+      function renderAcceptanceBadge(accepted, evt) {
+        let badge = $('#imma-accept-badge');
+        if (!accepted) { if (badge) badge.remove(); return; }
+        if (badge) return;
+        badge = document.createElement('div');
+        badge.id = 'imma-accept-badge';
+        badge.style.cssText = 'margin:0 0 12px;padding:10px 14px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:#166534;line-height:1.4;';
+        const msg = (evt && evt.message) || '가공업체가 작업을 수락했습니다';
+        badge.innerHTML = `<i class="ri-check-double-line" style="font-size:18px;flex-shrink:0;"></i><span>✓ ${h(msg)}</span>`;
+        const pageWrap = $('.page-wrap') || document.body;
+        pageWrap.insertBefore(badge, pageWrap.firstChild);
+      }
+
+      function renderWaitingCard() {
+        if ($('.imma-quote-card-real')) return;
+        if ($('.imma-quote-empty')) return;
+        const emptyBox = document.createElement('div');
+        emptyBox.className = 'card imma-quote-empty';
+        emptyBox.style.margin = '0 0 24px';
+        emptyBox.style.padding = '24px';
+        emptyBox.style.textAlign = 'center';
+        emptyBox.innerHTML = `
+          <div style="font-size:36px; color:var(--text-muted); margin-bottom:10px;"><i class="ri-time-line"></i></div>
+          <div style="font-size:15px; font-weight:800; color:#111; margin-bottom:6px;">견적 작성 대기 중</div>
+          <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">가공업체가 작업정보를 회신하면 자동으로 갱신됩니다.</div>`;
+        const pageWrap = $('.page-wrap') || document.body;
+        const acceptBadge = $('#imma-accept-badge');
+        if (acceptBadge) acceptBadge.insertAdjacentElement('afterend', emptyBox);
+        else pageWrap.insertBefore(emptyBox, pageWrap.firstChild);
+      }
+
+      async function renderQuoteCard(quote) {
+        // 대기 카드 제거
+        const wait = $('.imma-quote-empty');
+        if (wait) wait.remove();
+        if ($('.imma-quote-card-real')) return;
+
+        const { certification, post_treatment, memo } = parseQuoteAssumptions(quote.assumptions);
+        const card = document.createElement('div');
+        card.className = 'card imma-quote-card-real';
+        card.style.cssText = 'margin:0 0 24px;padding:24px;';
+        card.innerHTML = `
+          <div style="font-size:15px; font-weight:800; color:#111; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+            <i class="ri-mail-check-line" style="color:#166534;font-size:18px;"></i>
+            <span>가공업체 회신 도착 — ${h(quote.company_name || '가공업체')}</span>
+          </div>
+          <div style="display:grid; grid-template-columns:140px 1fr; gap:10px 16px; font-size:13px;">
+            <div style="color:var(--text-muted); font-weight:700;">예상 납기</div><div><strong>${h(quote.proposed_delivery_date || (quote.estimated_lead_days ? quote.estimated_lead_days + '일' : '-'))}</strong></div>
+            <div style="color:var(--text-muted); font-weight:700;">견적 금액</div><div><strong style="font-size:15px; color:#111;">${h(window.imma.formatCurrency(quote.total_price, 'KRW'))}</strong></div>
+            <div style="color:var(--text-muted); font-weight:700;">품질 인증</div><div>${h(certification || '-')}</div>
+            <div style="color:var(--text-muted); font-weight:700;">후처리·조립</div><div>${h(post_treatment || '-')}</div>
+            <div style="color:var(--text-muted); font-weight:700;">작업 메모</div><div style="white-space:pre-wrap;">${h(memo || '-')}</div>
+          </div>
+          <div style="margin-top:20px; display:flex; gap:12px; justify-content:flex-end;">
+            <button type="button" class="btn-primary imma-confirm-order" style="font-size:14px; padding:10px 20px;"><i class="ri-shopping-cart-line"></i> 이 견적으로 발주 확정</button>
           </div>`;
         const pageWrap = $('.page-wrap') || document.body;
-        pageWrap.insertBefore(box, $('.order-meta') || pageWrap.firstChild);
-        box.querySelector('button').addEventListener('click', async () => {
-          const btn = box.querySelector('button');
+        const acceptBadge = $('#imma-accept-badge');
+        if (acceptBadge) acceptBadge.insertAdjacentElement('afterend', card);
+        else pageWrap.insertBefore(card, pageWrap.firstChild);
+        card.querySelector('.imma-confirm-order').addEventListener('click', async (ev) => {
+          const btn = ev.currentTarget;
           window.imma.setLoading(btn, true, '발주 생성 중...');
           try {
             const order = await window.imma.apiJson('/api/orders', { method: 'POST', body: { quote_id: quote.quote_id } });
             scopedSet(['current_order_id'], order.order_id);
+            currentOrderIdForPayment = order.order_id;
             window.location.href = `/order-management?order_id=${encodeURIComponent(order.order_id)}`;
           } catch (err) {
             window.imma.toast(err.message, 'error');
@@ -1255,16 +1338,20 @@
             window.imma.setLoading(btn, false);
           }
         });
-      } catch (err) {
-        window.imma.toast(err.message, 'error');
       }
+
+      await refreshRfqState();
+      // 폴링 — 5 초 주기 (견적 도착 시 자동 중단)
+      pollingId = setInterval(refreshRfqState, 5000);
     }
 
-    // 결제하기 버튼 hook — 데모 자세: 결제 완료 화면으로 직접 이동.
+    // 결제하기 버튼 hook — order_id query 영역 전달 (payment-success 동적 hydrate 영역)
     const payBtn = $('#pay-btn');
     if (payBtn) {
       payBtn.addEventListener('click', () => {
-        window.location.href = '/payment-success';
+        const oid = orderId || currentOrderIdForPayment || scopedGet(['current_order_id']);
+        const url = oid ? `/payment-success?order_id=${encodeURIComponent(oid)}` : '/payment-success';
+        window.location.href = url;
       });
     }
   }
