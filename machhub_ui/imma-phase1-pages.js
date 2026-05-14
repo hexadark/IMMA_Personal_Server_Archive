@@ -1232,7 +1232,23 @@
         }
         if (meta[1]) text(meta[1].querySelector('.meta-value'), order.company_name || '-');
         if (meta[2]) text(meta[2].querySelector('.meta-value'), window.imma.formatCurrency(order.total_price, order.currency_code || 'KRW'));
-        if (meta[3]) text(meta[3].querySelector('.meta-value'), order.promised_delivery_date || '-');
+        if (meta[3]) text(meta[3].querySelector('.meta-value'), window.imma.formatDate(order.promised_delivery_date));
+
+        // 주문 및 계약 정보 hydrate — 부품 정보 + 수량 + 단가 + 납기
+        // order.rfq_id 기반 GET /api/rfq/{rfq_id} 호출하여 rfq_parts 정보 추출
+        if (order.rfq_id) {
+          try {
+            const rfqDetail = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(order.rfq_id)}`);
+            const part = (rfqDetail.parts || [])[0] || {};
+            text($('#oi-part-name'), part.part_name || rfqDetail.drawing_no || '-');
+            const qty = part.quantity || rfqDetail.order_quantity || '-';
+            text($('#oi-quantity'), qty !== '-' ? `${qty} EA` : '-');
+            const unitPrice = qty && qty !== '-' && order.total_price ? Math.round(order.total_price / qty) : null;
+            text($('#oi-unit-price'), unitPrice ? window.imma.formatCurrency(unitPrice, order.currency_code || 'KRW') : '-');
+            text($('#oi-delivery-date'), window.imma.formatDate(order.promised_delivery_date));
+          } catch (e) { /* silent — 정보 부재 시 fallback - 표시 */ }
+        }
+
         const badge = $('.payment-status .badge');
         if (badge) badge.textContent = order.status === 'contracting' ? '계약 진행 중' : order.status;
         updateTimeline(order.status);
