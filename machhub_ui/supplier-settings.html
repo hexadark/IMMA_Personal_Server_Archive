@@ -98,9 +98,16 @@
     .ob-chip[data-auto-selected="true"]::after {
       content: " (자동)"; font-size: 10px; font-weight: 500; opacity: 0.7;
     }
+    /* 등록 완료 영역 — 초록 톤 활성 시각 (이전 흐릿한 회색 폐기). 사용자 click 후 완료 인식 명확 */
     .ob-chip.is-locked {
-      background: #e2e8f0; color: #94a3b8; cursor: not-allowed; opacity: 0.7;
+      background: #dcfce7;
+      color: #166534;
+      border-color: #86efac;
+      cursor: default;
+      opacity: 1;
+      font-weight: 700;
     }
+    .ob-chip.is-locked:hover { border-color: #86efac; }
 
     /* 사업자 정보 카드 */
     .business-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
