@@ -1190,9 +1190,27 @@ def setup_all() -> None:
     logger.info("전체 셋업 완료")
 
 
+def _reset_schema() -> None:
+    """imma 스키마 완전 삭제 → CREATE 재구성. 시연 직전 깔끔 초기화 영역."""
+    from sqlalchemy import create_engine, text
+
+    db_url = os.environ.get("DATABASE_URL") or config.DATABASE_URL
+    if not db_url:
+        raise RuntimeError("DATABASE_URL 환경변수 부재")
+    engine = create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA IF EXISTS imma CASCADE"))
+        conn.execute(text("CREATE SCHEMA imma"))
+    logger.info("imma 스키마 완전 삭제 + 재생성 완료")
+
+
 if __name__ == "__main__":
+    import sys
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     )
+    if "--reset" in sys.argv:
+        _reset_schema()
     setup_all()
