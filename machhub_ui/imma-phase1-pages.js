@@ -471,15 +471,17 @@
         if (valEl) valEl.innerHTML = '0<span style="font-size:14px;font-weight:600;color:var(--text-muted);">원</span>';
       }
 
-      // 최근 진행 현황 hydrate — ordered 이상 status 영역 + 최근 정렬 상위 5 건
+      // 최근 진행 현황 hydrate — open/quoted 영역도 포함 (재로그인 시 견적 대기/도착 RFQ 진입 영역)
       const recentList = $('#recent-orders');
       if (recentList) {
-        const recentStatuses = new Set(['ordered', 'in_production', 'inspection', 'shipped', 'delivered', 'completed']);
+        const recentStatuses = new Set(['open', 'quoted', 'ordered', 'in_production', 'inspection', 'shipped', 'delivered', 'completed']);
         const recent = rfqs.filter(r => recentStatuses.has(r.status)).slice(0, 5);
         if (recent.length === 0) {
           recentList.innerHTML = '<div style="font-size:13px; color:var(--text-muted); padding:24px; text-align:center;">아직 진행 중인 발주가 없습니다. 새 견적을 요청해보세요.</div>';
         } else {
           const STATUS_LABEL = {
+            open: { label: '견적 작성 대기', bg: '#fef3c7', fg: '#92400e' },
+            quoted: { label: '견적 도착', bg: '#dcfce7', fg: '#166534' },
             ordered: { label: '발주 확정', bg: '#fef3c7', fg: '#92400e' },
             in_production: { label: '생산 중', bg: '#dcfce7', fg: '#166534' },
             inspection: { label: '검수 중', bg: '#dbeafe', fg: '#1e40af' },
