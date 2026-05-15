@@ -377,3 +377,17 @@ def get_admin_orders(
         }
         for r in rows
     ]
+
+
+@router.post("/api/admin/mv/refresh")
+def admin_refresh_mv(admin: dict = Depends(get_current_admin)):
+    """admin 전용 — company_capability_summary MV 강제 refresh. 진단 / 격차 시정용."""
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+    try:
+        with engine.begin() as conn:
+            _refresh_mv(conn)
+    except Exception as exc:
+        logger.exception("MV refresh 실패")
+        raise HTTPException(status_code=500, detail=f"MV refresh fail: {exc}")
+    return {"status": "refreshed", "mv": "company_capability_summary"}
