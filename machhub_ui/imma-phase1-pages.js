@@ -1194,11 +1194,19 @@
       }
 
       // Panel 2 — VLM raw. stateResult.vlm_raw 우선, scopedGet([drawingId, 'vlm_output']) 폴백.
+      // Server_VB 응답의 메타 필드 (source / confidence / fallback_reason / student_confidence) 제거 → V.B schema 핵심만 노출.
       const panel2 = $('#ai-panel-2');
       if (panel2) {
         const vlmRaw = (stateResult && stateResult.vlm_raw) ||
           (drawingId ? scopedGet([drawingId, 'vlm_output']) : null) || {};
-        panel2.textContent = safeStringify(vlmRaw);
+        const clean = (vlmRaw && typeof vlmRaw === 'object') ? { ...vlmRaw } : vlmRaw;
+        if (clean && typeof clean === 'object') {
+          delete clean.source;
+          delete clean.confidence;
+          delete clean.fallback_reason;
+          delete clean.student_confidence;
+        }
+        panel2.textContent = safeStringify(clean);
       }
 
       // Panel 3 — GraphRAG 변환. stateResult.graphrag_raw.
