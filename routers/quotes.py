@@ -1,7 +1,7 @@
 """
 견적 엔드포인트:
-- POST /api/quote                  (기존 + B-7 자동 전이 + 보안 검증)
-- GET  /api/rfq/{rfq_id}/quotes    (B-5: 견적 비교 조회)
+- POST /api/quote                  (견적 제출 + 자동 전이 + 보안 검증)
+- GET  /api/rfq/{rfq_id}/quotes    (견적 비교 조회)
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -110,7 +110,7 @@ def create_quote(data: dict, current_user: dict = Depends(get_current_user)):
                 },
             )
 
-        # B-7 자동 전이: 첫 견적 도착 시 rfqs.status open → quoted
+        # 자동 전이: 첫 견적 도착 시 rfqs.status open → quoted
         rfq_row = conn.execute(
             text(f"SELECT status, buyer_id FROM {SCHEMA}.rfqs WHERE rfq_id = :rid"),
             {"rid": rfq_id},
@@ -154,7 +154,7 @@ def create_quote(data: dict, current_user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
-# B-5: GET /api/rfq/{rfq_id}/quotes — 견적 비교 조회
+# GET /api/rfq/{rfq_id}/quotes — 견적 비교 조회
 # ---------------------------------------------------------------------------
 
 

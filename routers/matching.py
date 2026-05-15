@@ -1,9 +1,9 @@
 """
 매칭 엔드포인트:
-- GET  /match/{rfq_id}                                          (기존 MV 기반 v1)
-- POST /api/match-v2                                            (기존 RAG pipeline + B-3 이력 저장)
-- GET  /api/company/matches                                     (B-3b: 업체 수신 매칭 조회)
-- PUT  /api/match-candidates/{match_run_id}/{company_id}/respond (B-4: 수락/거절)
+- GET  /match/{rfq_id}                                          (MV 기반 v1)
+- POST /api/match-v2                                            (RAG pipeline + 이력 저장)
+- GET  /api/company/matches                                     (업체 수신 매칭 조회)
+- PUT  /api/match-candidates/{match_run_id}/{company_id}/respond (수락/거절)
 """
 
 import json
@@ -183,7 +183,7 @@ def match_suppliers(rfq_id: str, current_user: dict = Depends(get_current_user))
 
 
 # ---------------------------------------------------------------------------
-# Matching v2 (RAG pipeline + B-3 이력 저장)
+# Matching v2 (RAG pipeline + 이력 저장)
 # ---------------------------------------------------------------------------
 
 
@@ -202,7 +202,7 @@ def match_v2(data: dict, current_user: dict = Depends(get_current_user)):
         data["_buyer_id"] = current_user["id"]
 
     # drawing_id 처리: 소유권 검증 + parts 미제공 시 GraphRAG 자동 호출
-    structured = None  # GraphRAG 변환 결과 보존 (시연 모달 영역 응답 동봉용)
+    structured = None  # GraphRAG 변환 결과 보존 (매칭 모달 응답 동봉용)
     d_vlm_raw = None
     if data.get("drawing_id"):
         if engine is None:
@@ -251,7 +251,7 @@ def match_v2(data: dict, current_user: dict = Depends(get_current_user)):
         logger.exception("match-v2 pipeline 실행 실패")
         raise HTTPException(status_code=500, detail="매칭 파이프라인 실행 실패")
 
-    # --- B-3: 매칭 이력 저장 ---
+    # --- 매칭 이력 저장 ---
     # result에서 rfq_id, buyer_id, 후보 목록을 추출하여 DB에 기록
     # pipeline 결과 구조에서 rfq_id와 후보 정보 추출 시도
     if engine is not None:
@@ -264,7 +264,7 @@ def match_v2(data: dict, current_user: dict = Depends(get_current_user)):
                 detail="매칭 결과 저장 또는 supplier 전송에 실패했습니다. 다시 실행해 주세요.",
             )
 
-    # --- AI 처리 과정 시연용 메타 동봉 (drawing_id 경로 한정) ---
+    # --- AI 처리 과정 메타 동봉 (drawing_id 경로 한정) ---
     # 4 단계 시각: 도면 → VLM raw → Gemini 변환 → 매칭 변환(match_input). 매칭 화면 모달에서 노출
     if isinstance(result, dict) and "_drawing_id" in data:
         result["drawing_id"] = data["_drawing_id"]  # frontend bindAiProcessModal resolveDrawingId 정합
@@ -524,9 +524,9 @@ def _save_match_history(input_data: dict, pipeline_result):
 
             # --- quality_score ---
             # 신규 가입 직후 업체는 리뷰가 누적되지 않아 avg_rating = NULL.
-            # 데이터 부재를 *중립 0.5* 로 처리하면 신규 업체가 매칭 상위에서 누락되어
-            # 온보딩 직후 첫 매칭 노출 영역이 차단된다. 신규 업체 fail-open 영역으로
-            # 평점 부재 = 1.0 (5/5 기본) 폴백 — 첫 리뷰 누적 전까지의 신규 업체 버닝 정책.
+            # 데이터 미존재를 *중립 0.5* 로 처리하면 신규 업체가 매칭 상위에서 배제되어
+            # 온보딩 직후 첫 매칭 노출이 차단된다. 신규 업체 fail-open 정책으로
+            # 평점 미존재 = 1.0 (5/5 기본) 폴백 — 첫 리뷰 누적 전까지의 신규 업체 버닝 정책.
             avg_rating = cand.get("avg_rating") or cand.get("avg_rating_overall")
             if avg_rating is not None and avg_rating > 0:
                 quality_score = round(float(avg_rating) / 5.0, 3)
@@ -534,14 +534,14 @@ def _save_match_history(input_data: dict, pipeline_result):
                 quality_score = 1.0
 
             # --- availability_score ---
-            # 신규 가입 직후 업체는 equipment_daily_schedule 시드가 부재하여
+            # 신규 가입 직후 업체는 equipment_daily_schedule 시드가 없어
             # _compute_availability_score 내부에서 0.5 폴백이 반환된다. 평점과 동일하게
-            # 데이터 부재 = 가용성 풀(가동률 널널 + 스케쥴 비어있음) 1.0 폴백으로 처리.
+            # 데이터 미존재 = 가용성 풀(가동률 널널 + 스케쥴 비어있음) 1.0 폴백으로 처리.
             if rfq_id:
                 availability_score, availability_info = _compute_availability_score(
                     conn, str(company_id), str(rfq_id),
                 )
-                # 시드 부재 영역의 0.5 폴백 → 1.0 보정 (신규 업체 fail-open)
+                # 시드 미존재 시 0.5 폴백 → 1.0 보정 (신규 업체 fail-open)
                 if availability_score == 0.5 and availability_info.get("available_from") is None:
                     availability_score = 1.0
             else:
@@ -669,7 +669,7 @@ def _save_match_history(input_data: dict, pipeline_result):
 
 
 # ---------------------------------------------------------------------------
-# B-3b: GET /api/company/matches — 업체 수신 매칭 조회
+# GET /api/company/matches — 업체 수신 매칭 조회
 # ---------------------------------------------------------------------------
 
 
@@ -729,7 +729,7 @@ def get_company_matches(user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
-# B-4: PUT /api/match-candidates/{match_run_id}/{company_id}/respond
+# PUT /api/match-candidates/{match_run_id}/{company_id}/respond
 # ---------------------------------------------------------------------------
 
 

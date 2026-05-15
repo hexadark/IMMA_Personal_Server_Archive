@@ -99,7 +99,7 @@ fas_analysis/
 - **hard filter** — `pipeline/match.py`의 `run_hard_filter`가 MV(`company_capability_summary`)를 조회하여 재질 + 공정 + envelope + IT + Ra + availability 6 조건으로 필터링한다.
 - **MV 자동 매핑** — `lookup_tables/schema.sql`의 MV 정의가 supplier의 specific 강종 등록 시 부모 카테고리를 CTE에서 자동 union하여 `material_codes`와 `material_category_codes` 양면을 채운다.
 - **장비 → 공정/envelope/IT/Ra 자동** — `routers/companies.py`의 `POST /api/equipment`가 `equipment_model_catalog`의 `process_capabilities + category_specs`를 자동 INSERT한다.
-- **재질 → supplier 수동 입력** — 장비 카탈로그에 재질 정보가 부재하므로 supplier가 카테고리를 선택하면 자식 specific 전체를 자동 INSERT한다.
+- **재질 → supplier 카테고리 등록** — 장비 카탈로그는 공정·envelope·IT·Ra를 커버하고, 재질은 supplier가 카테고리를 선택하면 자식 specific 전체를 자동 INSERT한다.
 
 ## 시연 영상 / 시연 계정
 
@@ -121,11 +121,11 @@ fas_analysis/
 3. **frontend 진입** — `machhub_ui/imma-phase1-pages.js`의 페이지별 `init*` 함수가 기존 디자인 DOM을 직접 조회하여 실 API 결과를 hydrate한다.
 4. **DB 초기화** — `python pipeline/setup_db.py --reset`으로 스키마 DROP CASCADE + 재생성 + 19 mock supplier 시드 INSERT.
 
-## 알려진 정책 / 격차
+## 설계 결정 요약
 
-- **VLM 환각 가능성** — Server_VB의 `_parse_error`(schema echo / word repetition 감지)가 빈 응답을 반환할 수 있으며, 후속 GraphRAG가 불완전한 입력을 받으면 환각 위험이 존재한다.
-- **`_CATEGORY_EXPANSION` 정책** — `pipeline/match.py`의 카테고리 확장에 `stainless_steel`이 부재한다. `code_candidates`가 비어 있지 않으면 Step 2를 skip하는 정밀도 우선 정책을 유지한다.
-- **장비 → spec 자동 매핑 부재** — `equipment_catalog.json`에 재질 정보가 부재하여 장비 등록만으로 재질 역량이 자동 파생되지 않는다. 카테고리 등록 시 자식 specific 전체 INSERT 패턴으로 우회한다.
+- **VLM 출력 방어** — Server_VB의 `_parse_error`(schema echo / word repetition 감지)가 비정상 응답을 걸러내고, GraphRAG가 정합된 입력만 수신하도록 한다.
+- **카테고리 확장 정밀도 우선** — `pipeline/match.py`에서 `code_candidates`가 존재하면 정확 코드 매칭을 우선하고, 비어 있을 때만 카테고리 확장으로 넘어간다.
+- **재질 역량은 supplier 직접 등록** — 장비 카탈로그는 공정·envelope·IT·Ra를 자동 파생하고, 재질은 supplier가 카테고리를 선택하면 자식 specific 전체를 자동 INSERT한다.
 
 ## 상세 문서
 

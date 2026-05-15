@@ -11,7 +11,7 @@ VLM 도면 분석 엔드포인트:
 
 drawing_id는 후속 POST /api/match-v2 호출의 drawing_id 파라미터로 사용된다.
 
-백업 경로: Replicate API 호출 영역 = multi-line 주석으로 비활성. Server_VB 끊김 시 주석 토글.
+백업 경로: Replicate API 호출은 multi-line 주석으로 비활성. Server_VB 끊김 시 주석 토글.
 """
 
 import logging
@@ -57,7 +57,7 @@ def analyze_upload(
 ):
     """도면 이미지 → Replicate VLM 분석 → drawings 테이블 저장 → drawing_id 반환.
 
-    동기 def 로 정의 — Replicate API 의 sync requests + time.sleep 영역이
+    동기 def 로 정의 — Replicate API 의 sync requests + time.sleep 이
     async event loop 를 freeze 하지 않도록 FastAPI thread pool 에서 실행.
     """
     if engine is None:
@@ -70,7 +70,7 @@ def analyze_upload(
         raise HTTPException(status_code=400, detail="이미지 파일만 허용됩니다")
 
     # ── ① 이미지 읽기 + 파일 저장 ──
-    # sync 함수 영역에서는 UploadFile.file 영역의 동기 read 사용
+    # sync 함수에서는 UploadFile.file 의 동기 read 사용
     image_bytes = image.file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="빈 파일입니다")

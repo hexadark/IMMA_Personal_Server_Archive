@@ -1,9 +1,9 @@
 """
 RFQ 관련 엔드포인트:
-- GET  /rfqs                      (기존)
-- GET  /api/rfq/{rfq_id}          (B-1: 단건 조회)
-- PUT  /api/rfq/{rfq_id}/status   (B-7: 상태 전이)
-- POST /api/rfq/{rfq_id}/supplement (D-1: 클라이언트 보완 요청 루프)
+- GET  /rfqs                        (RFQ 목록)
+- GET  /api/rfq/{rfq_id}            (단건 조회)
+- PUT  /api/rfq/{rfq_id}/status     (상태 전이)
+- POST /api/rfq/{rfq_id}/supplement (클라이언트 보완 요청 루프)
 
 RFQ 생성은 /api/match-v2 단일 경로로 통합됨 (도면 + VLM 분석 기반).
 """
@@ -77,7 +77,7 @@ def get_rfqs(current_user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
-# B-1: GET /api/rfq/{rfq_id} — RFQ 단건 조회
+# GET /api/rfq/{rfq_id} — RFQ 단건 조회
 # ---------------------------------------------------------------------------
 
 
@@ -196,7 +196,7 @@ def get_rfq_detail(rfq_id: str, current_user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
-# B-7: PUT /api/rfq/{rfq_id}/status — RFQ 상태 전이
+# PUT /api/rfq/{rfq_id}/status — RFQ 상태 전이
 # ---------------------------------------------------------------------------
 
 # 허용된 전이: (현재 상태) -> (대상 상태) 집합
@@ -314,7 +314,7 @@ def update_rfq_status(rfq_id: str, data: dict,
 
 
 # ---------------------------------------------------------------------------
-# D-1: POST /api/rfq/{rfq_id}/supplement — 클라이언트 보완 요청 루프
+# POST /api/rfq/{rfq_id}/supplement — 클라이언트 보완 요청 루프
 # ---------------------------------------------------------------------------
 
 
@@ -322,7 +322,7 @@ def update_rfq_status(rfq_id: str, data: dict,
 def supplement_rfq_part(rfq_id: str, data: dict,
                         user: dict = Depends(get_current_user)):
     """
-    누락 필드 보완 입력. 채워진 필드만 UPDATE.
+    미입력 필드 보완 입력. 채워진 필드만 UPDATE.
     - material → rfq_parts.material_raw_text
     - processes → rfq_part_processes DELETE + 새로 INSERT
     - quantity → rfq_parts.quantity

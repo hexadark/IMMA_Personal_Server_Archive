@@ -1,5 +1,5 @@
 """
-Phase A-1: 로그인 + 사용자 정보 조회
+로그인 + 사용자 정보 조회:
 - POST /api/login
 - GET  /api/me
 """
@@ -41,7 +41,7 @@ def login(data: dict):
 
     login_id = data.get("login_id")
     password = data.get("password")
-    # UI 영역에서 명시 전달한 role — 매칭 role 과 불일치 시 401 영역 (cross-role 로그인 차단)
+    # UI에서 명시 전달한 role — 매칭 role 과 불일치 시 401 (cross-role 로그인 차단)
     expected_role = data.get("expected_role")  # 'buyer' | 'supplier' | None
 
     if not login_id or not password:
@@ -59,7 +59,7 @@ def login(data: dict):
 
         if buyer_row:
             if expected_role and expected_role != "buyer":
-                raise HTTPException(status_code=401, detail="해당 영역의 계정이 아닙니다")
+                raise HTTPException(status_code=401, detail="해당 역할의 계정이 아닙니다")
             if not _verify_password(password, buyer_row[2]):
                 raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다")
             token = _create_token(sub=str(buyer_row[0]), login_id=buyer_row[1], role="buyer")
@@ -85,7 +85,7 @@ def login(data: dict):
 
         if company_row:
             if expected_role and expected_role != "supplier":
-                raise HTTPException(status_code=401, detail="해당 영역의 계정이 아닙니다")
+                raise HTTPException(status_code=401, detail="해당 역할의 계정이 아닙니다")
             if not _verify_password(password, company_row[2]):
                 raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다")
             token = _create_token(sub=str(company_row[0]), login_id=company_row[1], role="supplier")

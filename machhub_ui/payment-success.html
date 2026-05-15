@@ -141,7 +141,7 @@
                  String(now.getMinutes()).padStart(2, '0');
   document.getElementById('current-time').textContent = dateStr;
 
-  // order_id query 영역 → /api/orders/{id} hydrate (발주 번호 + 금액)
+  // order_id query param → /api/orders/{id} hydrate (발주 번호 + 금액)
   (async function hydratePaymentReceipt() {
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('order_id');
@@ -149,7 +149,7 @@
       ? window.imma.formatCurrency
       : (n) => (n != null ? Number(n).toLocaleString('ko-KR') + '원' : '-');
     if (!orderId) {
-      // fallback — 정적 데모 영역 부재. 빈 안내 자세
+      // fallback — order_id 없으면 빈 안내 표시
       document.getElementById('ps-order-no').textContent = '발주 정보 부재';
       document.getElementById('ps-amount').textContent = '-';
       return;
@@ -159,7 +159,7 @@
       const shortOid = (order.order_id || '').slice(0, 8).toUpperCase();
       document.getElementById('ps-order-no').textContent = `PO-${shortOid}`;
       document.getElementById('ps-amount').textContent = formatCurrency(order.total_price, order.currency_code || 'KRW');
-      // 결제 완료 메시지 영역 — 업체명 hydrate
+      // 결제 완료 메시지 — 업체명 hydrate
       const desc = document.querySelector('.success-desc');
       if (desc && order.company_name) {
         desc.innerHTML = `${order.company_name} 발주 건의 결제대행 입금이 완료되었습니다.<br>발주 진행 화면으로 돌아가 생산 진행도 공유를 기다립니다.`;

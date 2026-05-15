@@ -901,7 +901,7 @@ INSERT INTO process_catalog(process_code, parent_process_code, process_name_ko, 
 ('centerless_grinding',  'grinding', '센터리스 연삭',   'Centerless grinding',        'cutting')
 ON CONFLICT (process_code) DO NOTHING;
 
--- GPT-Pro 검증 보강: 누락 공정 + rough/finish 하위 공정
+-- 추가 공정 코드: reaming, lapping, gear_grinding, polishing + rough/finish 하위 공정
 INSERT INTO process_catalog(process_code, parent_process_code, process_name_ko, process_name_en, process_group) VALUES
 ('reaming',              NULL,       '리밍',           'Reaming',                    'cutting'),
 ('lapping',              'grinding', '래핑',           'Lapping',                    'cutting'),

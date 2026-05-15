@@ -1,5 +1,5 @@
 """
-Phase E-1: 알림 엔드포인트
+알림 엔드포인트:
 - GET  /api/notifications              — 본인 알림 목록 (인증 기반)
 - PUT  /api/notifications/{id}/read    — 읽음 처리
 - GET  /api/notifications/unread-count — 미읽음 수
@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# E-1: GET /api/notifications — 본인 알림 목록
+# GET /api/notifications — 본인 알림 목록
 # ---------------------------------------------------------------------------
 
 
@@ -92,7 +92,7 @@ def list_notifications(
 
 
 # ---------------------------------------------------------------------------
-# E-1: PUT /api/notifications/{notification_id}/read — 읽음 처리
+# PUT /api/notifications/{notification_id}/read — 읽음 처리
 # ---------------------------------------------------------------------------
 
 
@@ -144,7 +144,7 @@ def mark_notification_read(
 
 
 # ---------------------------------------------------------------------------
-# E-1: GET /api/notifications/unread-count — 미읽음 수
+# GET /api/notifications/unread-count — 미읽음 수
 # ---------------------------------------------------------------------------
 
 

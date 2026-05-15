@@ -112,8 +112,7 @@
     .s-days .num { font-size: 20px; font-weight: 900; color: #111; }
     .s-days .label { font-size: 12px; color: var(--text-muted); }
 
-    /* 견적 도착 전 영역 단일 어휘 — "— —(견적 도착 후) —(일)" 영역의
-       dash + 어휘 양면 영역의 시각 어색 영역 시정. 한 줄 단일 어휘로 통일. */
+    /* 견적 도착 전 표시 — dash 연속의 시각 어색함을 한 줄 단일 어휘로 통일. */
     .s-price .quote-pending,
     .s-days .quote-pending {
       font-size: 12px; font-weight: 600; color: var(--text-muted);
@@ -165,7 +164,7 @@
     .ct-vals { display: flex; gap: 8px; flex: 1; min-width: 0; }
     .ct-val { font-weight: 600; color: #111; flex: 1; min-width: 0; text-align: right; word-break: keep-all; overflow-wrap: break-word; font-size: 12px; }
 
-    /* supplier 상세 보기 modal — imma-common.css 에 modal 영역 부재이므로 self-contained 정의.
+    /* supplier 상세 보기 modal — imma-common.css 에 modal 정의가 없으므로 self-contained 정의.
        landing.html 의 imma-modal 패턴과 시각 정합. */
     .imma-modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -193,7 +192,7 @@
     .sd-recommend-chip { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; }
 
     /* AI 처리 과정 시연 4 패널 모달 — self-contained 정의 (initMatching hook 으로 동작).
-       quote-request 측 보관 vlm_output + drawing_data_url + match-v2 응답의 graphrag_raw / vlm_raw / parts[i].match_input 영역 hydrate. */
+       quote-request 측 보관 vlm_output + drawing_data_url + match-v2 응답의 graphrag_raw / vlm_raw / parts[i].match_input hydrate. */
     .ai-process-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.6); z-index: 1000;

@@ -122,7 +122,7 @@ FAIL_OPEN_PROCESSES: frozenset[str] = frozenset({
 
 
 # ── parent fallback 화이트리스트 (자식→부모 EPC fallback 허용 자식 공정) ──
-# 동일 장비로 양쪽을 모두 수행하는 inclusion 관계가 도메인적으로 성립하는 영역에만 한정.
+# 동일 장비로 양쪽을 모두 수행하는 inclusion 관계가 도메인적으로 성립하는 공정에만 한정.
 # grinding 가족(gear_grinding, honing, lapping, cylindrical/surface/internal/centerless)은
 # 전용 장비가 분리되어 부모 fallback이 false positive를 일으키므로 제외.
 SAFE_PARENT_FALLBACK: frozenset[str] = frozenset({

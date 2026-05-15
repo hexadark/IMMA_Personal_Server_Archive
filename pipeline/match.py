@@ -355,10 +355,7 @@ def _rows_to_candidates(rows: list[dict], match_type: str) -> list[MatchCandidat
 
 
 def _populate_equipment_summary(candidates: list[MatchCandidate]) -> None:
-    """후보별 카테고리별 보유 장비 수 + 대표 모델명을 채운다.
-
-    공개 자연 — 비밀 영역 부재 (사용자 결재 완료). 단부품/다부품 무관 동일 적용.
-    """
+    """후보별 카테고리별 보유 장비 수 + 대표 모델명을 채운다."""
     if not candidates:
         return
     company_ids = [c.company_id for c in candidates]
@@ -967,7 +964,7 @@ def check_process_sequence(part: ResolvedPart) -> list[str]:
                     )
 
         elif rule_type == "cannot_run_concurrently":
-            # 공정 목록 수준에서는 검증 부적합 (피처-레벨 스케줄링 영역)
+            # 공정 목록 수준에서는 검증 부적합 (피처-레벨 스케줄링 범위)
             # 순서대로 수행하면 문제없으므로 경고 비활성화
             pass
 

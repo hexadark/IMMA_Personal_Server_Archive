@@ -1,16 +1,16 @@
 """
 발주 엔드포인트:
-- POST /api/orders                        (B-6: 업체 선택 + 발주 확정)
-- GET  /api/orders/{order_id}             (B-6: 발주 상세 조회)
-- PUT  /api/orders/{order_id}/status      (B-7: 상태 전이)
-- POST /api/jobs                          (C-1: manufacturing_job 생성)
-- PUT  /api/jobs/{job_id}/progress        (C-1: 가공 진행도 업데이트)
-- GET  /api/orders/{order_id}/jobs        (C-1: 발주 건 진행도 조회)
-- PUT  /api/orders/{order_id}/inspect     (C-1 추가: 발주자 검수)
-- POST /api/jobs/{job_id}/images          (C-2: 납품 이미지 업로드)
-- GET  /api/jobs/{job_id}/images          (C-2: 납품 이미지 조회)
-- POST /api/orders/{order_id}/shipment    (C-3: 배송 정보 등록)
-- GET  /api/orders/{order_id}/shipment    (C-3: 배송 정보 조회)
+- POST /api/orders                        (업체 선택 + 발주 확정)
+- GET  /api/orders/{order_id}             (발주 상세 조회)
+- PUT  /api/orders/{order_id}/status      (상태 전이)
+- POST /api/jobs                          (manufacturing_job 생성)
+- PUT  /api/jobs/{job_id}/progress        (가공 진행도 업데이트)
+- GET  /api/orders/{order_id}/jobs        (발주 건 진행도 조회)
+- PUT  /api/orders/{order_id}/inspect     (발주자 검수)
+- POST /api/jobs/{job_id}/images          (납품 이미지 업로드)
+- GET  /api/jobs/{job_id}/images          (납품 이미지 조회)
+- POST /api/orders/{order_id}/shipment    (배송 정보 등록)
+- GET  /api/orders/{order_id}/shipment    (배송 정보 조회)
 """
 
 import uuid
@@ -28,7 +28,7 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# B-6: POST /api/orders — 업체 선택 + 발주 확정
+# POST /api/orders — 업체 선택 + 발주 확정
 # ---------------------------------------------------------------------------
 
 
@@ -156,7 +156,7 @@ def create_order(data: dict, user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
-# B-6: GET /api/orders/{order_id} — 발주 상세 조회
+# GET /api/orders/{order_id} — 발주 상세 조회
 # ---------------------------------------------------------------------------
 
 
@@ -219,7 +219,7 @@ def get_order_detail(order_id: str, current_user: dict = Depends(get_current_use
 
 
 # ---------------------------------------------------------------------------
-# B-7: PUT /api/orders/{order_id}/status — Order 상태 전이
+# PUT /api/orders/{order_id}/status — Order 상태 전이
 # ---------------------------------------------------------------------------
 
 # 상태 전이 권한 매트릭스: {현재상태: {대상상태: 허용역할집합}}
@@ -366,7 +366,7 @@ def update_order_status(order_id: str, data: dict,
 
 
 # ===========================================================================
-# Phase C-1: POST /api/jobs — manufacturing_job 생성
+# POST /api/jobs — manufacturing_job 생성
 # ===========================================================================
 
 
@@ -455,7 +455,7 @@ def create_job(data: dict, user: dict = Depends(get_current_user)):
 
 
 # ===========================================================================
-# Phase C-1: PUT /api/jobs/{job_id}/progress — 가공 진행도 업데이트
+# PUT /api/jobs/{job_id}/progress — 가공 진행도 업데이트
 # ===========================================================================
 
 _VALID_JOB_STATUSES = {
@@ -552,7 +552,7 @@ def update_job_progress(job_id: str, data: dict,
 
 
 # ===========================================================================
-# Phase C-1: GET /api/orders/{order_id}/jobs — 발주 건 진행도 조회
+# GET /api/orders/{order_id}/jobs — 발주 건 진행도 조회
 # ===========================================================================
 
 
@@ -645,7 +645,7 @@ def get_order_jobs(order_id: str, user: dict = Depends(get_current_user)):
 
 
 # ===========================================================================
-# Phase C-1 추가: PUT /api/orders/{order_id}/inspect — 발주자 검수
+# PUT /api/orders/{order_id}/inspect — 발주자 검수
 # ===========================================================================
 
 
@@ -774,7 +774,7 @@ def inspect_order(order_id: str, data: dict,
 
 
 # ===========================================================================
-# Phase C-2: POST /api/jobs/{job_id}/images — 납품 이미지 업로드
+# POST /api/jobs/{job_id}/images — 납품 이미지 업로드
 # ===========================================================================
 
 _VALID_IMAGE_TYPES = {"final_product", "packaging", "inspection_report"}
@@ -865,7 +865,7 @@ async def upload_job_image(
 
 
 # ===========================================================================
-# Phase C-2: GET /api/jobs/{job_id}/images — 납품 이미지 조회
+# GET /api/jobs/{job_id}/images — 납품 이미지 조회
 # ===========================================================================
 
 
@@ -921,7 +921,7 @@ def get_job_images(job_id: str, user: dict = Depends(get_current_user)):
 
 
 # ===========================================================================
-# Phase C-3: POST /api/orders/{order_id}/shipment — 배송 정보 등록
+# POST /api/orders/{order_id}/shipment — 배송 정보 등록
 # ===========================================================================
 
 
@@ -1026,7 +1026,7 @@ def create_shipment(order_id: str, data: dict,
 
 
 # ===========================================================================
-# Phase C-3: GET /api/orders/{order_id}/shipment — 배송 정보 조회
+# GET /api/orders/{order_id}/shipment — 배송 정보 조회
 # ===========================================================================
 
 

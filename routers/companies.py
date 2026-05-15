@@ -1,17 +1,17 @@
 """
 업체 관련 엔드포인트:
-- GET  /companies                       (기존)
-- GET  /companies/buyers                (기존)
-- GET  /companies/suppliers             (기존)
-- GET  /api/company/{company_id}        (B-2: 단건 조회)
-- PUT  /api/company/profile             (기존)
-- PUT  /api/company/availability        (기존)
-- POST /api/equipment                   (기존)
-- POST /api/material-capability         (기존)
-- POST /api/process-capability          (기존)
-- POST /api/company/capacity            (D-2: 주간 용량 등록)
-- GET  /api/company/{id}/capacity       (D-2: 주간 용량 조회)
-- PUT  /api/company/capacity/{id}       (D-2: 주간 용량 수정)
+- GET  /companies                       (업체 목록)
+- GET  /companies/buyers                (buyer 목록)
+- GET  /companies/suppliers             (supplier 목록)
+- GET  /api/company/{company_id}        (단건 조회)
+- PUT  /api/company/profile             (프로필 수정)
+- PUT  /api/company/availability        (가용성 수정)
+- POST /api/equipment                   (장비 등록)
+- POST /api/material-capability         (소재 역량 등록)
+- POST /api/process-capability          (공정 역량 등록)
+- POST /api/company/capacity            (주간 용량 등록)
+- GET  /api/company/{id}/capacity       (주간 용량 조회)
+- PUT  /api/company/capacity/{id}       (주간 용량 수정)
 - POST /api/equipment/{equipment_id}/schedule   (일단위 스케줄 등록/수정)
 - GET  /api/equipment/{equipment_id}/schedule   (장비별 스케줄 조회)
 - GET  /api/company/{company_id}/daily-schedule (업체 전체 장비 스케줄 조회)
@@ -132,7 +132,7 @@ def get_suppliers():
 
 
 # ---------------------------------------------------------------------------
-# B-2: GET /api/company/{company_id} — 업체 단건 조회
+# GET /api/company/{company_id} — 업체 단건 조회
 # ---------------------------------------------------------------------------
 
 
@@ -709,8 +709,8 @@ def register_material_capability(data: dict, current_user: dict = Depends(get_cu
                 )
 
         # material_category — 동일 패턴 (재활성화 우선)
-        # + 카테고리 선택 시 그 카테고리의 모든 specific 강종 자동 INSERT (시연 정책)
-        # — 카탈로그에 장비별 specific 매핑 부재 + supplier 가 카테고리 단위로 가공 가능 선언했으므로
+        # + 카테고리 선택 시 그 카테고리의 모든 specific 강종 자동 INSERT
+        # — 카탈로그에 장비별 specific 매핑이 없고 supplier 가 카테고리 단위로 가공 가능 선언했으므로
         # 자식 specific 전체 등록하여 매칭 hard filter 의 specific 우선 정책에 정합 보장.
         for cat_code in categories:
             updated = conn.execute(
@@ -816,7 +816,7 @@ def register_process_capability(data: dict, current_user: dict = Depends(get_cur
 
 
 # ---------------------------------------------------------------------------
-# D-2: 주간 용량 캘린더
+# 주간 용량 캘린더
 # ---------------------------------------------------------------------------
 
 

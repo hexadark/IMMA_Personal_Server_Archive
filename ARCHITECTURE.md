@@ -440,7 +440,7 @@ open ──[첫 견적 도착]──> quoted ──[buyer 발주 확정]──> 
 
 ### 공정 매칭 정책
 
-**GDT는 하드필터에 반영하지 않는다.** 업체 CMM/검사 데이터 없이 GDT를 매핑하면 적합 업체가 false negative로 탈락한다. GDT는 향후 소프트 시그널(리스크 태깅, RFQ 질문 생성, 업체 랭킹 가중치)로 활용할 방향이다.
+**GDT는 하드필터에 반영하지 않는다.** 업체 CMM/검사 데이터 없이 GDT를 매핑하면 적합 업체가 false negative로 탈락한다. GDT는 소프트 시그널(리스크 태깅, RFQ 질문 생성, 업체 랭킹 가중치)로 활용하는 설계이다.
 
 **외주 공정은 SQL 하드필터에서 제외한다.** `FAIL_OPEN_PROCESSES`(heat_treatment, surface_treatment, casting, welding 등 8개)는 SQL AND 조건에서 빠지며, 장비 검증 단계에서도 fail-open으로 처리한다. 단일 업체 매칭 모델에서 외주 공정 처리는 업체 외주망에 위임하는 정책이다. 발주자가 업체에 일괄 발주하는 구조에서 외주 가능 여부는 업체가 견적 시점에 판단한다.
 
@@ -493,9 +493,9 @@ open ──[첫 견적 도착]──> quoted ──[buyer 발주 확정]──> 
 
 `quote-request.html`에서 VLM 응답 도착 후 `#ai-result-card` 카드에 5항목(부품명/재질/치수/후처리/도면번호)을 hydrate한다. 각 행의 "수정" 버튼 클릭 시 인라인 input으로 전환되며, 저장 시 `dataset.userEdited='true'` + `dataset.original` 보존이 적용된다. RFQ 확정 시 `collectAiUserEdits`가 수정 항목만 모아 `client_notes.ai_user_edits`에 보존하고, `material`/`post_treatment` 사용자 수정은 파이프라인에서 우선 적용된다.
 
-### admin Phase 1 실연결 범위
+### admin 실연결 범위
 
-`/api/admin/login`, `/api/admin/companies/pending`, `/api/admin/companies/{id}/verify`, `/api/admin/companies/{id}/reject` 4개만 실 API로 연결한다. KPI/관제 표(`/api/admin/rfqs`, `/api/admin/orders`)는 admin-control-center에서 시연 데모 카드로 유지하며, `admin-menu.js`가 "Demo UI" 배지를 명시한다. pending 목록은 `onboarding_status = 'submitted'` 단일 조건이며, verify는 현재 `submitted`일 때만 허용하고 그 외 상태(`verified`/`draft`/`rejected`)는 400 + 상태별 메시지로 분기한다.
+`/api/admin/login`, `/api/admin/companies/pending`, `/api/admin/companies/{id}/verify`, `/api/admin/companies/{id}/reject` 4개가 실 API로 연결된다. KPI/관제 표(`/api/admin/rfqs`, `/api/admin/orders`)는 admin-control-center에서 시연 데모 카드로 유지하며, `admin-menu.js`가 "Demo UI" 배지를 명시한다. pending 목록은 `onboarding_status = 'submitted'` 단일 조건이며, verify는 현재 `submitted`일 때만 허용하고 그 외 상태(`verified`/`draft`/`rejected`)는 400 + 상태별 메시지로 분기한다.
 
 ---
 
@@ -542,11 +542,11 @@ open ──[첫 견적 도착]──> quoted ──[buyer 발주 확정]──> 
 | danger | `[공정순서 위반]`, `[unsupported]` | `#fef3f2` / `#b42318` |
 | neutral | 그 외 미상 토큰 | `#f2f4f7` / `#344054` |
 
-priority(0~5) 정렬로 강도 높은 신호가 상단에 노출된다. 미상 토큰도 숨기지 않아 향후 신호 추가 시 자연 호환된다.
+priority(0~5) 정렬로 강도 높은 신호가 상단에 노출된다. 미상 토큰도 숨기지 않아 새 신호 추가에도 자연 호환된다.
 
 ### buyer 대시보드 (client-dashboard)
 
-- 4 stat 카드: 진행 중 발주, 견적 대기(`open + quoted` 합산), 납품 완료, 누적 결제 금액(Phase 2)
+- 4 stat 카드: 진행 중 발주, 견적 대기(`open + quoted` 합산), 납품 완료, 누적 결제 금액(현재 정적 표시)
 - 최근 진행 현황: `open`, `quoted`, `ordered`, `in_production`, `inspection`, `shipped`, `delivered`, `completed` 8개 상태 필터 + 상위 5건 + status별 한글 라벨/색상 badge
 - 최근 알림: `#recent-notifications` 카드에 `quote_received`(녹색), `supplier_accepted`(녹색), `supplier_declined`(빨강) 3종 상위 6건 + `reference_type` 기반 link
 
@@ -649,7 +649,7 @@ sequenceDiagram
 | `order_cancelled` | buyer + supplier | 발주 취소 |
 | `onboarding_rejected` | supplier | admin 업체 인증 반려 |
 
-실시간 전달은 DB 폴링 방식이다 (WebSocket은 Phase 2). buyer 대시보드의 `#recent-notifications` 카드는 `quote_received`(견적 도착), `supplier_accepted`(매칭 수락), `supplier_declined`(매칭 거절) 3종을 표시한다. supplier 주문 발견은 `GET /api/notifications?unread_only=false`에서 `event_type='order_confirmed'`를 필터한 뒤 `reference_id`로 `GET /api/orders/{order_id}`에 진입하는 방식이다.
+실시간 전달은 DB 폴링 방식이다. buyer 대시보드의 `#recent-notifications` 카드는 `quote_received`(견적 도착), `supplier_accepted`(매칭 수락), `supplier_declined`(매칭 거절) 3종을 표시한다. supplier 주문 발견은 `GET /api/notifications?unread_only=false`에서 `event_type='order_confirmed'`를 필터한 뒤 `reference_id`로 `GET /api/orders/{order_id}`에 진입하는 방식이다.
 
 ---
 

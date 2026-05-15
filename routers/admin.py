@@ -1,5 +1,5 @@
 """
-Phase E-2: 관리자 엔드포인트
+관리자 엔드포인트:
 - POST /api/admin/login                        — 관리자 로그인
 - GET  /api/admin/companies/pending            — 검수 대기 업체 목록
 - PUT  /api/admin/companies/{id}/verify        — 업체 수동 승인
@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# E-2: POST /api/admin/login — 관리자 로그인
+# POST /api/admin/login — 관리자 로그인
 # ---------------------------------------------------------------------------
 
 
@@ -90,7 +90,7 @@ def admin_login(data: dict):
 
 
 # ---------------------------------------------------------------------------
-# E-2: GET /api/admin/companies/pending — 검수 대기 업체 목록
+# GET /api/admin/companies/pending — 검수 대기 업체 목록
 # ---------------------------------------------------------------------------
 
 
@@ -134,7 +134,7 @@ def get_pending_companies(admin: dict = Depends(get_current_admin)):
 
 
 # ---------------------------------------------------------------------------
-# E-2: PUT /api/admin/companies/{company_id}/verify — 업체 수동 승인
+# PUT /api/admin/companies/{company_id}/verify — 업체 수동 승인
 # ---------------------------------------------------------------------------
 
 
@@ -142,7 +142,7 @@ def get_pending_companies(admin: dict = Depends(get_current_admin)):
 def verify_company(company_id: str, admin: dict = Depends(get_current_admin)):
     """companies.onboarding_status = 'verified' UPDATE + _refresh_mv.
 
-    이미 verified/draft/rejected 영역인 업체에 대한 재승인을 차단.
+    이미 verified/draft/rejected 상태인 업체에 대한 재승인을 차단.
     submitted 단계의 업체만 승인 가능.
     """
     if engine is None:
@@ -164,13 +164,13 @@ def verify_company(company_id: str, admin: dict = Depends(get_current_admin)):
 
         current_status = row[0]
         if current_status != "submitted":
-            # 상태별 메시지 분기 — supplier 운용 영역 안내 정합
+            # 상태별 메시지 분기
             if current_status == "verified":
                 detail_msg = "이미 승인된 업체입니다"
             elif current_status == "draft":
-                detail_msg = "온보딩 미완료 — supplier 가 정보 입력 영역 진행 중"
+                detail_msg = "온보딩 미완료 — supplier 가 정보 입력을 진행 중입니다"
             elif current_status == "rejected":
-                detail_msg = "이미 반려된 업체. 반려 사유 확인 후 재신청 영역"
+                detail_msg = "이미 반려된 업체입니다. 반려 사유 확인 후 재신청이 필요합니다"
             else:
                 detail_msg = f"승인 불가 상태: {current_status}"
             raise HTTPException(status_code=400, detail=detail_msg)
@@ -202,7 +202,7 @@ def verify_company(company_id: str, admin: dict = Depends(get_current_admin)):
 
 
 # ---------------------------------------------------------------------------
-# E-2: PUT /api/admin/companies/{company_id}/reject — 업체 반려 + 사유
+# PUT /api/admin/companies/{company_id}/reject — 업체 반려 + 사유
 # ---------------------------------------------------------------------------
 
 
@@ -277,7 +277,7 @@ def reject_company(
 
 
 # ---------------------------------------------------------------------------
-# E-2: GET /api/admin/rfqs — 전체 RFQ 현황
+# GET /api/admin/rfqs — 전체 RFQ 현황
 # ---------------------------------------------------------------------------
 
 
@@ -327,7 +327,7 @@ def get_admin_rfqs(
 
 
 # ---------------------------------------------------------------------------
-# E-2: GET /api/admin/orders — 전체 발주 현황
+# GET /api/admin/orders — 전체 발주 현황
 # ---------------------------------------------------------------------------
 
 
@@ -381,7 +381,7 @@ def get_admin_orders(
 
 @router.post("/api/admin/mv/refresh")
 def admin_refresh_mv(admin: dict = Depends(get_current_admin)):
-    """admin 전용 — company_capability_summary MV 강제 refresh. 진단 / 격차 시정용."""
+    """admin 전용 — company_capability_summary MV 강제 refresh."""
     if engine is None:
         raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
     try:
@@ -394,20 +394,20 @@ def admin_refresh_mv(admin: dict = Depends(get_current_admin)):
 
 
 # ---------------------------------------------------------------------------
-# admin 진단 endpoint — MV 영역 진입 부재 격차 직접 점검
+# admin 진단 endpoint — MV 진입 조건 점검
 # ---------------------------------------------------------------------------
 
 
 @router.get("/api/admin/mv/inspect/{company_id}")
 def admin_inspect_company(company_id: str, admin: dict = Depends(get_current_admin)):
-    """단일 company_id 영역의 MV 진입 조건 + MV row + 원본 테이블 row 동시 dump.
+    """단일 company_id에 대한 MV 진입 조건 + MV row + 원본 테이블 row 동시 dump.
 
     진단 항목:
       - companies (status / onboarding_status / accepting_orders / business_registration_no)
-      - company_sites (primary site 영역의 region NOT NULL)
-      - company_material_capabilities (row 수 + capability_level 영역)
-      - company_process_capabilities (row 수 + service_mode 영역)
-      - equipment (row 수 + status='running'|'idle' 영역)
+      - company_sites (primary site의 region NOT NULL)
+      - company_material_capabilities (row 수 + capability_level)
+      - company_process_capabilities (row 수 + service_mode)
+      - equipment (row 수 + status='running'|'idle')
       - company_availability_snapshot (overall_status)
       - MV row 존재 여부
       - _check_onboarding 4 조건 (has_brn / has_equip / has_mat / has_region)
@@ -623,20 +623,20 @@ def admin_inspect_company(company_id: str, admin: dict = Depends(get_current_adm
 
 
 # ---------------------------------------------------------------------------
-# admin 시정 endpoint — accepting_orders / overall_status / MV refresh 일괄
+# admin 보정 endpoint — accepting_orders / overall_status / MV refresh 일괄
 # ---------------------------------------------------------------------------
 
 
 @router.post("/api/admin/mv/repair/{company_id}")
 def admin_repair_company(company_id: str, admin: dict = Depends(get_current_admin)):
-    """단일 company_id 영역의 MV 진입 격차 일괄 시정.
+    """단일 company_id에 대한 MV 진입 조건 일괄 보정.
 
     조치:
-      1. companies.accepting_orders = true (NULL/false 영역 보정)
-      2. company_availability_snapshot 영역 row 부재 시 INSERT (overall_status='available')
-         + 영역 row 존재하나 overall_status='unknown'/NULL 영역 → 'available' 로 보정
+      1. companies.accepting_orders = true (NULL/false 보정)
+      2. company_availability_snapshot row 미존재 시 INSERT (overall_status='available')
+         + row 존재하나 overall_status='unknown'/NULL → 'available' 로 보정
       3. _refresh_mv 호출
-      4. 시정 후 MV row 존재 여부 반환
+      4. 보정 후 MV row 존재 여부 반환
     """
     if engine is None:
         raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
@@ -664,7 +664,7 @@ def admin_repair_company(company_id: str, admin: dict = Depends(get_current_admi
         )
 
         # 2) availability snapshot INSERT or UPDATE
-        # NULL IN (...) 영역은 UNKNOWN 평가 → COALESCE 로 NULL 영역 'unknown' 정합 후 IN 비교
+        # NULL IN (...) 은 UNKNOWN 평가 → COALESCE 로 NULL 을 'unknown' 으로 정합 후 비교
         conn.execute(
             text(f"""
                 INSERT INTO {SCHEMA}.company_availability_snapshot
@@ -692,7 +692,7 @@ def admin_repair_company(company_id: str, admin: dict = Depends(get_current_admi
             logger.exception("MV refresh 실패")
             mv_refresh_ok = False
 
-        # 4) 시정 후 MV row 확인
+        # 4) 보정 후 MV row 확인
         mv_present = conn.execute(
             text(f"""
                 SELECT 1 FROM {SCHEMA}.company_capability_summary

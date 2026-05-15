@@ -1192,7 +1192,7 @@ def setup_all() -> None:
 
 
 def _reset_schema() -> None:
-    """imma 스키마 완전 삭제 → CREATE 재구성. 시연 직전 깔끔 초기화 영역."""
+    """imma 스키마 완전 삭제 → CREATE 재구성."""
     from sqlalchemy import create_engine, text
 
     db_url = os.environ.get("DATABASE_URL") or config.DATABASE_URL

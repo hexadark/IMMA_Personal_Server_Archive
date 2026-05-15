@@ -110,10 +110,9 @@
       const cond = Array.isArray(part.conditional_candidates) ? part.conditional_candidates : [];
       rec.concat(cond).forEach(cand => output.push({ part, cand }));
     });
-    // AI 매칭 점수 (total_score) 내림차순 정렬 — recommended/conditional 그룹 분리
-    // 영역의 원천 정렬 격차 (그룹 내부 입력 순서 의존) 시정. backend _save_match_history
-    // 영역에서 total_score desc + rank_no 부여 영역과 정합. total_score 부재 영역은
-    // rank_no asc 영역 폴백, 두 항목 모두 부재 영역은 입력 순서 유지.
+    // AI 매칭 점수 (total_score) 내림차순 정렬 — recommended/conditional 그룹 분리.
+    // backend _save_match_history 의 total_score desc + rank_no 부여와 정합.
+    // total_score 없으면 rank_no asc 폴백, 둘 다 없으면 입력 순서 유지.
     output.sort((a, b) => {
       const sa = Number(a.cand && a.cand.total_score);
       const sb = Number(b.cand && b.cand.total_score);
@@ -154,8 +153,8 @@
   }
 
   function quotePayloadFromWorkbench(match, user) {
-    // supplier #reply 영역의 5 항목 수집 (납기 / 금액 / 인증 / 후처리 / 메모)
-    // assumptions 영역에 5 항목 구조화 통합 (buyer order-management 영역에서 parse 표시)
+    // supplier #reply 섹션의 5 항목 수집 (납기 / 금액 / 인증 / 후처리 / 메모)
+    // assumptions 에 5 항목 구조화 통합 (buyer order-management 에서 parse 표시)
     const dueInput = $('#reply-due-date');
     const dueDate = dueInput && dueInput.value;
     const amountInput = $('#reply-amount');
@@ -177,7 +176,7 @@
       if (diff > 0) leadDays = diff;
     }
 
-    // 5 항목 구조화 — buyer 영역에서 parse 후 표시
+    // 5 항목 구조화 — buyer 측에서 parse 후 표시
     const structuredAssumptions = JSON.stringify({
       certification,
       post_treatment: postTreatment,
@@ -209,7 +208,7 @@
     };
   }
 
-  // assumptions JSON 영역 안전 parse — 구버전 (자유 텍스트) 호환
+  // assumptions JSON 안전 parse — 구버전 (자유 텍스트) 호환
   function parseQuoteAssumptions(assumptions) {
     if (!assumptions) return { certification: '', post_treatment: '', memo: '' };
     try {
@@ -494,13 +493,13 @@
       setCardValue(cards[0], inProgress);
       setCardValue(cards[1], awaiting);
       setCardValue(cards[2], delivered);
-      // 누적 결제 금액 — 합산 endpoint 부재이므로 0 자세 강제 (Phase 2 영역에서 구축)
+      // 누적 결제 금액 — 합산 endpoint 미구축이므로 0 표시 고정
       if (cards[3]) {
         const valEl = cards[3].querySelector('.stat-value');
         if (valEl) valEl.innerHTML = '0<span style="font-size:14px;font-weight:600;color:var(--text-muted);">원</span>';
       }
 
-      // 최근 진행 현황 hydrate — open/quoted 영역도 포함 (재로그인 시 견적 대기/도착 RFQ 진입 영역)
+      // 최근 진행 현황 hydrate — open/quoted 도 포함 (재로그인 시 견적 대기/도착 RFQ 진입 가능)
       const recentList = $('#recent-orders');
       if (recentList) {
         const recentStatuses = new Set(['open', 'quoted', 'ordered', 'in_production', 'inspection', 'shipped', 'delivered', 'completed']);
@@ -540,7 +539,7 @@
     }
 
     // 최근 알림 hydrate — 견적 도착·supplier 응답 이벤트만 필터.
-    // 실패 시 toast 부재 (사용자 흐름 차단 회피, 빈 메시지로 폴백).
+    // 실패 시 toast 생략 (사용자 흐름 차단 회피, 빈 메시지로 폴백).
     try {
       const notifications = await window.imma.apiJson('/api/notifications?unread_only=false');
       renderClientNotifications(notifications);
@@ -551,9 +550,9 @@
   }
 
   // ── AI 분석 결과 카드 hydrate + 인라인 수정 hook ──
-  // VLM 완료 시 vlm_result_jsonb 의 title_block / view / notes 영역 추출 → 카드 표시.
+  // VLM 완료 시 vlm_result_jsonb 의 title_block / view / notes 추출 → 카드 표시.
   // 사용자가 수정 버튼 클릭 시 인라인 input 으로 전환, 저장 시 dataset.userEdited='true' 표시.
-  // submit 영역에서 dataset.userEdited 영역 모아 client_notes 영역에 반영.
+  // submit 시 dataset.userEdited 항목을 모아 client_notes 에 반영.
   function hydrateAiResultCard(vlmResult, drawingId) {
     const card = document.getElementById('ai-result-card');
     if (!card || !vlmResult) return;
@@ -568,7 +567,7 @@
     const measuresArr = (view.measures || []);
     const measuresCount = measuresArr.length;
     const notesArr = (notes.lines || []);
-    // 후처리 영역 — notes 첫 line 또는 measures 안의 GDT/Ra 영역 (단순 요약)
+    // 후처리 — notes 첫 line 또는 measures 안의 GDT/Ra (단순 요약)
     const ptSummary = notesArr[0] || measuresArr.slice(0, 3).join(' · ') || '';
 
     setAiField('ai-part-name', partName);
@@ -624,7 +623,7 @@
     });
   }
 
-  // submit 영역에서 사용자 수정 영역 client_notes 영역에 반영
+  // submit 시 사용자 수정 항목을 client_notes 에 반영
   function collectAiUserEdits() {
     const edits = {};
     ['ai-part-name', 'ai-material', 'ai-post-treatment', 'ai-drawing-no'].forEach(id => {
@@ -654,8 +653,8 @@
         displaySpan.textContent = isImage ? `AI 분석 중: ${file.name}...` : `업로드 중: ${file.name}...`;
         displaySpan.style.color = '#7A5C00';
       }
-      // 도면 이미지를 data URL 로 직렬화 (AI 처리 과정 시연 모달 ① 입력 도면 패널 영역 hydrate 용)
-      // FileReader 는 비동기 — Promise 영역에 wrap. 실패 시 null 폴백.
+      // 도면 이미지를 data URL 로 직렬화 (AI 처리 과정 시연 모달 ① 입력 도면 패널 hydrate 용)
+      // FileReader 는 비동기 — Promise 로 wrap. 실패 시 null 폴백.
       const drawingDataUrlPromise = isImage ? new Promise(resolve => {
         try {
           const reader = new FileReader();
@@ -677,12 +676,12 @@
         }
         if (sFile) sFile.textContent = '1개 (준비됨)';
         // VLM 완료 → AI 분석 결과 카드 hydrate (사용자 확인 + 인라인 수정 가능)
-        // routers/vlm.py:199 영역 — 응답 필드명 `vlm_output` (vlm_result_jsonb 부재)
+        // 응답 필드명 `vlm_output` 우선, `vlm_result_jsonb` 폴백
         if (isImage && (data.vlm_output || data.vlm_result_jsonb)) {
           hydrateAiResultCard(data.vlm_output || data.vlm_result_jsonb, data.drawing_id);
         }
-        // AI 처리 과정 시연 4 패널 영역 데이터 보관 — matching 화면 모달 hydrate 용.
-        // (1) VLM raw 응답 영역, (2) 도면 data URL 영역, drawing_id 키로 결합.
+        // AI 처리 과정 시연 4 패널 데이터 보관 — matching 화면 모달 hydrate 용.
+        // (1) VLM raw 응답, (2) 도면 data URL, drawing_id 키로 결합.
         if (data && data.drawing_id) {
           const vlmRaw = data.vlm_output || data.vlm_result_jsonb;
           if (vlmRaw) {
@@ -691,7 +690,7 @@
           if (data.file_uri) {
             try { scopedSet([data.drawing_id, 'drawing_file_uri'], data.file_uri); } catch (_) {}
           }
-          // data URL 영역 — localStorage 용량 제한 (브라우저별 5~10MB) 고려, 4MB 초과 시 폴백.
+          // data URL 저장 — localStorage 용량 제한 (브라우저별 5~10MB) 고려, 4MB 초과 시 폴백.
           drawingDataUrlPromise.then(dataUrl => {
             if (!dataUrl) return;
             if (dataUrl.length > 4 * 1024 * 1024) return;
@@ -770,7 +769,7 @@
       const budgetAmount = UI_BUDGET_TO_AMOUNT[budgetLabel] || null;
 
       // 소재 입력 — 직접 입력이면 자유 텍스트, 카테고리 선택이면 한글 라벨.
-      // pipeline_runner.py 의 client_material fallback 이 VLM 결과 부재 시에만 채운다.
+      // pipeline_runner.py 의 client_material fallback 은 VLM 결과가 없을 때에만 채운다.
       const materialLabel = materialSelect && materialSelect.value ? materialSelect.value : '';
       const isMaterialCustom = materialLabel === '__custom__';
       const materialCustomText = (materialCustom && materialCustom.value || '').trim();
@@ -781,7 +780,7 @@
         materialInput = materialLabel;
       }
 
-      // 표면처리·열처리는 client_notes 부수 정보로만 전달. 매칭 영향 부재, 견적 단계 참고용.
+      // 표면처리·열처리는 client_notes 부수 정보로만 전달. 매칭에 미반영, 견적 단계 참고용.
       const postTreatmentParts = [];
       const sVal = surfaceSelect && surfaceSelect.value ? surfaceSelect.value : '';
       const sExtra = (surfaceExtra && surfaceExtra.value || '').trim();
@@ -793,8 +792,8 @@
       if (hExtra) postTreatmentParts.push(hExtra);
       const postTreatmentRequest = postTreatmentParts.length ? postTreatmentParts.join(', ') : null;
 
-      // AI 분석 결과 카드 사용자 수정 영역 — VLM 추출 값을 사용자가 정정한 경우 client_notes 영역에 반영.
-      // pipeline_runner.py 의 client_material fallback 영역이 VLM 결과 부재 또는 사용자 우선 영역에서 사용.
+      // AI 분석 결과 카드 사용자 수정 — VLM 추출 값을 사용자가 수정한 경우 client_notes 에 반영.
+      // pipeline_runner.py 의 client_material fallback 이 VLM 결과 없음 또는 사용자 우선 시 사용.
       const aiEdits = collectAiUserEdits();
       const materialOverride = aiEdits.material || materialInput;
       const postTreatmentOverride = aiEdits.post_treatment
@@ -963,9 +962,8 @@
   }
 
   async function initMatching() {
-    // AI 처리 과정 모달 hook 영역 — requireRole / rfqId 영역 통과 영역과 무관하게
-    // trigger 영역 click 동작 보장 (시연 안정성). result/rfq 인자 부재 시 panel 영역
-    // 폴백 (scopedGet/latestDrawingId) 영역으로 hydrate.
+    // AI 처리 과정 모달 hook — requireRole / rfqId 검증과 무관하게
+    // trigger click 동작 보장. result/rfq 인자 없으면 scopedGet/latestDrawingId 폴백으로 hydrate.
     try { bindAiProcessModal(null, null); } catch (_) {}
 
     await window.imma.requireRole('buyer');
@@ -981,7 +979,7 @@
       rfq = await window.imma.apiJson(`/api/rfq/${encodeURIComponent(rfqId)}`);
       part = firstPart(rfq);
       const values = $$('.rfq-summary-card .rfq-value');
-      // part_name 은 Phase A GraphRAG 시정 결과 그대로 표시 (원문 보존 정책)
+      // part_name 은 GraphRAG 결과 그대로 표시 (원문 보존 정책)
       text(values[0], rfq.rfq_no || shortId(rfq.rfq_id));
       text(values[1], part.part_name || '—');
       text(values[2], processText(part));
@@ -1021,8 +1019,8 @@
           }
         }
 
-        // 지역 — 응답 영역 region/address/location/city 영역 폴백 영역.
-        // 응답 부재 영역 어휘는 *"위치 정보 미입력"* 영역으로 명확화 (정적 *"—"* 영역의 의미 불명 시정).
+        // 지역 — region/address/location/city 순서로 폴백.
+        // 값이 없으면 *"위치 정보 미입력"* 으로 명확화.
         const locEl = row.querySelector('.s-info .loc');
         if (locEl) {
           const region = cand.region || cand.address || cand.location || cand.city || '';
@@ -1047,7 +1045,7 @@
         const strengthsEl = row.querySelector('.s-strengths');
         if (strengthsEl) strengthsEl.innerHTML = renderStrengths(cand);
 
-        // 가격 / 일수 — matching 시점 견적 부재
+        // 가격 / 일수 — matching 시점에는 견적 미도착
         // (HTML 의 정적 — 유지)
 
         // 보유 설비
@@ -1066,8 +1064,7 @@
         row.dataset.candidate = safeJson(payload);
         const actionButton = row.querySelector('.s-actions .btn-primary, .s-actions .btn-outline:last-child');
         // *✓ 선택됨* / *□ 선택* 어휘 + 체크박스 + .selected 클래스 양면 동기화.
-        // 사용자 시연 격차 — row1 의 정적 *✓ 선택됨* 어휘 영역이 다른 row 선택 시에도
-        // 잔존하고, 다른 row 의 *□ 선택* 어휘도 토글 부재. JS 영역 단일 상태기로 통일.
+        // 선택 row 변경 시 이전 row 의 선택 표시도 함께 해제되도록 단일 상태기로 통일.
         function applySelectionUI(targetIndex) {
           rows.forEach((r, i) => {
             const isSelected = i === targetIndex;
@@ -1103,7 +1100,7 @@
             window.imma.toast(`${payload.company_name || '후보'}를 선택했습니다.`, 'success');
           });
         }
-        // 정적 HTML 의 row1 *✓ 선택됨* / row2-5 *□ 선택* 영역과 동기화 — initial selectedIndex (0) 영역 반영.
+        // 정적 HTML 의 row1 *✓ 선택됨* / row2-5 *□ 선택* 과 동기화 — initial selectedIndex (0) 반영.
         if (index === 0) applySelectionUI(selectedIndex);
       });
 
@@ -1114,7 +1111,7 @@
       console.warn('후보 hydrate 실패', err);
     }
 
-    // hydrate 실패 시 row1 의 정적 selected 영역 제거
+    // hydrate 실패 시 row1 의 정적 selected 상태 제거
     if (!hydrateOk) {
       const row1 = document.getElementById('row1');
       if (row1) row1.classList.remove('selected');
@@ -1126,8 +1123,8 @@
     // 상세 보기 modal hook — row 첫 번째 .btn-outline 클릭 시 후보 정보 modal 노출.
     bindSupplierDetailModal(candidates);
 
-    // AI 처리 과정 시연 4 패널 모달 hook — matching.html #ai-process-overlay 영역.
-    // result 영역 (graphrag_raw / vlm_raw / parts[0].match_input) + quote-request 측 보관 (vlm_output / drawing_data_url) 영역 hydrate.
+    // AI 처리 과정 시연 4 패널 모달 hook — matching.html #ai-process-overlay.
+    // result (graphrag_raw / vlm_raw / parts[0].match_input) + quote-request 측 보관 (vlm_output / drawing_data_url) hydrate.
     bindAiProcessModal(result, rfq);
   }
 
@@ -1135,25 +1132,23 @@
   // ① 입력 도면 (scopedGet([drawingId, 'drawing_data_url'])) ② VLM raw (result.vlm_raw 우선)
   // ③ GraphRAG 변환 (result.graphrag_raw) ④ 매칭 변환 (result.parts[0].match_input). 단부품 가정.
   //
-  // 안정성 영역 — 본 함수는 initMatching 영역에서 2 회 호출된다:
-  //   (1) initMatching 진입 직후 (rfqId / requireRole 검증 전) — result/rfq 부재 영역,
-  //       click 동작 보장 차원 영역 hook 등록.
-  //   (2) hydrate 완료 후 — 실 result/rfq 영역 인자 영역으로 panel hydrate 영역 갱신.
-  // trigger handler 영역 closure 영역의 result/rfq 영역 fix 문제 영역 회피 위해
-  // module-level state 영역 (__aiProcessState) 영역 참조 영역으로 통일.
+  // 본 함수는 initMatching 에서 2 회 호출된다:
+  //   (1) initMatching 진입 직후 (rfqId / requireRole 검증 전) — result/rfq 없이 click hook 등록.
+  //   (2) hydrate 완료 후 — 실 result/rfq 인자로 panel hydrate 갱신.
+  // closure 의 result/rfq 고정 문제를 피하기 위해 module-level __aiProcessState 참조로 통일.
   function bindAiProcessModal(result, rfq) {
     const trigger = $('#ai-process-btn');
     const overlay = $('#ai-process-overlay');
     const closeBtn = $('#ai-process-close');
     if (!trigger || !overlay) return;
 
-    // 호출 시점 영역의 최신 result/rfq 영역으로 module-level state 영역 갱신.
-    // 동일 페이지 내 2 차 호출 시 panel hydrate 영역 갱신 보장.
+    // 호출 시점의 최신 result/rfq 로 module-level state 갱신.
+    // 동일 페이지 내 2 차 호출 시 panel hydrate 갱신 보장.
     window.__aiProcessState = window.__aiProcessState || { result: null, rfq: null };
     if (result) window.__aiProcessState.result = result;
     if (rfq) window.__aiProcessState.rfq = rfq;
 
-    // drawing_id 영역 — state.result 우선, state.rfq.parts[0].drawing_id 폴백, latestDrawingId() 최종 폴백.
+    // drawing_id 결정 — state.result 우선, state.rfq.parts[0].drawing_id 폴백, latestDrawingId() 최종 폴백.
     function resolveDrawingId() {
       const st = window.__aiProcessState || {};
       if (st.result && st.result.drawing_id) return st.result.drawing_id;
@@ -1168,14 +1163,14 @@
       const stateResult = st.result;
       const drawingId = resolveDrawingId();
 
-      // Panel 1 — 도면 이미지. data URL 우선, file_uri 폴백, 부재 시 placeholder 텍스트.
+      // Panel 1 — 도면 이미지. data URL 우선, file_uri 폴백, 없으면 placeholder 텍스트.
       const panel1 = $('#ai-panel-1');
       if (panel1) {
         const img = panel1.querySelector('img');
         const dataUrl = drawingId ? scopedGet([drawingId, 'drawing_data_url']) : null;
         const fileUri = drawingId ? scopedGet([drawingId, 'drawing_file_uri']) : null;
         const src = dataUrl || fileUri || '';
-        // 기존 placeholder 영역 제거
+        // 기존 placeholder 제거
         const existingEmpty = panel1.querySelector('.ai-process-empty');
         if (existingEmpty) existingEmpty.remove();
         if (img) {
@@ -1247,10 +1242,10 @@
     if (overlay.dataset.immaHooked !== 'true') {
       overlay.dataset.immaHooked = 'true';
       overlay.addEventListener('click', (ev) => {
-        // overlay 자체 영역 클릭 시 닫기 — modal 내부 클릭은 무시.
+        // overlay 자체 클릭 시 닫기 — modal 내부 클릭은 무시.
         if (ev.target === overlay) overlay.style.display = 'none';
       });
-      // ESC 키 영역 닫기.
+      // ESC 키로 닫기.
       document.addEventListener('keydown', (ev) => {
         if (ev.key === 'Escape' && overlay.style.display === 'flex') {
           overlay.style.display = 'none';
@@ -1258,7 +1253,7 @@
       });
     }
 
-    // 복사 버튼 영역 — 각 panel JSON 영역 clipboard 복사. (overlay 단위 1회 binding.)
+    // 복사 버튼 — 각 panel JSON 을 clipboard 복사. (overlay 단위 1회 binding.)
     if (overlay.dataset.immaCopyHooked !== 'true') {
       overlay.dataset.immaCopyHooked = 'true';
       $$('.ai-copy-btn', overlay).forEach(btn => {
@@ -1290,8 +1285,8 @@
     }
   }
 
-  // D-2 시정: supplier-row 의 *상세 보기* 버튼은 R8 까지 동작 부재.
-  // matching.html 의 #supplier-detail-modal 영역에 후보 정보 hydrate 후 노출한다.
+  // supplier-row 의 *상세 보기* 버튼 클릭 시
+  // matching.html 의 #supplier-detail-modal 에 후보 정보를 hydrate 후 노출한다.
   function bindSupplierDetailModal(candidates) {
     const rows = $$('.supplier-row');
     rows.forEach((row, index) => {
@@ -1309,7 +1304,7 @@
       });
     });
 
-    // 닫기 hook 은 modal 영역에 한 번만 부착.
+    // 닫기 hook 은 modal 에 한 번만 부착.
     const modal = $('#supplier-detail-modal');
     const closeBtn = $('#supplier-detail-close');
     if (modal && closeBtn && closeBtn.dataset.immaHooked !== 'true') {
@@ -1462,7 +1457,7 @@
     const orderId = window.imma.getQueryParam('order_id') || scopedGet(['current_order_id']);
     let currentOrderIdForPayment = orderId || null;
 
-    // 결제하기 버튼 hook — orderId / rfqId 양면 경로에서 적용. orderId 경로의 return 직전에 등록되지 않으면 click 부재.
+    // 결제하기 버튼 hook — orderId / rfqId 양면 경로 모두에서 click 이 동작하도록 먼저 등록.
     const payBtn = $('#pay-btn');
     if (payBtn) {
       payBtn.addEventListener('click', () => {
@@ -1498,7 +1493,7 @@
             const unitPrice = qty && qty !== '-' && order.total_price ? Math.round(order.total_price / qty) : null;
             text($('#oi-unit-price'), unitPrice ? window.imma.formatCurrency(unitPrice, order.currency_code || 'KRW') : '-');
             text($('#oi-delivery-date'), window.imma.formatDate(order.promised_delivery_date));
-          } catch (e) { /* silent — 정보 부재 시 fallback - 표시 */ }
+          } catch (e) { /* silent — 정보 없으면 fallback '-' 표시 */ }
         }
 
         // 결제 정보 hydrate — order.total_price 기반 80% / 20% 분할 표시
@@ -1533,7 +1528,7 @@
           ]);
           const quotes = quotesData.quotes || [];
 
-          // 수락 받음 배지 — supplier_accepted 알림 영역 (본 RFQ 한정)
+          // 수락 받음 배지 — supplier_accepted 알림 (본 RFQ 한정)
           const acceptedEvents = (notifications || []).filter(n =>
             n.event_type === 'supplier_accepted' && n.reference_id === rfqId
           );
@@ -1545,7 +1540,7 @@
           } else {
             renderWaitingCard();
           }
-        } catch (err) { /* silent — 폴링 영역 */ }
+        } catch (err) { /* silent — 폴링 실패 무시 */ }
       }
 
       function renderAcceptanceBadge(accepted, evt) {
@@ -1792,7 +1787,7 @@
     bindWorkbenchScrollSpy();
     text($('.mw-side-user strong'), user.company_name || user.name || '공급사');
 
-    // #orders 영역 — order_confirmed 알림 영역 폴링 + 발주 확인 수락 row hydrate
+    // #orders 섹션 — order_confirmed 알림 폴링 + 발주 확인 수락 row hydrate
     let currentOrderForAccept = null;
     let ordersPollingId = null;
     async function refreshOrdersSection() {
@@ -1805,8 +1800,8 @@
         const orderEvents = (notifications || []).filter(n =>
           n.event_type === 'order_confirmed' && n.reference_type === 'order'
         );
-        if (!orderEvents.length) return;  // 대기 영역 유지
-        // 가장 최근 발주 영역 조회
+        if (!orderEvents.length) return;  // 대기 상태 유지
+        // 가장 최근 발주 조회
         const latestOrderId = orderEvents[0].reference_id;
         if (currentOrderForAccept && currentOrderForAccept.order_id === latestOrderId) return;
         const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(latestOrderId)}`);
@@ -1821,7 +1816,7 @@
         } else {
           checkbox.disabled = false;
         }
-      } catch (err) { /* silent — 폴링 영역 */ }
+      } catch (err) { /* silent — 폴링 실패 무시 */ }
     }
 
     // 발주 확인 수락 체크 hook — 한 번만 부착
@@ -1837,7 +1832,7 @@
         }
         acceptCheckbox.disabled = true;
         try {
-          // 1. order status 영역 contracting → ordered 전이
+          // 1. order status contracting → ordered 전이
           await window.imma.apiJson(`/api/orders/${encodeURIComponent(currentOrderForAccept.order_id)}/status`, {
             method: 'PUT',
             body: { status: 'ordered' },
@@ -1852,7 +1847,7 @@
             },
           });
           window.imma.toast('발주 수락 완료 — 작업 생성됨', 'success');
-          // #production 영역 자동 스크롤
+          // #production 섹션으로 자동 스크롤
           const productionSection = document.getElementById('production');
           if (productionSection) {
             setTimeout(() => productionSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
@@ -1871,7 +1866,7 @@
         await window.imma.apiJson(`/api/match-candidates/${encodeURIComponent(matchRunId)}/${encodeURIComponent(user.id)}/respond`, { method: 'PUT', body: { response } });
         window.imma.toast(response === 'accepted' ? '수락 완료 — 견적 작성 영역으로 이동합니다.' : '응답이 저장되었습니다.', 'success');
         await refresh();
-        // 수락 시 #reply 영역으로 자동 스크롤 (견적 작성 UX 연결)
+        // 수락 시 #reply 섹션으로 자동 스크롤 (견적 작성 UX 연결)
         if (response === 'accepted') {
           const replySection = document.getElementById('reply');
           if (replySection) {
@@ -1950,7 +1945,7 @@
       window.imma.toast(err.message, 'error');
     }
 
-    // #orders 영역 초기 hydrate + 폴링 5 초 주기
+    // #orders 섹션 초기 hydrate + 폴링 5 초 주기
     await refreshOrdersSection();
     ordersPollingId = setInterval(refreshOrdersSection, 5000);
   }
@@ -2075,7 +2070,7 @@
   }
 
   function computeMaterialCount(materialsArr) {
-    // company_material_capabilities 는 specific_material + material_category 양쪽 영역.
+    // company_material_capabilities 는 specific_material + material_category 양쪽 포함.
     // _check_onboarding 은 count(*) > 0 검사이므로 어떤 scope_type 이든 1 행 이상이면 충족.
     return (materialsArr || []).length;
   }
@@ -2127,7 +2122,7 @@
       }
       renderEquipmentList(companyDetail.equipment || []);
       // 재질 — DB 저장 완료 카테고리는 lockedMaterialCodes 갱신.
-      // pending/autoHint 영역에서 locked 중복 제거 (저장 완료된 영역은 더 이상 pending 부재).
+      // pending/autoHint 에서 locked 중복 제거 (저장 완료된 항목은 더 이상 pending 아님).
       lockedMaterialCodes = new Set(
         (companyDetail.materials || [])
           .filter(m => m.scope_type === 'material_category' && m.material_category_code)
@@ -2139,7 +2134,7 @@
       });
       renderMaterialChips(materialCategories, lockedMaterialCodes, pendingMaterialCodes, autoHintMaterialCodes);
 
-      // 현재 등록된 공정 — auto_generated 영역 추정: equipment_process_capabilities 와 일치하는 공정
+      // 현재 등록된 공정 — auto_generated 추정: equipment_process_capabilities 와 일치하는 공정
       (companyDetail.processes || []).forEach(p => autoLockedProcesses.add(p.process_code));
       renderProcessChips(processCatalog, autoLockedProcesses);
       const procHint = $('#process-current-hint');
@@ -2165,7 +2160,7 @@
       if (rep) rep.value = companyDetail.representative_name || '';
       if (postal) postal.value = site.postal_code || '';
 
-      // 기본 회사 정보 보강 — /api/me 응답에 phone/email 부재이므로 /api/company/{id} 응답으로 채움
+      // 기본 회사 정보 보강 — /api/me 응답에 phone/email 이 없으므로 /api/company/{id} 응답으로 채움
       const primaryContact = (companyDetail.contacts || []).find(c => c.is_primary) || (companyDetail.contacts || [])[0];
       if (basicPhone && !basicPhone.value) basicPhone.value = companyDetail.main_phone || (primaryContact && primaryContact.phone) || '';
       if (basicEmail && !basicEmail.value) basicEmail.value = companyDetail.main_email || (primaryContact && primaryContact.email) || '';
@@ -2252,8 +2247,8 @@
           });
           // 자동 매핑된 공정 코드를 잠금 set 에 추가
           (result.auto_generated_processes || []).forEach(pc => autoLockedProcesses.add(pc));
-          // 추정 재질 자동 추천 — DOM 직접 조작 폐기. Set 영역에 기록 후 즉시 renderMaterialChips 재호출.
-          // 직후 await refreshCompany() 호출이 와도 pendingMaterialCodes 가 Set 영역에 보존되어 selected 시각 유지.
+          // 추정 재질 자동 추천 — Set 에 기록 후 즉시 renderMaterialChips 재호출.
+          // 직후 await refreshCompany() 호출이 와도 pendingMaterialCodes 가 Set 에 보존되어 selected 시각 유지.
           const hints = EQUIPMENT_TO_MATERIAL_HINT[categoryCode] || [];
           let hintAdded = 0;
           hints.forEach(code => {
@@ -2290,7 +2285,7 @@
     if (materialSaveBtn && materialSaveBtn.dataset.immaHooked !== 'true') {
       materialSaveBtn.dataset.immaHooked = 'true';
       materialSaveBtn.addEventListener('click', async () => {
-        // pendingMaterialCodes Set + DOM .selected 양면 수집 — refresh 도중 누락 영역 방어.
+        // pendingMaterialCodes Set + DOM .selected 양면 수집 — refresh 도중 누락 방어.
         const domSelected = $$('#material-categories .ob-chip.selected:not(.is-locked)')
           .map(c => c.dataset.code)
           .filter(Boolean);
@@ -2381,7 +2376,7 @@
         if (repVal.trim()) payload.representative_name = repVal.trim();
         if (postalVal.trim()) payload.postal_code = postalVal.trim();
         if (basicPhoneVal.trim()) payload.main_phone = basicPhoneVal.trim();
-        // 담당자 contact 영역 (UPSERT) — 가입 시 입력한 담당자 이름을 primary contact 로 사용
+        // 담당자 contact (UPSERT) — 가입 시 입력한 담당자 이름을 primary contact 로 사용
         if (basicContactVal.trim()) {
           payload.contact_name = basicContactVal.trim();
           payload.role_title = '대표 담당자';
@@ -2503,13 +2498,13 @@
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
 
-    // ORD 정적 더미 시정 — order_id 확보 후 PO-XXXXXXXX 형식 hydrate
+    // order_id 확보 후 PO-XXXXXXXX 형식 hydrate
     const orderId = window.imma.getQueryParam('order_id') || scopedGet(['current_order_id']);
     if (orderId) {
       try {
         const order = await window.imma.apiJson(`/api/orders/${encodeURIComponent(orderId)}`);
         text($('#cf-order-no'), `PO-${shortId(order.order_id)}`);
-      } catch (e) { /* silent — 정보 부재 시 - 표시 */ }
+      } catch (e) { /* silent — 정보 없으면 '-' 표시 */ }
     }
   }
 
