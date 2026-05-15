@@ -267,6 +267,7 @@ def match_v2(data: dict, current_user: dict = Depends(get_current_user)):
     # --- AI 처리 과정 시연용 메타 동봉 (drawing_id 경로 한정) ---
     # 4 단계 시각: 도면 → VLM raw → Gemini 변환 → 매칭 변환(match_input). 매칭 화면 모달에서 노출
     if isinstance(result, dict) and "_drawing_id" in data:
+        result["drawing_id"] = data["_drawing_id"]  # frontend bindAiProcessModal resolveDrawingId 정합
         if structured is not None:
             result["graphrag_raw"] = structured
         if d_vlm_raw:
