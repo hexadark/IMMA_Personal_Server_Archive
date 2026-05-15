@@ -15,7 +15,7 @@
 
 | 담당 | 이름 | 저장소 |
 |------|------|--------|
-| 모델학습 + 도면인식 | 김지형 | [amadda0616-hash/IMMA](https://github.com/amadda0616-hash/IMMA) |
+| 모델학습 + 도면인식 | 한지형 | [amadda0616-hash/IMMA](https://github.com/amadda0616-hash/IMMA) |
 | 서버 + 프론트 | 권태은 | [rnjsxodms12-star/fas](https://github.com/rnjsxodms12-star/fas) |
 | DB + RAG | 김태훈 | [hexadark/IMMA_Personal_Server_Archive](https://github.com/hexadark/IMMA_Personal_Server_Archive) |
 
