@@ -220,9 +220,9 @@
     .ai-process-close:hover { background: #f3f4f6; color: #111; }
     .ai-process-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
-      gap: 16px; flex: 1; overflow: hidden;
+      grid-template-columns: 1fr;
+      grid-auto-rows: minmax(220px, auto);
+      gap: 16px; flex: 1; overflow-y: auto; padding-right: 4px;
     }
     .ai-process-panel {
       display: flex; flex-direction: column;

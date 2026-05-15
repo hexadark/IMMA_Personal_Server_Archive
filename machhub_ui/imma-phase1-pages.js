@@ -691,10 +691,10 @@
           if (data.file_uri) {
             try { scopedSet([data.drawing_id, 'drawing_file_uri'], data.file_uri); } catch (_) {}
           }
-          // data URL 영역 — localStorage 용량 제한 (브라우저별 5~10MB) 고려, 2MB 초과 시 폴백.
+          // data URL 영역 — localStorage 용량 제한 (브라우저별 5~10MB) 고려, 4MB 초과 시 폴백.
           drawingDataUrlPromise.then(dataUrl => {
             if (!dataUrl) return;
-            if (dataUrl.length > 2 * 1024 * 1024) return;
+            if (dataUrl.length > 4 * 1024 * 1024) return;
             try { scopedSet([data.drawing_id, 'drawing_data_url'], dataUrl); } catch (_) {}
           });
         }
