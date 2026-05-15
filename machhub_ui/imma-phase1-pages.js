@@ -629,6 +629,18 @@
         displaySpan.textContent = isImage ? `AI 분석 중: ${file.name}...` : `업로드 중: ${file.name}...`;
         displaySpan.style.color = '#7A5C00';
       }
+      // 도면 이미지를 data URL 로 직렬화 (AI 처리 과정 시연 모달 ① 입력 도면 패널 영역 hydrate 용)
+      // FileReader 는 비동기 — Promise 영역에 wrap. 실패 시 null 폴백.
+      const drawingDataUrlPromise = isImage ? new Promise(resolve => {
+        try {
+          const reader = new FileReader();
+          reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        } catch (_) {
+          resolve(null);
+        }
+      }) : Promise.resolve(null);
       try {
         const data = isImage
           ? await window.imma.apiForm('/vlm/analyze-upload', formData)
@@ -643,6 +655,23 @@
         // routers/vlm.py:199 영역 — 응답 필드명 `vlm_output` (vlm_result_jsonb 부재)
         if (isImage && (data.vlm_output || data.vlm_result_jsonb)) {
           hydrateAiResultCard(data.vlm_output || data.vlm_result_jsonb, data.drawing_id);
+        }
+        // AI 처리 과정 시연 4 패널 영역 데이터 보관 — matching 화면 모달 hydrate 용.
+        // (1) VLM raw 응답 영역, (2) 도면 data URL 영역, drawing_id 키로 결합.
+        if (data && data.drawing_id) {
+          const vlmRaw = data.vlm_output || data.vlm_result_jsonb;
+          if (vlmRaw) {
+            try { scopedSet([data.drawing_id, 'vlm_output'], vlmRaw); } catch (_) {}
+          }
+          if (data.file_uri) {
+            try { scopedSet([data.drawing_id, 'drawing_file_uri'], data.file_uri); } catch (_) {}
+          }
+          // data URL 영역 — localStorage 용량 제한 (브라우저별 5~10MB) 고려, 2MB 초과 시 폴백.
+          drawingDataUrlPromise.then(dataUrl => {
+            if (!dataUrl) return;
+            if (dataUrl.length > 2 * 1024 * 1024) return;
+            try { scopedSet([data.drawing_id, 'drawing_data_url'], dataUrl); } catch (_) {}
+          });
         }
         return data;
       } catch (err) {
@@ -708,6 +737,7 @@
       const heatExtra = $('#q-heat-extra');
       const certInput = $('#q-certifications');
       const noteInput = $('#q-notes');
+      const purposeInput = $('#q-purpose');
 
       const orderQuantity = Number(quantityInput && quantityInput.value) || 1;
       const dueDate = dateInput && dateInput.value ? dateInput.value : null;
@@ -759,6 +789,7 @@
           delivery_region: regionSelect && regionSelect.value ? regionSelect.value : null,
           certifications: certInput && certInput.value ? certInput.value : null,
           post_treatment_request: postTreatmentOverride,
+          purpose: purposeInput && purposeInput.value ? purposeInput.value.trim() || null : null,
           notes: noteInput && noteInput.value ? noteInput.value : null,
           vlm_fallback_used: Boolean(scopedGet([drawingId, 'vlm_fallback_used'], false)),
           ai_user_edits: Object.keys(aiEdits).length ? aiEdits : null,
@@ -1048,6 +1079,145 @@
 
     // 상세 보기 modal hook — row 첫 번째 .btn-outline 클릭 시 후보 정보 modal 노출.
     bindSupplierDetailModal(candidates);
+
+    // AI 처리 과정 시연 4 패널 모달 hook — matching.html #ai-process-overlay 영역.
+    // result 영역 (graphrag_raw / vlm_raw / parts[0].match_input) + quote-request 측 보관 (vlm_output / drawing_data_url) 영역 hydrate.
+    bindAiProcessModal(result, rfq);
+  }
+
+  // AI 처리 과정 시연 4 패널 모달 hook.
+  // ① 입력 도면 (scopedGet([drawingId, 'drawing_data_url'])) ② VLM raw (result.vlm_raw 우선)
+  // ③ GraphRAG 변환 (result.graphrag_raw) ④ 매칭 변환 (result.parts[0].match_input). 단부품 가정.
+  function bindAiProcessModal(result, rfq) {
+    const trigger = $('#ai-process-btn');
+    const overlay = $('#ai-process-overlay');
+    const closeBtn = $('#ai-process-close');
+    if (!trigger || !overlay) return;
+
+    // drawing_id 영역 — result 우선, rfq.parts[0].drawing_id 폴백, latestDrawingId() 최종 폴백.
+    function resolveDrawingId() {
+      if (result && result.drawing_id) return result.drawing_id;
+      if (rfq && Array.isArray(rfq.parts) && rfq.parts[0] && rfq.parts[0].drawing_id) {
+        return rfq.parts[0].drawing_id;
+      }
+      return latestDrawingId();
+    }
+
+    function hydrateAiProcessPanels() {
+      const drawingId = resolveDrawingId();
+
+      // Panel 1 — 도면 이미지. data URL 우선, file_uri 폴백, 부재 시 placeholder 텍스트.
+      const panel1 = $('#ai-panel-1');
+      if (panel1) {
+        const img = panel1.querySelector('img');
+        const dataUrl = drawingId ? scopedGet([drawingId, 'drawing_data_url']) : null;
+        const fileUri = drawingId ? scopedGet([drawingId, 'drawing_file_uri']) : null;
+        const src = dataUrl || fileUri || '';
+        // 기존 placeholder 영역 제거
+        const existingEmpty = panel1.querySelector('.ai-process-empty');
+        if (existingEmpty) existingEmpty.remove();
+        if (img) {
+          if (src) {
+            img.src = src;
+            img.style.display = '';
+          } else {
+            img.removeAttribute('src');
+            img.style.display = 'none';
+            const empty = document.createElement('div');
+            empty.className = 'ai-process-empty';
+            empty.textContent = '도면 미리보기 영역 부재 (quote-request 측 업로드 시 자동 보관)';
+            panel1.appendChild(empty);
+          }
+        }
+      }
+
+      // Panel 2 — VLM raw. result.vlm_raw 우선, scopedGet([drawingId, 'vlm_output']) 폴백.
+      const panel2 = $('#ai-panel-2');
+      if (panel2) {
+        const vlmRaw = (result && result.vlm_raw) ||
+          (drawingId ? scopedGet([drawingId, 'vlm_output']) : null) || {};
+        panel2.textContent = safeStringify(vlmRaw);
+      }
+
+      // Panel 3 — GraphRAG 변환. result.graphrag_raw.
+      const panel3 = $('#ai-panel-3');
+      if (panel3) {
+        const graphrag = (result && result.graphrag_raw) || {};
+        panel3.textContent = safeStringify(graphrag);
+      }
+
+      // Panel 4 — 매칭 변환 (하드필터 입력). result.parts[0].match_input.
+      const panel4 = $('#ai-panel-4');
+      if (panel4) {
+        const matchInput = (result && Array.isArray(result.parts) && result.parts[0] && result.parts[0].match_input) || {};
+        panel4.textContent = safeStringify(matchInput);
+      }
+    }
+
+    function safeStringify(obj) {
+      try { return JSON.stringify(obj, null, 2); }
+      catch (_) { return '{}'; }
+    }
+
+    if (trigger.dataset.immaHooked !== 'true') {
+      trigger.dataset.immaHooked = 'true';
+      trigger.addEventListener('click', () => {
+        hydrateAiProcessPanels();
+        overlay.style.display = 'flex';
+      });
+    }
+
+    if (closeBtn && closeBtn.dataset.immaHooked !== 'true') {
+      closeBtn.dataset.immaHooked = 'true';
+      closeBtn.addEventListener('click', () => {
+        overlay.style.display = 'none';
+      });
+    }
+
+    if (overlay.dataset.immaHooked !== 'true') {
+      overlay.dataset.immaHooked = 'true';
+      overlay.addEventListener('click', (ev) => {
+        // overlay 자체 영역 클릭 시 닫기 — modal 내부 클릭은 무시.
+        if (ev.target === overlay) overlay.style.display = 'none';
+      });
+      // ESC 키 영역 닫기.
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && overlay.style.display === 'flex') {
+          overlay.style.display = 'none';
+        }
+      });
+    }
+
+    // 복사 버튼 영역 — 각 panel JSON 영역 clipboard 복사. (overlay 단위 1회 binding.)
+    if (overlay.dataset.immaCopyHooked !== 'true') {
+      overlay.dataset.immaCopyHooked = 'true';
+      $$('.ai-copy-btn', overlay).forEach(btn => {
+        btn.addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          const target = btn.dataset.target;
+          const el = target ? document.getElementById(target) : null;
+          const txt = el ? el.textContent : '';
+          if (!txt) {
+            window.imma.toast('복사할 내용이 없습니다', 'warning');
+            return;
+          }
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(txt);
+            } else {
+              // fallback — textarea + execCommand
+              const ta = document.createElement('textarea');
+              ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+              document.body.appendChild(ta); ta.select();
+              document.execCommand('copy'); document.body.removeChild(ta);
+            }
+            window.imma.toast('복사 완료', 'success');
+          } catch (_) {
+            window.imma.toast('복사 실패', 'error');
+          }
+        });
+      });
+    }
   }
 
   // D-2 시정: supplier-row 의 *상세 보기* 버튼은 R8 까지 동작 부재.

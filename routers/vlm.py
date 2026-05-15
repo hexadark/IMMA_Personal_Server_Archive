@@ -11,6 +11,8 @@ VLM 도면 분석 엔드포인트:
   → drawing_id 반환
 
 drawing_id는 후속 POST /api/match-v2 호출의 drawing_id 파라미터로 사용된다.
+
+백업 경로: Server_VB (vast.ai) 호출 영역 = multi-line 주석으로 비활성. vast.ai 활성 시 주석 토글.
 """
 
 import logging
@@ -83,7 +85,40 @@ def analyze_upload(
     saved_path.write_bytes(image_bytes)
     file_uri = f"uploads/{saved_name}"
 
-    # ── ② Replicate API 호출 ──
+    # ── ② Server_VB (vast.ai) 호출 (백업 경로 — vast.ai 영역 활성 시 주석 토글) ──
+    """
+    vlm_vast_url = os.getenv("VLM_VAST_URL")
+    if not vlm_vast_url:
+        raise HTTPException(status_code=500, detail="VLM_VAST_URL is not set")
+    timeout_sec = int(os.getenv("VLM_VAST_TIMEOUT_SEC", "180"))
+
+    try:
+        files = {"image": (original_filename, image_bytes, image.content_type or "image/jpeg")}
+        vast_res = requests.post(
+            vlm_vast_url.rstrip("/") + "/analyze",
+            files=files,
+            timeout=timeout_sec,
+        )
+    except requests.RequestException:
+        logger.exception("Server_VB /analyze 요청 실패")
+        raise HTTPException(status_code=502, detail="VLM 서버 호출 실패")
+    if vast_res.status_code >= 400:
+        logger.error("Server_VB /analyze %d: %s", vast_res.status_code, vast_res.text[:500])
+        raise HTTPException(
+            status_code=vast_res.status_code,
+            detail={"message": "VLM 분석 실패", "response": vast_res.text},
+        )
+
+    vlm_output = vast_res.json() or {}
+    if isinstance(vlm_output, str):
+        try:
+            vlm_output = json.loads(vlm_output)
+        except (json.JSONDecodeError, TypeError):
+            vlm_output = {"raw_output": vast_res.text}
+    prediction = {"id": None, "status": "succeeded"}
+    """
+
+    # ── ② Replicate API 호출 (활성 경로) ──
     encoded = base64.b64encode(image_bytes).decode("utf-8")
     image_data_uri = f"data:{image.content_type};base64,{encoded}"
 
@@ -113,7 +148,6 @@ def analyze_upload(
     if not get_url:
         raise HTTPException(status_code=500, detail="Replicate prediction get URL 없음")
 
-    # ── ③ Polling ──
     timeout_sec = int(os.getenv("VLM_REPLICATE_TIMEOUT_SEC", "300"))
     poll_interval = float(os.getenv("VLM_REPLICATE_POLL_INTERVAL", "2"))
     started = time.time()
@@ -147,10 +181,8 @@ def analyze_upload(
             detail={"message": "Replicate 분석 실패", "prediction": prediction},
         )
 
-    # ── ④ V.B raw JSON 추출 + drawings 저장 ──
     vlm_output = prediction.get("output") or {}
     if isinstance(vlm_output, str):
-        # Replicate가 문자열로 반환하면 JSON parse 시도
         try:
             vlm_output = json.loads(vlm_output)
         except (json.JSONDecodeError, TypeError):

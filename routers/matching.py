@@ -202,6 +202,8 @@ def match_v2(data: dict, current_user: dict = Depends(get_current_user)):
         data["_buyer_id"] = current_user["id"]
 
     # drawing_id 처리: 소유권 검증 + parts 미제공 시 GraphRAG 자동 호출
+    structured = None  # GraphRAG 변환 결과 보존 (시연 모달 영역 응답 동봉용)
+    d_vlm_raw = None
     if data.get("drawing_id"):
         if engine is None:
             raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
@@ -261,6 +263,14 @@ def match_v2(data: dict, current_user: dict = Depends(get_current_user)):
                 status_code=500,
                 detail="매칭 결과 저장 또는 supplier 전송에 실패했습니다. 다시 실행해 주세요.",
             )
+
+    # --- AI 처리 과정 시연용 메타 동봉 (drawing_id 경로 한정) ---
+    # 4 단계 시각: 도면 → VLM raw → Gemini 변환 → 매칭 변환(match_input). 매칭 화면 모달에서 노출
+    if isinstance(result, dict) and "_drawing_id" in data:
+        if structured is not None:
+            result["graphrag_raw"] = structured
+        if d_vlm_raw:
+            result["vlm_raw"] = d_vlm_raw
 
     return result
 

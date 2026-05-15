@@ -1079,6 +1079,7 @@ def _seed_demo_buyers() -> None:
         ("lee_minho", "이민호", "한성에너지 터빈사업부", "minho@hansung-demo.com", "010-3456-7890"),
         ("choi_soojin", "최수진", "미래항공 정밀기계팀", "soojin@mirae-demo.com", "010-4567-8901"),
         ("jung_taewoo", "정태우", "광진이노텍 광학솔루션팀", "taewoo@gwangjin-demo.com", "010-5678-9012"),
+        ("dohyun_buyer", "이도현", "도현로보틱스", "dh@dohyun.kr", "010-7777-1234"),
     ]
     for login_id, name, company, email, phone in buyers:
         db.execute_insert(

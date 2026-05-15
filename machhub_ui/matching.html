@@ -184,6 +184,84 @@
     .sd-score-breakdown { font-size: 14px; color: #111; }
     .sd-score-breakdown strong { font-size: 18px; color: var(--primary-dark); }
     .sd-recommend-chip { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+
+    /* AI 처리 과정 시연 4 패널 모달 — self-contained 정의 (initMatching hook 으로 동작).
+       quote-request 측 보관 vlm_output + drawing_data_url + match-v2 응답의 graphrag_raw / vlm_raw / parts[i].match_input 영역 hydrate. */
+    .ai-process-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 1000;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .ai-process-modal {
+      background: #fff; width: 95vw; max-width: 1400px; height: 90vh;
+      border-radius: 12px; padding: 20px;
+      display: flex; flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .ai-process-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 14px; margin-bottom: 14px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .ai-process-title { font-size: 16px; font-weight: 800; color: #111; }
+    .ai-process-close {
+      background: transparent; border: none;
+      font-size: 24px; line-height: 1; cursor: pointer; color: #6b7280;
+      padding: 4px 10px; border-radius: 6px;
+    }
+    .ai-process-close:hover { background: #f3f4f6; color: #111; }
+    .ai-process-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 16px; flex: 1; overflow: hidden;
+    }
+    .ai-process-panel {
+      display: flex; flex-direction: column;
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      overflow: hidden; background: #fff;
+    }
+    .ai-process-panel > header {
+      padding: 10px 14px; background: #f9fafb;
+      font-weight: 700; font-size: 13px; color: #111;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .ai-process-body {
+      flex: 1; overflow: auto; padding: 12px; position: relative;
+      display: flex; align-items: stretch; justify-content: stretch;
+    }
+    .ai-process-body pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      font-size: 11px; line-height: 1.5; margin: 0;
+      white-space: pre-wrap; word-break: break-all;
+      color: #111; flex: 1;
+    }
+    .ai-process-body img {
+      max-width: 100%; max-height: 100%;
+      object-fit: contain; margin: auto;
+    }
+    .ai-process-body .ai-process-empty {
+      color: #6b7280; font-size: 12px; margin: auto;
+    }
+    .ai-copy-btn {
+      position: absolute; top: 8px; right: 8px;
+      padding: 4px 10px; font-size: 11px;
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 4px;
+      cursor: pointer; color: #111;
+    }
+    .ai-copy-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+
+    /* "AI 처리 과정 보기" 트리거 버튼 — AI 분석 요약 카드 상단 헤더에 배치. */
+    .ai-process-trigger {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; font-size: 12px; font-weight: 700;
+      background: rgba(255,209,0,0.1); color: var(--primary);
+      border: 1px solid rgba(255,209,0,0.3); border-radius: 8px;
+      cursor: pointer; font-family: inherit;
+    }
+    .ai-process-trigger:hover { background: rgba(255,209,0,0.18); }
   </style>
 <script>window.__imma_realmode__ = true;</script>
 <script src="/static/imma-ui-utils.js"></script>
@@ -238,6 +316,9 @@
         <div class="ai-header">
           <i class="ri-robot-line" style="font-size:20px;color:var(--primary-dark)"></i>
           <h3>AI 분석 요약</h3>
+          <button type="button" class="ai-process-trigger" id="ai-process-btn">
+            <i class="ri-eye-line"></i> AI 처리 과정 보기
+          </button>
         </div>
         <div class="ai-grid">
           <div class="ai-col">
@@ -447,6 +528,47 @@
     <div class="sd-section">
       <h3>평점 + 납기</h3>
       <div id="sd-rating-lead"></div>
+    </div>
+  </div>
+</div>
+
+<!-- AI 처리 과정 시연 4 패널 모달 — initMatching hook 으로 동작.
+     ① 입력 도면 (drawing_data_url) ② VLM raw (vlm_output / result.vlm_raw)
+     ③ GraphRAG 변환 (result.graphrag_raw) ④ 매칭 변환 (result.parts[0].match_input). -->
+<div class="ai-process-overlay" id="ai-process-overlay">
+  <div class="ai-process-modal">
+    <div class="ai-process-head">
+      <div class="ai-process-title">AI 처리 과정 시연</div>
+      <button type="button" class="ai-process-close" id="ai-process-close" aria-label="닫기">×</button>
+    </div>
+    <div class="ai-process-grid">
+      <article class="ai-process-panel">
+        <header>① 입력 도면</header>
+        <div class="ai-process-body" id="ai-panel-1">
+          <img alt="입력 도면" />
+        </div>
+      </article>
+      <article class="ai-process-panel">
+        <header>② AI 비전 추출 (VLM)</header>
+        <div class="ai-process-body">
+          <pre id="ai-panel-2">-</pre>
+          <button type="button" class="ai-copy-btn" data-target="ai-panel-2">복사</button>
+        </div>
+      </article>
+      <article class="ai-process-panel">
+        <header>③ 제조 지식 그래프 변환 (GraphRAG)</header>
+        <div class="ai-process-body">
+          <pre id="ai-panel-3">-</pre>
+          <button type="button" class="ai-copy-btn" data-target="ai-panel-3">복사</button>
+        </div>
+      </article>
+      <article class="ai-process-panel">
+        <header>④ 매칭 알고리즘 입력 (하드필터)</header>
+        <div class="ai-process-body">
+          <pre id="ai-panel-4">-</pre>
+          <button type="button" class="ai-copy-btn" data-target="ai-panel-4">복사</button>
+        </div>
+      </article>
     </div>
   </div>
 </div>
