@@ -101,9 +101,7 @@ fas_analysis/
 - **장비 → 공정/envelope/IT/Ra 자동** — `routers/companies.py`의 `POST /api/equipment`가 `equipment_model_catalog`의 `process_capabilities + category_specs`를 자동 INSERT한다.
 - **재질 → supplier 카테고리 등록** — 장비 카탈로그는 공정·envelope·IT·Ra를 커버하고, 재질은 supplier가 카테고리를 선택하면 자식 specific 전체를 자동 INSERT한다.
 
-## 시연 영상 / 시연 계정
-
-> 시연 영상: *[placeholder — 영상 업로드 후 link 교체]*
+## 시연 계정
 
 | 역할 | login_id | password |
 |------|----------|----------|
