@@ -1,18 +1,17 @@
 """
 VLM 도면 분석 엔드포인트:
-- POST /vlm/analyze-upload — 도면 이미지를 Replicate VLM API로 분석하고 drawings 테이블에 raw_json 저장
+- POST /vlm/analyze-upload — 도면 이미지를 Server_VB (vast.ai / Colab) FastAPI 로 분석하고 drawings 테이블에 raw_json 저장
 
 흐름:
   multipart 이미지 + buyer JWT
-  → Replicate API 호출 (REPLICATE_API_TOKEN, REPLICATE_MODEL_VERSION 환경변수)
-  → polling (VLM_REPLICATE_TIMEOUT_SEC, VLM_REPLICATE_POLL_INTERVAL)
-  → V.B raw JSON 추출
+  → Server_VB POST /analyze 호출 (VLM_VAST_URL 환경변수)
+  → V.B v_b_1.0 JSON 응답 (source / confidence / fallback_reason 메타 동봉)
   → drawings 테이블에 INSERT (buyer_id 포함)
   → drawing_id 반환
 
 drawing_id는 후속 POST /api/match-v2 호출의 drawing_id 파라미터로 사용된다.
 
-백업 경로: Server_VB (vast.ai) 호출 영역 = multi-line 주석으로 비활성. vast.ai 활성 시 주석 토글.
+백업 경로: Replicate API 호출 영역 = multi-line 주석으로 비활성. Server_VB 끊김 시 주석 토글.
 """
 
 import logging
@@ -85,8 +84,7 @@ def analyze_upload(
     saved_path.write_bytes(image_bytes)
     file_uri = f"uploads/{saved_name}"
 
-    # ── ② Server_VB (vast.ai) 호출 (백업 경로 — vast.ai 영역 활성 시 주석 토글) ──
-    """
+    # ── ② Server_VB (vast.ai / Colab) 호출 (활성 경로) ──
     vlm_vast_url = os.getenv("VLM_VAST_URL")
     if not vlm_vast_url:
         raise HTTPException(status_code=500, detail="VLM_VAST_URL is not set")
@@ -116,9 +114,9 @@ def analyze_upload(
         except (json.JSONDecodeError, TypeError):
             vlm_output = {"raw_output": vast_res.text}
     prediction = {"id": None, "status": "succeeded"}
-    """
 
-    # ── ② Replicate API 호출 (활성 경로) ──
+    # ── ② Replicate API 호출 (백업 경로 — Server_VB 끊김 시 주석 토글) ──
+    """
     encoded = base64.b64encode(image_bytes).decode("utf-8")
     image_data_uri = f"data:{image.content_type};base64,{encoded}"
 
@@ -187,6 +185,7 @@ def analyze_upload(
             vlm_output = json.loads(vlm_output)
         except (json.JSONDecodeError, TypeError):
             vlm_output = {"raw_output": prediction.get("output")}
+    """
 
     title_block = vlm_output.get("title_block_1") or {}
     drawing_no = (
