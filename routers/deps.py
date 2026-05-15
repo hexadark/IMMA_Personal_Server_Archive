@@ -93,7 +93,13 @@ def _check_onboarding(conn, company_id: str):
             """),
             {"cid": company_id},
         )
-        _refresh_mv(conn)
+        # MV refresh — SAVEPOINT 격리 (refresh 실패 시 verified 전환은 유지)
+        nested = conn.begin_nested()
+        try:
+            _refresh_mv(conn)
+            nested.commit()
+        except Exception:
+            nested.rollback()
         return "verified"
 
     has_any = row and (row[1] or row[2])

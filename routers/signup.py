@@ -90,13 +90,14 @@ def signup(data: dict):
     try:
         with engine.begin() as conn:
             if role == "supplier":
+                # accepting_orders 영역은 schema default = true 이나, MV 영역 진입 보장 위해 명시 INSERT
                 result = conn.execute(
                     text(f"""
                         INSERT INTO {SCHEMA}.companies
                             (login_id, company_name, main_email, password_hash,
-                             main_phone, status, onboarding_status)
+                             main_phone, status, onboarding_status, accepting_orders)
                         VALUES (:login_id, :company_name, :email, :pw_hash,
-                                :phone, 'active', 'draft')
+                                :phone, 'active', 'draft', true)
                         RETURNING company_id, company_name, main_email,
                                   onboarding_status, created_at
                     """),

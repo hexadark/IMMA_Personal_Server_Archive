@@ -391,3 +391,319 @@ def admin_refresh_mv(admin: dict = Depends(get_current_admin)):
         logger.exception("MV refresh 실패")
         raise HTTPException(status_code=500, detail=f"MV refresh fail: {exc}")
     return {"status": "refreshed", "mv": "company_capability_summary"}
+
+
+# ---------------------------------------------------------------------------
+# admin 진단 endpoint — MV 영역 진입 부재 격차 직접 점검
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/admin/mv/inspect/{company_id}")
+def admin_inspect_company(company_id: str, admin: dict = Depends(get_current_admin)):
+    """단일 company_id 영역의 MV 진입 조건 + MV row + 원본 테이블 row 동시 dump.
+
+    진단 항목:
+      - companies (status / onboarding_status / accepting_orders / business_registration_no)
+      - company_sites (primary site 영역의 region NOT NULL)
+      - company_material_capabilities (row 수 + capability_level 영역)
+      - company_process_capabilities (row 수 + service_mode 영역)
+      - equipment (row 수 + status='running'|'idle' 영역)
+      - company_availability_snapshot (overall_status)
+      - MV row 존재 여부
+      - _check_onboarding 4 조건 (has_brn / has_equip / has_mat / has_region)
+    """
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.connect() as conn:
+        # companies 본체
+        comp_row = conn.execute(
+            text(f"""
+                SELECT company_id, company_name, login_id, status, onboarding_status,
+                       accepting_orders, business_registration_no, created_at
+                FROM {SCHEMA}.companies
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchone()
+        if comp_row is None:
+            raise HTTPException(status_code=404, detail="업체를 찾을 수 없습니다")
+
+        # company_sites primary
+        site_row = conn.execute(
+            text(f"""
+                SELECT site_id, site_name, is_primary, region, city
+                FROM {SCHEMA}.company_sites
+                WHERE company_id = CAST(:cid AS uuid) AND is_primary = true
+                LIMIT 1
+            """),
+            {"cid": company_id},
+        ).fetchone()
+
+        # company_material_capabilities
+        mat_rows = conn.execute(
+            text(f"""
+                SELECT scope_type, material_id, material_category_code,
+                       capability_level, is_active
+                FROM {SCHEMA}.company_material_capabilities
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchall()
+
+        # company_process_capabilities
+        proc_rows = conn.execute(
+            text(f"""
+                SELECT process_code, service_mode, capability_level, is_active
+                FROM {SCHEMA}.company_process_capabilities
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchall()
+
+        # equipment
+        eq_rows = conn.execute(
+            text(f"""
+                SELECT equipment_id, equipment_category_code, display_name, status,
+                       max_x_travel_mm, max_y_travel_mm, max_z_travel_mm,
+                       max_turning_diameter_mm, max_turning_length_mm
+                FROM {SCHEMA}.equipment
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchall()
+
+        # company_availability_snapshot
+        av_row = conn.execute(
+            text(f"""
+                SELECT overall_status, next_available_date, last_updated_at
+                FROM {SCHEMA}.company_availability_snapshot
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchone()
+
+        # MV row 존재 여부
+        mv_row = conn.execute(
+            text(f"""
+                SELECT company_id, company_name,
+                       material_codes, material_category_codes,
+                       process_codes, inhouse_process_codes, outsourced_process_codes,
+                       max_x_mm, max_y_mm, max_z_mm,
+                       max_turning_diameter_mm, max_turning_length_mm,
+                       best_it_grade, best_ra_um, active_equipment_count,
+                       overall_status, next_available_date
+                FROM {SCHEMA}.company_capability_summary
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchone()
+
+        # _check_onboarding 4 조건 재계산
+        ob_row = conn.execute(
+            text(f"""
+                SELECT
+                    (SELECT business_registration_no FROM {SCHEMA}.companies WHERE company_id = CAST(:cid AS uuid)) IS NOT NULL AS has_brn,
+                    (SELECT count(*) FROM {SCHEMA}.equipment WHERE company_id = CAST(:cid AS uuid)) > 0 AS has_equip,
+                    (SELECT count(*) FROM {SCHEMA}.company_material_capabilities WHERE company_id = CAST(:cid AS uuid)) > 0 AS has_mat,
+                    (SELECT region FROM {SCHEMA}.company_sites WHERE company_id = CAST(:cid AS uuid) AND is_primary = true) IS NOT NULL AS has_region
+            """),
+            {"cid": company_id},
+        ).fetchone()
+
+    # WHERE 조건 통과 여부 분해
+    mv_where_pass = {
+        "status_active": comp_row[3] == "active",
+        "onboarding_verified": comp_row[4] == "verified",
+        "accepting_orders_true": bool(comp_row[5]),
+        "all_pass": (
+            comp_row[3] == "active"
+            and comp_row[4] == "verified"
+            and bool(comp_row[5])
+        ),
+    }
+
+    return {
+        "company": {
+            "company_id": str(comp_row[0]),
+            "company_name": comp_row[1],
+            "login_id": comp_row[2],
+            "status": comp_row[3],
+            "onboarding_status": comp_row[4],
+            "accepting_orders": comp_row[5],
+            "business_registration_no": comp_row[6],
+            "created_at": str(comp_row[7]),
+        },
+        "primary_site": (
+            {
+                "site_id": str(site_row[0]),
+                "site_name": site_row[1],
+                "is_primary": site_row[2],
+                "region": site_row[3],
+                "city": site_row[4],
+            }
+            if site_row
+            else None
+        ),
+        "material_capabilities": [
+            {
+                "scope_type": r[0],
+                "material_id": str(r[1]) if r[1] else None,
+                "material_category_code": r[2],
+                "capability_level": r[3],
+                "is_active": r[4],
+            }
+            for r in mat_rows
+        ],
+        "process_capabilities": [
+            {
+                "process_code": r[0],
+                "service_mode": r[1],
+                "capability_level": r[2],
+                "is_active": r[3],
+            }
+            for r in proc_rows
+        ],
+        "equipment": [
+            {
+                "equipment_id": str(r[0]),
+                "equipment_category_code": r[1],
+                "display_name": r[2],
+                "status": r[3],
+                "max_x_travel_mm": float(r[4]) if r[4] is not None else None,
+                "max_y_travel_mm": float(r[5]) if r[5] is not None else None,
+                "max_z_travel_mm": float(r[6]) if r[6] is not None else None,
+                "max_turning_diameter_mm": float(r[7]) if r[7] is not None else None,
+                "max_turning_length_mm": float(r[8]) if r[8] is not None else None,
+            }
+            for r in eq_rows
+        ],
+        "availability_snapshot": (
+            {
+                "overall_status": av_row[0],
+                "next_available_date": str(av_row[1]) if av_row[1] else None,
+                "last_updated_at": str(av_row[2]) if av_row[2] else None,
+            }
+            if av_row
+            else None
+        ),
+        "mv_where_pass": mv_where_pass,
+        "onboarding_conditions": {
+            "has_brn": bool(ob_row[0]) if ob_row else False,
+            "has_equip": bool(ob_row[1]) if ob_row else False,
+            "has_mat": bool(ob_row[2]) if ob_row else False,
+            "has_region": bool(ob_row[3]) if ob_row else False,
+            "all_pass": bool(ob_row and all([ob_row[0], ob_row[1], ob_row[2], ob_row[3]])),
+        },
+        "mv_row_present": mv_row is not None,
+        "mv_row": (
+            {
+                "company_id": str(mv_row[0]),
+                "company_name": mv_row[1],
+                "material_codes": list(mv_row[2]) if mv_row[2] else [],
+                "material_category_codes": list(mv_row[3]) if mv_row[3] else [],
+                "process_codes": list(mv_row[4]) if mv_row[4] else [],
+                "inhouse_process_codes": list(mv_row[5]) if mv_row[5] else [],
+                "outsourced_process_codes": list(mv_row[6]) if mv_row[6] else [],
+                "max_x_mm": float(mv_row[7]) if mv_row[7] is not None else None,
+                "max_y_mm": float(mv_row[8]) if mv_row[8] is not None else None,
+                "max_z_mm": float(mv_row[9]) if mv_row[9] is not None else None,
+                "max_turning_diameter_mm": float(mv_row[10]) if mv_row[10] is not None else None,
+                "max_turning_length_mm": float(mv_row[11]) if mv_row[11] is not None else None,
+                "best_it_grade": int(mv_row[12]) if mv_row[12] is not None else None,
+                "best_ra_um": float(mv_row[13]) if mv_row[13] is not None else None,
+                "active_equipment_count": int(mv_row[14]) if mv_row[14] is not None else 0,
+                "overall_status": mv_row[15],
+                "next_available_date": str(mv_row[16]) if mv_row[16] else None,
+            }
+            if mv_row
+            else None
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# admin 시정 endpoint — accepting_orders / overall_status / MV refresh 일괄
+# ---------------------------------------------------------------------------
+
+
+@router.post("/api/admin/mv/repair/{company_id}")
+def admin_repair_company(company_id: str, admin: dict = Depends(get_current_admin)):
+    """단일 company_id 영역의 MV 진입 격차 일괄 시정.
+
+    조치:
+      1. companies.accepting_orders = true (NULL/false 영역 보정)
+      2. company_availability_snapshot 영역 row 부재 시 INSERT (overall_status='available')
+         + 영역 row 존재하나 overall_status='unknown'/NULL 영역 → 'available' 로 보정
+      3. _refresh_mv 호출
+      4. 시정 후 MV row 존재 여부 반환
+    """
+    if engine is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is not set")
+
+    with engine.begin() as conn:
+        comp_row = conn.execute(
+            text(f"""
+                SELECT company_id FROM {SCHEMA}.companies
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchone()
+        if comp_row is None:
+            raise HTTPException(status_code=404, detail="업체를 찾을 수 없습니다")
+
+        # 1) accepting_orders 보정
+        conn.execute(
+            text(f"""
+                UPDATE {SCHEMA}.companies
+                SET accepting_orders = true, updated_at = now()
+                WHERE company_id = CAST(:cid AS uuid)
+                  AND (accepting_orders IS NULL OR accepting_orders = false)
+            """),
+            {"cid": company_id},
+        )
+
+        # 2) availability snapshot INSERT or UPDATE
+        # NULL IN (...) 영역은 UNKNOWN 평가 → COALESCE 로 NULL 영역 'unknown' 정합 후 IN 비교
+        conn.execute(
+            text(f"""
+                INSERT INTO {SCHEMA}.company_availability_snapshot
+                    (company_id, overall_status)
+                VALUES (CAST(:cid AS uuid), 'available')
+                ON CONFLICT (company_id) DO UPDATE SET
+                    overall_status = CASE
+                        WHEN COALESCE({SCHEMA}.company_availability_snapshot.overall_status, 'unknown') = 'unknown'
+                            THEN 'available'
+                        ELSE {SCHEMA}.company_availability_snapshot.overall_status
+                    END,
+                    last_updated_at = now()
+            """),
+            {"cid": company_id},
+        )
+
+        # 3) MV refresh — SAVEPOINT 격리
+        nested = conn.begin_nested()
+        try:
+            _refresh_mv(conn)
+            nested.commit()
+            mv_refresh_ok = True
+        except Exception as exc:
+            nested.rollback()
+            logger.exception("MV refresh 실패")
+            mv_refresh_ok = False
+
+        # 4) 시정 후 MV row 확인
+        mv_present = conn.execute(
+            text(f"""
+                SELECT 1 FROM {SCHEMA}.company_capability_summary
+                WHERE company_id = CAST(:cid AS uuid)
+            """),
+            {"cid": company_id},
+        ).fetchone()
+
+    return {
+        "success": True,
+        "company_id": company_id,
+        "mv_refresh_ok": mv_refresh_ok,
+        "mv_row_present": mv_present is not None,
+    }
