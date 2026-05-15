@@ -77,7 +77,7 @@
       padding: 16px;
       margin-bottom: 12px;
       display: grid;
-      grid-template-columns: 20px 64px 1.8fr 1.5fr auto 40px 1.2fr auto;
+      grid-template-columns: 64px 1.8fr 1.5fr auto 40px 1.2fr auto;
       gap: 14px;
       align-items: center;
       transition: border-color 0.2s, box-shadow 0.2s;
@@ -85,7 +85,6 @@
     .supplier-row:hover { border-color: rgba(255,209,0,0.5); box-shadow: 0 2px 12px rgba(255,209,0,0.1); }
     .supplier-row.selected { border-color: var(--primary); background: rgba(255,209,0,0.03); }
 
-    .s-checkbox input { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
     .s-thumb {
       width: 64px; height: 64px;
       background: linear-gradient(135deg, #222, #444);
@@ -112,6 +111,14 @@
     .s-days { text-align: center; }
     .s-days .num { font-size: 20px; font-weight: 900; color: #111; }
     .s-days .label { font-size: 12px; color: var(--text-muted); }
+
+    /* 견적 도착 전 영역 단일 어휘 — "— —(견적 도착 후) —(일)" 영역의
+       dash + 어휘 양면 영역의 시각 어색 영역 시정. 한 줄 단일 어휘로 통일. */
+    .s-price .quote-pending,
+    .s-days .quote-pending {
+      font-size: 12px; font-weight: 600; color: var(--text-muted);
+      line-height: 1.4; word-break: keep-all;
+    }
 
     .s-equip { font-size: 12px; color: var(--text-muted); min-width: 0; word-break: keep-all; line-height: 1.3; }
     .s-equip strong { display: block; font-size: 12px; color: #333; margin-bottom: 2px; }
@@ -348,7 +355,6 @@
 
       <!-- Supplier Rows -->
       <div class="supplier-row selected" id="row1">
-        <div class="s-checkbox"><input type="checkbox" checked></div>
         <div class="s-thumb"><i class="ri-settings-3-line"></i></div>
         <div class="s-info">
           <h4>스마트정밀 <span class="ai-badge">AI 92%</span></h4>
@@ -358,8 +364,8 @@
         <div class="s-strengths" id="row1-strengths">
           <div class="strength"><i class="ri-check-line"></i> —</div>
         </div>
-        <div class="s-price"><div class="amount">—</div><div class="unit">견적 도착 후</div></div>
-        <div class="s-days"><div class="num">—</div><div class="label">일</div></div>
+        <div class="s-price"><div class="quote-pending">견적 도착 후 산정</div></div>
+        <div class="s-days"><div class="quote-pending">납기 협의</div></div>
         <div class="s-equip"><strong>주요 보유 설비</strong>—</div>
         <div class="s-actions">
           <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>
@@ -368,7 +374,6 @@
       </div>
 
       <div class="supplier-row" id="row2">
-        <div class="s-checkbox"><input type="checkbox"></div>
         <div class="s-thumb" style="background:linear-gradient(135deg,#1a2a1a,#2d3d2d)"><i class="ri-tools-line"></i></div>
         <div class="s-info">
           <h4>장밀테크 주식회사 <span class="ai-badge" style="background:#E2E8F0;color:#555;">AI 85%</span></h4>
@@ -378,8 +383,8 @@
         <div class="s-strengths" id="row2-strengths">
           <div class="strength"><i class="ri-check-line"></i> —</div>
         </div>
-        <div class="s-price"><div class="amount">—</div><div class="unit">견적 도착 후</div></div>
-        <div class="s-days"><div class="num">—</div><div class="label">일</div></div>
+        <div class="s-price"><div class="quote-pending">견적 도착 후 산정</div></div>
+        <div class="s-days"><div class="quote-pending">납기 협의</div></div>
         <div class="s-equip"><strong>주요 보유 설비</strong>—</div>
         <div class="s-actions">
           <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>
@@ -388,7 +393,6 @@
       </div>
 
       <div class="supplier-row" id="row3">
-        <div class="s-checkbox"><input type="checkbox"></div>
         <div class="s-thumb" style="background:linear-gradient(135deg,#1a1a2a,#2d2d3d)"><i class="ri-cut-line"></i></div>
         <div class="s-info">
           <h4>에이원 가공 <span class="ai-badge" style="background:#E2E8F0;color:#555;">AI 78%</span></h4>
@@ -398,8 +402,8 @@
         <div class="s-strengths" id="row3-strengths">
           <div class="strength"><i class="ri-check-line"></i> —</div>
         </div>
-        <div class="s-price"><div class="amount">—</div><div class="unit">견적 도착 후</div></div>
-        <div class="s-days"><div class="num">—</div><div class="label">일</div></div>
+        <div class="s-price"><div class="quote-pending">견적 도착 후 산정</div></div>
+        <div class="s-days"><div class="quote-pending">납기 협의</div></div>
         <div class="s-equip"><strong>주요 보유 설비</strong>—</div>
         <div class="s-actions">
           <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>
@@ -408,7 +412,6 @@
       </div>
 
       <div class="supplier-row" id="row4">
-        <div class="s-checkbox"><input type="checkbox"></div>
         <div class="s-thumb" style="background:linear-gradient(135deg,#2a1a1a,#3d2d2d)"><i class="ri-hammer-line"></i></div>
         <div class="s-info">
           <h4>— <span class="ai-badge" style="background:#E2E8F0;color:#555;">AI —</span></h4>
@@ -418,8 +421,8 @@
         <div class="s-strengths" id="row4-strengths">
           <div class="strength"><i class="ri-check-line"></i> —</div>
         </div>
-        <div class="s-price"><div class="amount">—</div><div class="unit">견적 도착 후</div></div>
-        <div class="s-days"><div class="num">—</div><div class="label">일</div></div>
+        <div class="s-price"><div class="quote-pending">견적 도착 후 산정</div></div>
+        <div class="s-days"><div class="quote-pending">납기 협의</div></div>
         <div class="s-equip"><strong>주요 보유 설비</strong>—</div>
         <div class="s-actions">
           <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>
@@ -428,7 +431,6 @@
       </div>
 
       <div class="supplier-row" id="row5">
-        <div class="s-checkbox"><input type="checkbox"></div>
         <div class="s-thumb" style="background:linear-gradient(135deg,#2a2a1a,#3d3d2d)"><i class="ri-shape-line"></i></div>
         <div class="s-info">
           <h4>— <span class="ai-badge" style="background:#E2E8F0;color:#555;">AI —</span></h4>
@@ -438,8 +440,8 @@
         <div class="s-strengths" id="row5-strengths">
           <div class="strength"><i class="ri-check-line"></i> —</div>
         </div>
-        <div class="s-price"><div class="amount">—</div><div class="unit">견적 도착 후</div></div>
-        <div class="s-days"><div class="num">—</div><div class="label">일</div></div>
+        <div class="s-price"><div class="quote-pending">견적 도착 후 산정</div></div>
+        <div class="s-days"><div class="quote-pending">납기 협의</div></div>
         <div class="s-equip"><strong>주요 보유 설비</strong>—</div>
         <div class="s-actions">
           <button class="btn-outline" style="font-size:12px;padding:6px 14px;">상세 보기</button>

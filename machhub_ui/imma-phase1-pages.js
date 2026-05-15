@@ -110,6 +110,31 @@
       const cond = Array.isArray(part.conditional_candidates) ? part.conditional_candidates : [];
       rec.concat(cond).forEach(cand => output.push({ part, cand }));
     });
+    // AI 매칭 점수 (total_score) 내림차순 정렬 — recommended/conditional 그룹 분리
+    // 영역의 원천 정렬 격차 (그룹 내부 입력 순서 의존) 시정. backend _save_match_history
+    // 영역에서 total_score desc + rank_no 부여 영역과 정합. total_score 부재 영역은
+    // rank_no asc 영역 폴백, 두 항목 모두 부재 영역은 입력 순서 유지.
+    output.sort((a, b) => {
+      const sa = Number(a.cand && a.cand.total_score);
+      const sb = Number(b.cand && b.cand.total_score);
+      const saFinite = Number.isFinite(sa);
+      const sbFinite = Number.isFinite(sb);
+      if (saFinite && sbFinite) {
+        if (sa !== sb) return sb - sa;
+      } else if (saFinite) {
+        return -1;
+      } else if (sbFinite) {
+        return 1;
+      }
+      const ra = Number(a.cand && a.cand.rank_no);
+      const rb = Number(b.cand && b.cand.rank_no);
+      const raFinite = Number.isFinite(ra);
+      const rbFinite = Number.isFinite(rb);
+      if (raFinite && rbFinite) return ra - rb;
+      if (raFinite) return -1;
+      if (rbFinite) return 1;
+      return 0;
+    });
     return output;
   }
 
@@ -938,6 +963,11 @@
   }
 
   async function initMatching() {
+    // AI 처리 과정 모달 hook 영역 — requireRole / rfqId 영역 통과 영역과 무관하게
+    // trigger 영역 click 동작 보장 (시연 안정성). result/rfq 인자 부재 시 panel 영역
+    // 폴백 (scopedGet/latestDrawingId) 영역으로 hydrate.
+    try { bindAiProcessModal(null, null); } catch (_) {}
+
     await window.imma.requireRole('buyer');
     window.imma.renderSessionHeader();
     const rfqId = window.imma.getQueryParam('rfq_id') || scopedGet(['current_rfq_id']);
@@ -991,12 +1021,14 @@
           }
         }
 
-        // 지역
+        // 지역 — 응답 영역 region/address/location/city 영역 폴백 영역.
+        // 응답 부재 영역 어휘는 *"위치 정보 미입력"* 영역으로 명확화 (정적 *"—"* 영역의 의미 불명 시정).
         const locEl = row.querySelector('.s-info .loc');
         if (locEl) {
-          const region = cand.region || cand.address || cand.location || '';
+          const region = cand.region || cand.address || cand.location || cand.city || '';
           const respMin = cand.avg_response_minutes ? ` · 평균 견적 ${cand.avg_response_minutes}분` : '';
-          locEl.innerHTML = `<i class="ri-map-pin-line"></i> ${h(region || '—')}${h(respMin)}`;
+          const regionTxt = region ? h(region) : '위치 정보 미입력';
+          locEl.innerHTML = `<i class="ri-map-pin-line"></i> ${regionTxt}${h(respMin)}`;
         }
 
         // 평점 + 납기
@@ -1033,28 +1065,46 @@
         };
         row.dataset.candidate = safeJson(payload);
         const actionButton = row.querySelector('.s-actions .btn-primary, .s-actions .btn-outline:last-child');
+        // *✓ 선택됨* / *□ 선택* 어휘 + 체크박스 + .selected 클래스 양면 동기화.
+        // 사용자 시연 격차 — row1 의 정적 *✓ 선택됨* 어휘 영역이 다른 row 선택 시에도
+        // 잔존하고, 다른 row 의 *□ 선택* 어휘도 토글 부재. JS 영역 단일 상태기로 통일.
+        function applySelectionUI(targetIndex) {
+          rows.forEach((r, i) => {
+            const isSelected = i === targetIndex;
+            r.classList.toggle('selected', isSelected);
+            const btn = r.querySelector('.s-actions .btn-primary, .s-actions .btn-outline:last-child');
+            if (btn) {
+              if (isSelected) {
+                btn.textContent = '✓ 선택됨';
+                btn.classList.remove('btn-outline');
+                btn.classList.add('btn-primary');
+                btn.style.background = '#111';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#111';
+              } else {
+                btn.textContent = '□ 선택';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-outline');
+                btn.style.background = '';
+                btn.style.color = 'var(--primary-dark)';
+                btn.style.borderColor = 'var(--primary)';
+              }
+            }
+          });
+        }
         if (actionButton) {
           actionButton.type = 'button';
           actionButton.dataset.candidate = safeJson(payload);
           actionButton.addEventListener('click', () => {
             scopedSet([rfqId, 'selected_candidate'], payload);
-            rows.forEach(r => r.classList.remove('selected'));
-            row.classList.add('selected');
             selectedIndex = index;
+            applySelectionUI(selectedIndex);
             renderCompareSidebar(candidates, selectedIndex);
-            window.imma.toast(`${payload.company_name || '후보'}를 표시했습니다.`, 'success');
+            window.imma.toast(`${payload.company_name || '후보'}를 선택했습니다.`, 'success');
           });
         }
-        const checkbox = row.querySelector('.s-checkbox input');
-        if (checkbox) {
-          checkbox.addEventListener('change', () => {
-            if (checkbox.checked) {
-              scopedSet([rfqId, 'selected_candidate'], payload);
-              selectedIndex = index;
-              renderCompareSidebar(candidates, selectedIndex);
-            }
-          });
-        }
+        // 정적 HTML 의 row1 *✓ 선택됨* / row2-5 *□ 선택* 영역과 동기화 — initial selectedIndex (0) 영역 반영.
+        if (index === 0) applySelectionUI(selectedIndex);
       });
 
       // 비교 사이드바 hydrate
@@ -1064,14 +1114,10 @@
       console.warn('후보 hydrate 실패', err);
     }
 
-    // hydrate 실패 시 row1 의 정적 selected/checked 영역 제거
+    // hydrate 실패 시 row1 의 정적 selected 영역 제거
     if (!hydrateOk) {
       const row1 = document.getElementById('row1');
-      if (row1) {
-        row1.classList.remove('selected');
-        const cb = row1.querySelector('.s-checkbox input');
-        if (cb) cb.checked = false;
-      }
+      if (row1) row1.classList.remove('selected');
     }
 
     const proceedBtn = $('#compare-proceed-btn') || $('.compare-box a[href="/order-management"]');
@@ -1088,22 +1134,38 @@
   // AI 처리 과정 시연 4 패널 모달 hook.
   // ① 입력 도면 (scopedGet([drawingId, 'drawing_data_url'])) ② VLM raw (result.vlm_raw 우선)
   // ③ GraphRAG 변환 (result.graphrag_raw) ④ 매칭 변환 (result.parts[0].match_input). 단부품 가정.
+  //
+  // 안정성 영역 — 본 함수는 initMatching 영역에서 2 회 호출된다:
+  //   (1) initMatching 진입 직후 (rfqId / requireRole 검증 전) — result/rfq 부재 영역,
+  //       click 동작 보장 차원 영역 hook 등록.
+  //   (2) hydrate 완료 후 — 실 result/rfq 영역 인자 영역으로 panel hydrate 영역 갱신.
+  // trigger handler 영역 closure 영역의 result/rfq 영역 fix 문제 영역 회피 위해
+  // module-level state 영역 (__aiProcessState) 영역 참조 영역으로 통일.
   function bindAiProcessModal(result, rfq) {
     const trigger = $('#ai-process-btn');
     const overlay = $('#ai-process-overlay');
     const closeBtn = $('#ai-process-close');
     if (!trigger || !overlay) return;
 
-    // drawing_id 영역 — result 우선, rfq.parts[0].drawing_id 폴백, latestDrawingId() 최종 폴백.
+    // 호출 시점 영역의 최신 result/rfq 영역으로 module-level state 영역 갱신.
+    // 동일 페이지 내 2 차 호출 시 panel hydrate 영역 갱신 보장.
+    window.__aiProcessState = window.__aiProcessState || { result: null, rfq: null };
+    if (result) window.__aiProcessState.result = result;
+    if (rfq) window.__aiProcessState.rfq = rfq;
+
+    // drawing_id 영역 — state.result 우선, state.rfq.parts[0].drawing_id 폴백, latestDrawingId() 최종 폴백.
     function resolveDrawingId() {
-      if (result && result.drawing_id) return result.drawing_id;
-      if (rfq && Array.isArray(rfq.parts) && rfq.parts[0] && rfq.parts[0].drawing_id) {
-        return rfq.parts[0].drawing_id;
+      const st = window.__aiProcessState || {};
+      if (st.result && st.result.drawing_id) return st.result.drawing_id;
+      if (st.rfq && Array.isArray(st.rfq.parts) && st.rfq.parts[0] && st.rfq.parts[0].drawing_id) {
+        return st.rfq.parts[0].drawing_id;
       }
       return latestDrawingId();
     }
 
     function hydrateAiProcessPanels() {
+      const st = window.__aiProcessState || {};
+      const stateResult = st.result;
       const drawingId = resolveDrawingId();
 
       // Panel 1 — 도면 이미지. data URL 우선, file_uri 폴백, 부재 시 placeholder 텍스트.
@@ -1131,25 +1193,25 @@
         }
       }
 
-      // Panel 2 — VLM raw. result.vlm_raw 우선, scopedGet([drawingId, 'vlm_output']) 폴백.
+      // Panel 2 — VLM raw. stateResult.vlm_raw 우선, scopedGet([drawingId, 'vlm_output']) 폴백.
       const panel2 = $('#ai-panel-2');
       if (panel2) {
-        const vlmRaw = (result && result.vlm_raw) ||
+        const vlmRaw = (stateResult && stateResult.vlm_raw) ||
           (drawingId ? scopedGet([drawingId, 'vlm_output']) : null) || {};
         panel2.textContent = safeStringify(vlmRaw);
       }
 
-      // Panel 3 — GraphRAG 변환. result.graphrag_raw.
+      // Panel 3 — GraphRAG 변환. stateResult.graphrag_raw.
       const panel3 = $('#ai-panel-3');
       if (panel3) {
-        const graphrag = (result && result.graphrag_raw) || {};
+        const graphrag = (stateResult && stateResult.graphrag_raw) || {};
         panel3.textContent = safeStringify(graphrag);
       }
 
-      // Panel 4 — 매칭 변환 (하드필터 입력). result.parts[0].match_input.
+      // Panel 4 — 매칭 변환 (하드필터 입력). stateResult.parts[0].match_input.
       const panel4 = $('#ai-panel-4');
       if (panel4) {
-        const matchInput = (result && Array.isArray(result.parts) && result.parts[0] && result.parts[0].match_input) || {};
+        const matchInput = (stateResult && Array.isArray(stateResult.parts) && stateResult.parts[0] && stateResult.parts[0].match_input) || {};
         panel4.textContent = safeStringify(matchInput);
       }
     }
