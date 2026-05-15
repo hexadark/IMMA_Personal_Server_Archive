@@ -250,7 +250,7 @@
         window.imma.toast('fixture_drawing_id가 없습니다. URL 또는 localStorage에 지정해 주세요.', 'warning');
         return;
       }
-      const data = { drawing_id: fixtureId, original_filename: 'sample_00015 fixture' };
+      const data = { drawing_id: fixtureId, original_filename: 'sample_00000 fixture' };
       storeDrawing(data, true);
       if (container) container.textContent = `사전 분석 결과 사용 중 · drawing_id ${fixtureId}`;
       window.imma.toast('사전 분석 결과로 전환했습니다.', 'success');

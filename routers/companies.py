@@ -709,6 +709,9 @@ def register_material_capability(data: dict, current_user: dict = Depends(get_cu
                 )
 
         # material_category — 동일 패턴 (재활성화 우선)
+        # + 카테고리 선택 시 그 카테고리의 모든 specific 강종 자동 INSERT (시연 정책)
+        # — 카탈로그에 장비별 specific 매핑 부재 + supplier 가 카테고리 단위로 가공 가능 선언했으므로
+        # 자식 specific 전체 등록하여 매칭 hard filter 의 specific 우선 정책에 정합 보장.
         for cat_code in categories:
             updated = conn.execute(
                 text(f"""
@@ -730,6 +733,36 @@ def register_material_capability(data: dict, current_user: dict = Depends(get_cu
                     """),
                     {"cid": company_id, "cc": cat_code},
                 )
+
+            # 그 카테고리의 모든 specific 강종 자동 등록
+            spec_rows = conn.execute(
+                text(f"""
+                    SELECT material_id FROM {SCHEMA}.materials
+                    WHERE category_code = :cc AND is_active = true
+                """),
+                {"cc": cat_code},
+            ).fetchall()
+            for (mid,) in spec_rows:
+                spec_updated = conn.execute(
+                    text(f"""
+                        UPDATE {SCHEMA}.company_material_capabilities
+                        SET is_active = true, capability_level = 'regular'
+                        WHERE company_id = :cid
+                          AND scope_type = 'specific_material'
+                          AND material_id = :mid
+                    """),
+                    {"cid": company_id, "mid": mid},
+                )
+                if spec_updated.rowcount == 0:
+                    conn.execute(
+                        text(f"""
+                            INSERT INTO {SCHEMA}.company_material_capabilities
+                                (company_id, scope_type, material_id, capability_level, is_active)
+                            VALUES (:cid, 'specific_material', :mid, 'regular', true)
+                            ON CONFLICT DO NOTHING
+                        """),
+                        {"cid": company_id, "mid": mid},
+                    )
 
         ob_status = _check_onboarding(conn, company_id)
 
