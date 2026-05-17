@@ -49,6 +49,7 @@ _COMPANY_LOGIN_SLUG: dict[str, str] = {
     "Q범용선반": "q_lathe",
     "R수지가공": "r_plastic",
     "S스텐주조": "s_stainless_casting",
+    "스마트정밀": "smart_precision",
 }
 
 _MOCK_PASSWORD_HASH = _hash_password("test1234")
@@ -1091,6 +1092,112 @@ def _seed_demo_buyers() -> None:
     logger.info("데모 발주자 %d명 seed", len(buyers))
 
 
+def _seed_cheat_company() -> None:
+    """시연용 cheat 업체 '스마트정밀' seed.
+
+    - 장비: equipment_catalog의 59 모델 전부
+    - 재질: 15 카테고리 전체 + 68 강종 specific 전체
+    - 평점: 5.0 1건
+    - 사이트/연락처/BRN 직접 INSERT
+    - login_id: smart_precision / password: test1234
+    """
+    name = "스마트정밀"
+
+    # 이미 존재하면 스킵
+    existing = db.execute_query(
+        "SELECT company_id FROM imma.companies WHERE company_name = %s",
+        (name,),
+    )
+    if existing:
+        logger.info("cheat 업체 '%s' 이미 존재 — 스킵", name)
+        return
+
+    # 1) 59 모델 catalog_equipment 리스트 생성
+    catalog_path = config.EQUIPMENT_CATALOG_PATH
+    raw_catalog = json.loads(Path(catalog_path).read_text(encoding="utf-8"))
+    templates = raw_catalog.get("templates", [])
+    catalog_equipment: list[tuple[str, str]] = []
+    for t in templates:
+        common = t.get("common", {})
+        model_id = (common.get("model_id") or {}).get("value")
+        mfr = (common.get("manufacturer") or {}).get("value", "")
+        model_name = (common.get("model_name") or {}).get("value", "")
+        if model_id:
+            display = f"{mfr} {model_name}".strip() or model_id
+            catalog_equipment.append((model_id, display))
+
+    # 2) 68 강종 specific 전체
+    mat_rows = db.execute_query(
+        "SELECT material_code FROM imma.materials WHERE is_active = true",
+    )
+    material_specifics = [r["material_code"] for r in mat_rows]
+
+    # 3) 15 카테고리 전체
+    cat_rows = db.execute_query(
+        "SELECT category_code FROM imma.material_category_catalog WHERE is_active = true",
+    )
+    material_categories = [r["category_code"] for r in cat_rows]
+
+    # 4) _insert_company 호출 (수동 processes 0개 — 카탈로그가 자동 매핑)
+    _insert_company(
+        name=name,
+        catalog_equipment=catalog_equipment,
+        material_specifics=material_specifics,
+        material_categories=material_categories,
+        processes=[],
+        availability=("available", None),
+        ratings=[(5.0, 5.0, 5.0, 5.0, 5.0)],
+    )
+
+    # 5) 후처리 — companies UPDATE: BRN, 대표자, 전화, 이메일
+    cid_row = db.execute_query(
+        "SELECT company_id FROM imma.companies WHERE company_name = %s",
+        (name,),
+    )
+    if not cid_row:
+        logger.warning("cheat 업체 '%s' 조회 실패 — 후처리 스킵", name)
+        return
+    cid = str(cid_row[0]["company_id"])
+
+    db.execute_insert(
+        """UPDATE imma.companies
+           SET business_registration_no = %s,
+               representative_name = %s,
+               main_phone = %s,
+               main_email = %s,
+               company_size = 'medium',
+               updated_at = now()
+           WHERE company_id = %s""",
+        ("220-88-12345", "박팀장", "031-555-1234", "bp@smart.kr", cid),
+    )
+
+    # 6) company_sites INSERT — 경기도 시흥시
+    db.execute_insert(
+        """INSERT INTO imma.company_sites
+           (company_id, site_name, is_primary, country_code,
+            region, city, postal_code, address_line1)
+           VALUES (%s, '본사/공장', true, 'KR', %s, %s, %s, %s)
+           ON CONFLICT (company_id, site_name) DO UPDATE SET
+               region = EXCLUDED.region, city = EXCLUDED.city,
+               postal_code = EXCLUDED.postal_code,
+               address_line1 = EXCLUDED.address_line1""",
+        (cid, "경기도", "시흥시", "15432", "반월로 123"),
+    )
+
+    # 7) company_contacts INSERT — 김지훈(담당, primary)
+    db.execute_insert(
+        """INSERT INTO imma.company_contacts
+           (company_id, contact_name, role_title, phone, email, is_primary, receives_rfq)
+           VALUES (%s, '김지훈', '담당자', '031-555-1234', 'bp@smart.kr', true, true)
+           ON CONFLICT (company_id, contact_name) DO NOTHING""",
+        (cid,),
+    )
+
+    logger.info("cheat 업체 '%s' seed 완료 (장비 %d / 재질 %d / 카테고리 %d)",
+                name, len(catalog_equipment), len(material_specifics),
+                len(material_categories))
+
+
 def _seed_equipment_schedule() -> None:
     """장비별 90일 스케줄 + 업체 가용성 snapshot을 seed한다."""
     from datetime import date, timedelta
@@ -1105,6 +1212,7 @@ def _seed_equipment_schedule() -> None:
         "I에어로": "busy", "J복합": "moderate", "K방전": "moderate", "L범용": "free",
         "M대형": "free", "N밸브": "busy", "O워터젯": "moderate", "P프레스": "moderate",
         "Q범용선반": "free", "R수지가공": "free", "S스텐주조": "free",
+        "스마트정밀": "free",
     }
 
     patterns = {
@@ -1187,6 +1295,7 @@ def setup_all() -> None:
     load_mock_companies()
     _seed_admin()
     _seed_demo_buyers()
+    _seed_cheat_company()
     _seed_equipment_schedule()
     logger.info("전체 셋업 완료")
 
