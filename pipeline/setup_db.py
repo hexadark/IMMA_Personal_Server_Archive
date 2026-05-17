@@ -1297,7 +1297,11 @@ def setup_all() -> None:
     _seed_demo_buyers()
     _seed_cheat_company()
     _seed_equipment_schedule()
-    logger.info("전체 셋업 완료")
+    # 모든 시드 + snapshot 보정 후 MV 최종 refresh
+    # (load_mock_companies 내부 REFRESH 이후 추가된 _seed_cheat_company 및
+    # _seed_equipment_schedule 의 snapshot UPDATE 까지 일괄 반영)
+    db.execute_script("REFRESH MATERIALIZED VIEW imma.company_capability_summary;")
+    logger.info("전체 셋업 완료 + MV 최종 REFRESH")
 
 
 def _reset_schema() -> None:
