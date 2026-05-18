@@ -11,6 +11,7 @@
 ## 팀 / 저장소
 
 이스트캠프 AI 모델개발 15기 3차 프로젝트 (~5/18 종료).
+
 과기정통부 주최 2026 전국민 AI 경진대회(AI CHAMPION) 출품 (~5/15 예선 종료).
 
 | 담당 | 이름 | 저장소 |
@@ -18,6 +19,8 @@
 | 모델학습 + 도면인식 | 한지형 | [amadda0616-hash/IMMA](https://github.com/amadda0616-hash/IMMA) |
 | 서버 + 프론트 | 권태은 | [rnjsxodms12-star/fas](https://github.com/rnjsxodms12-star/fas) |
 | DB + RAG | 김태훈 | [hexadark/IMMA_Personal_Server_Archive](https://github.com/hexadark/IMMA_Personal_Server_Archive) |
+
+**발표 자료 (2026-05-18):** [Google Drive 폴더](https://drive.google.com/drive/folders/1UpfNAbBflbfKwUUzmuRy86F8ahH_1lbg?usp=sharing) — PPT · PDF · 대본
 
 ## 시스템 구조
 
